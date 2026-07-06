@@ -1,0 +1,10 @@
+﻿{
+    "repo":  "0xAgentive/agentic-pipeline",
+    "visibility":  "public",
+    "mode":  "direct",
+    "branch":  "main",
+    "project_title":  "Agentic Development Pipeline",
+    "project_one_liner":  "A strict Antigravity-first agentic development pipeline for safer local-first software projects.",
+    "license":  "MIT",
+    "default_commit_message":  "ship: update project"
+}

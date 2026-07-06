@@ -1,0 +1,17 @@
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.zip
+*.tar
+*.tar.gz
+*.7z
+dist/
+build/
+coverage/
+node_modules/
+.agy/checkpoints/
+.agy/cbm/*.stdout.log
+.agy/cbm/*.stderr.log
+.agy/cbm/*summary*.log
+.pipeline_*_backup/

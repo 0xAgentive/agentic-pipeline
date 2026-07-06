@@ -1,0 +1,3 @@
+# Agent State
+
+Status: TEMPLATE READY / NEEDS LANDING

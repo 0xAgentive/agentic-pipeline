@@ -1,12 +1,12 @@
 # Agentic Development Pipeline Playbook
 
-Version: `1.1.1`  
+Version: `1.1.1a`  
 Date: `2026-07-06`  
 Owner: `VB / User`  
 Active runtime: `Google Antigravity only`  
 Active model policy: `Gemini 3.5 Flash — Medium by default, High only for hard gates`  
 Local mutation shell: `Windows PowerShell`  
-Status: `hotfix release; v1.1.0 architecture preserved`
+Status: `ARL-lite hotfix release; v1.1.1 architecture preserved`
 
 ---
 
@@ -875,6 +875,16 @@ Do not introduce /route, /productprobe, METRICS.ndjson, or instruction-smell lin
 
 ## 16. Changelog
 
+### v1.1.1a — 2026-07-07
+
+Changed:
+
+- Added ARL-lite Runtime Contract.
+- Added `.agents/rules/05-runtime-contract.md`.
+- Added pointer from `.agents/AGENTS.md` to the runtime contract.
+- Kept Task Pack generation in the external ChatGPT Project companion.
+- Rejected separate runtime-brain files such as `00_COMPANION_RUNTIME_CORE.md`, `01_PIPELINE_STATE_MACHINE.md`, and `02_TASK_PACK_INTERPRETER.md`.
+- Preserved v1.1.1 architecture; no v1.2.0 redesign.
 ### v1.1.1 — 2026-07-06
 
 Changed:

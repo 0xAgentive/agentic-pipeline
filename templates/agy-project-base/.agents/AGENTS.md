@@ -31,3 +31,4 @@ No write-capable MCP tools without explicit approval.
 
 Read `.agents/rules/05-runtime-contract.md` before substantial work. `.agy/PHASE_STATUS.json` defines the expected next workflow. Do not silently jump phases; use STATE CHECK when user intent conflicts with current state.
 Read .agents/rules/52-v1.1.1b-productivity-guards.md for fastpatch content guards, repair-loop stop limits, hard package validation, and GitHub sync evidence policy.
+Read README_PIPELINE.ru.md / README_PIPELINE.en.md for the human operating guide. Follow .agy/PHASE_STATUS.json for the next command.

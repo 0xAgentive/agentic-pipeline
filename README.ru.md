@@ -1,63 +1,49 @@
-# Agentic Development Pipeline для Google Antigravity
+# Agentic Pipeline
 
-Версия: `1.1.1`  
-Статус: пакет для публичного аудита и выгрузки на GitHub.
+Практичный пайплайн для разработки в Google Antigravity: как ставить задачи агенту, как не дать ему перескакивать фазы, как проверять результат и как безопасно доводить проект до GitHub.
 
-Пакет содержит playbook, шаблон проекта, workflows, rules, hooks, skills, Windows/MCP-обходы, `/fastpatch`, audit checklist и инструкции на русском и английском.
+Главный вопрос, на который отвечает этот репозиторий:
 
-## Быстрый старт через Bash
+> Что именно говорить агенту, в каком порядке, и как понять, что можно двигаться дальше?
 
-```bash
-git clone https://github.com/<OWNER>/<REPO>.git
-cd <REPO>
-bash scripts/bash/validate-package.sh
-```
+## Быстрый вход
 
-Внедрить пайплайн в существующую папку:
+- [Быстрый старт](docs/START_HERE.ru.md)
+- [Новый проект с нуля](docs/NEW_PROJECT_GUIDE.ru.md)
+- [Действующий проект](docs/EXISTING_PROJECT_GUIDE.ru.md)
+- [Шпаргалка команд](docs/COMMANDS_CHEATSHEET.ru.md)
 
-```bash
-bash scripts/bash/adopt-pipeline.sh "/path/to/existing/project"
-```
+English:
+- [Start Here](docs/START_HERE.en.md)
+- [New Project Guide](docs/NEW_PROJECT_GUIDE.en.md)
+- [Existing Project Guide](docs/EXISTING_PROJECT_GUIDE.en.md)
+- [Command Cheat Sheet](docs/COMMANDS_CHEATSHEET.en.md)
 
-В Git Bash на Windows:
+## Смысл в одном предложении
 
-```bash
-bash scripts/bash/adopt-pipeline.sh "/c/Users/<User>/Documents/antigravity/MyProject"
-```
+Сначала формулируем ТЗ, потом план, потом одна фаза реализации, потом проверки, evidence и только после этого следующий шаг или публикация.
 
-После внедрения открой папку проекта в Antigravity и запусти:
+## Обычный порядок
 
 ```text
-/landing
-/codebase-map
-/auditphase
+сырая идея
+  -> /specdoc
+  -> /planonly
+  -> /auditphase
+  -> /nextphase
+  -> /visualqa если менялся UI
+  -> /securityaudit если есть данные, приватность, экспорт, безопасность
+  -> /shipcheck
+  -> /githubprepare для первой публикации
+  -> /githubsync для обновления GitHub
 ```
 
-## Windows PowerShell
+Для маленьких UI-правок можно использовать `/fastpatch`, но только если скрипт-гейт разрешил этот режим.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File .\scripts\windows\Apply-AgenticPipeline-v1.1.1.ps1 `
-  -TargetRoot "$env:USERPROFILE\Documents\antigravity\MyProject" `
-  -TemplateRoot ".\templates\agy-project-base" `
-  -UpdateMcpConfig
-```
+## Главное правило
 
-## Публикация на GitHub
+Не накатывай новую версию пайплайна посреди активной фазы продукта. Сначала закончи текущую фазу, пройди аудит/проверки, а потом делай миграцию пайплайна отдельной инфраструктурной фазой.
 
-```bash
-bash scripts/bash/validate-package.sh
-git init
-git add .
-git commit -m "Initial public release of Agentic Development Pipeline"
-git branch -M main
-git remote add origin https://github.com/<OWNER>/<REPO>.git
-git push -u origin main
-```
+## Что это не такое
 
-## Важная политика
-
-- Самоотчёты LLM не являются верификацией.
-- Истина — exit code, тесты, diff, логи, скриншоты и артефакты.
-- `/fastpatch` разрешается только скриптом `Test-FastPatchAllowed.ps1`.
-- Codebase Memory на Windows индексируется через RPC-скрипт, не через CLI `index_repository`.
+Это не режим “агент сам всё сделал, сам проверил и сам опубликовал”. Человек остаётся в контуре на границах фаз, в точках риска и перед публикацией.

@@ -1,91 +1,55 @@
-# Agentic Development Pipeline for Google Antigravity
+# Agentic Pipeline
 
-Version: `1.1.1`  
-Status: public-audit package  
-Primary runtime: Google Antigravity  
-Primary shell support: Windows PowerShell, plus Bash helpers for repository operations and template adoption.
+A practical Antigravity-first workflow for building software with an AI agent without letting the agent drift, skip phases, or ship unsupported claims.
 
-This repository packages a phase-gated agentic development pipeline for Google Antigravity. It contains the descriptive playbook, project template, workflows, rules, hook scripts, Codebase Memory MCP Windows workaround, script-gated `/fastpatch`, audit checklists, and bilingual usage instructions.
+This repository is meant to answer one simple question:
 
-## Core model
+> What do I tell the agent, in what order, and how do I know the result is safe enough to continue?
 
-```text
-rules      = durable invariants
-workflows  = command contracts
-hooks      = deterministic guardrails
-skills     = narrow expertise modules
-MCP        = optional tool surface, not autopilot
-.agy       = operational state and evidence ledger
-```
+## Start here
 
-## Quick start with Bash
+English:
+- [Start Here](docs/START_HERE.en.md)
+- [New Project Guide](docs/NEW_PROJECT_GUIDE.en.md)
+- [Existing Project Guide](docs/EXISTING_PROJECT_GUIDE.en.md)
+- [Command Cheat Sheet](docs/COMMANDS_CHEATSHEET.en.md)
 
-```bash
-git clone https://github.com/<OWNER>/<REPO>.git
-cd <REPO>
-bash scripts/bash/validate-package.sh
-```
+Russian:
+- [Старт здесь](README.ru.md)
+- [Быстрый старт](docs/START_HERE.ru.md)
+- [Новый проект](docs/NEW_PROJECT_GUIDE.ru.md)
+- [Действующий проект](docs/EXISTING_PROJECT_GUIDE.ru.md)
+- [Шпаргалка команд](docs/COMMANDS_CHEATSHEET.ru.md)
 
-Adopt the pipeline into an existing project folder:
+## The pipeline in one sentence
 
-```bash
-bash scripts/bash/adopt-pipeline.sh "/path/to/existing/project"
-```
+Plan first, implement one phase at a time, verify with deterministic checks, keep evidence, then publish only after release gates pass.
 
-For Git Bash on Windows:
-
-```bash
-bash scripts/bash/adopt-pipeline.sh "/c/Users/<User>/Documents/antigravity/MyProject"
-```
-
-Then open the adopted project root in Antigravity and run:
+## The normal flow
 
 ```text
-/landing
-/codebase-map
-/auditphase
+raw idea
+  -> /specdoc
+  -> /planonly
+  -> /auditphase
+  -> /nextphase
+  -> /visualqa if UI changed
+  -> /securityaudit if data/privacy/security changed
+  -> /shipcheck
+  -> /githubprepare for first publication
+  -> /githubsync for GitHub update
 ```
 
-## Windows PowerShell adoption
+For small UI-only fixes, use `/fastpatch` only when the script gate allows it.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File .\scripts\windows\Apply-AgenticPipeline-v1.1.1.ps1 `
-  -TargetRoot "$env:USERPROFILE\Documents\antigravity\MyProject" `
-  -TemplateRoot ".\templates\agy-project-base" `
-  -UpdateMcpConfig
-```
+## Current operating rule
 
-## Public GitHub publication
+Do not apply a new pipeline version in the middle of an active feature phase. Finish the current phase, run audit/security/shipcheck, then migrate the project pipeline as a separate infrastructure phase.
 
-```bash
-bash scripts/bash/validate-package.sh
-git init
-git add .
-git commit -m "Initial public release of Agentic Development Pipeline"
-git branch -M main
-git remote add origin https://github.com/<OWNER>/<REPO>.git
-git push -u origin main
-```
+## What this is not
 
-## Fastpatch policy
+This is not an autonomous coding bot that writes, verifies, publishes, and deploys everything without you. The human stays in the loop at phase boundaries and release gates.
 
-`/fastpatch` is not authorized by the model. It is authorized only by a deterministic script:
+## GitHub repository hygiene
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-FastPatchAllowed.ps1
-```
-
-If the script exits non-zero, use `/auditphase` or `/nextphase`.
-
-## Codebase Memory on Windows
-
-Do not use CLI `index_repository` as canonical. Do not create mirrors, junctions, `mklink`, `robocopy` duplicates, or `subst` drives. Use direct MCP JSON-RPC:
-
-```powershell
-node .\scripts\cbm-index-current-rpc.cjs
-```
-
-## License
-
-MIT. Replace the copyright holder before publication if needed.
+A public repository should have a clear README, license, security policy, contribution notes, validation workflow, and simple getting-started instructions. This repository keeps those files in the root and detailed guides under `docs/`.

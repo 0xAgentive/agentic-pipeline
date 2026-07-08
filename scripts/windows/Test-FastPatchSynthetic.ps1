@@ -24,35 +24,41 @@ function Get-PowerShellExecutable {
 function Invoke-NativeChecked {
   param(
     [Parameter(Mandatory=$true)][string]$Exe,
-    [Parameter(ValueFromRemainingArguments=$true)][string[]]$Args
+    [Parameter(ValueFromRemainingArguments=$true)][string[]]$ArgumentList
   )
 
-  & $Exe @Args
+  & $Exe @ArgumentList
   $code = $LASTEXITCODE
 
   if ($code -ne 0) {
-    throw "Native command failed with exit code ${code}: $Exe $($Args -join ' ')"
+    throw "Native command failed with exit code ${code}: $Exe $($ArgumentList -join ' ')"
   }
 }
 
 function Invoke-Gate {
   param(
     [Parameter(Mandatory=$true)][string]$Name,
-    [Parameter(Mandatory=$true)][bool]$ShouldPass
+    [Parameter(Mandatory=$true)][bool]$ShouldPass,
+    [Parameter(Mandatory=$true)][string]$SyntheticRoot
   )
 
   $shell = Get-PowerShellExecutable
   $shellName = [System.IO.Path]::GetFileName($shell)
 
-  $args = @("-NoProfile")
+  $argumentList = @("-NoProfile")
 
   if ($shellName -match "^(?i:powershell)(\.exe)?$") {
-    $args += @("-ExecutionPolicy", "Bypass")
+    $argumentList += @("-ExecutionPolicy", "Bypass")
   }
 
-  $args += @("-File", ".\scripts\Test-FastPatchAllowed.ps1")
+  $argumentList += @(
+    "-File",
+    ".\scripts\Test-FastPatchAllowed.ps1",
+    "-RepoRoot",
+    $SyntheticRoot
+  )
 
-  & $shell @args
+  & $shell @argumentList
   $code = $LASTEXITCODE
 
   if ($ShouldPass -and $code -ne 0) {
@@ -105,27 +111,32 @@ try {
   Invoke-NativeChecked git commit -m "baseline"
 
   Add-Content "src/frontend/components/AppSelect.tsx" "// harmless UI-only change"
-  Invoke-Gate -Name "allowlisted UI-only file passes" -ShouldPass $true
-  Invoke-NativeChecked git checkout -- .
+  Invoke-Gate -Name "allowlisted UI-only file passes" -ShouldPass $true -SyntheticRoot $tmp
+  Invoke-NativeChecked git reset --hard HEAD
+  Invoke-NativeChecked git clean -fd
 
   Add-Content "src/frontend/components/OverlayRoot.tsx" 'import { secret } from "../../backend/secret";'
-  Invoke-Gate -Name "backend import in allowlisted UI file is blocked" -ShouldPass $false
-  Invoke-NativeChecked git checkout -- .
+  Invoke-Gate -Name "backend import in allowlisted UI file is blocked" -ShouldPass $false -SyntheticRoot $tmp
+  Invoke-NativeChecked git reset --hard HEAD
+  Invoke-NativeChecked git clean -fd
 
   Add-Content "src/frontend/components/AppSelect.tsx" 'fetch("https://example.com");'
-  Invoke-Gate -Name "fetch in allowlisted UI file is blocked" -ShouldPass $false
-  Invoke-NativeChecked git checkout -- .
+  Invoke-Gate -Name "fetch in allowlisted UI file is blocked" -ShouldPass $false -SyntheticRoot $tmp
+  Invoke-NativeChecked git reset --hard HEAD
+  Invoke-NativeChecked git clean -fd
 
   Add-Content "src/frontend/components/AppSelect.tsx" 'localStorage.setItem("x","y");'
-  Invoke-Gate -Name "localStorage in allowlisted UI file is blocked" -ShouldPass $false
-  Invoke-NativeChecked git checkout -- .
+  Invoke-Gate -Name "localStorage in allowlisted UI file is blocked" -ShouldPass $false -SyntheticRoot $tmp
+  Invoke-NativeChecked git reset --hard HEAD
+  Invoke-NativeChecked git clean -fd
 
   Add-Content "src/frontend/components/AppSelect.tsx" 'export const dangerous = { dangerouslySetInnerHTML: { __html: "<b>x</b>" } };'
-  Invoke-Gate -Name "dangerouslySetInnerHTML in allowlisted UI file is blocked" -ShouldPass $false
-  Invoke-NativeChecked git checkout -- .
+  Invoke-Gate -Name "dangerouslySetInnerHTML in allowlisted UI file is blocked" -ShouldPass $false -SyntheticRoot $tmp
+  Invoke-NativeChecked git reset --hard HEAD
+  Invoke-NativeChecked git clean -fd
 
   Set-Content "src/backend/newUnsafe.ts" "export const x = 1;" -Encoding UTF8
-  Invoke-Gate -Name "untracked backend file is blocked" -ShouldPass $false
+  Invoke-Gate -Name "untracked backend file is blocked" -ShouldPass $false -SyntheticRoot $tmp
 
   Write-Host "Fastpatch synthetic tests passed."
   exit 0

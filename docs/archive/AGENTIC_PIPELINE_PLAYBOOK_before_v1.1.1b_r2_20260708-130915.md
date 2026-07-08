@@ -1,12 +1,12 @@
 # Agentic Development Pipeline Playbook
 
-Version: `1.1.1b`  
+Version: `1.1.1a`  
 Date: `2026-07-06`  
 Owner: `VB / User`  
 Active runtime: `Google Antigravity only`  
 Active model policy: `Gemini 3.5 Flash — Medium by default, High only for hard gates`  
 Local mutation shell: `Windows PowerShell`  
-Status: `productivity-guards and package-integrity hotfix; v1.1.1a architecture preserved`
+Status: `ARL-lite hotfix release; v1.1.1 architecture preserved`
 
 ---
 
@@ -875,17 +875,6 @@ Do not introduce /route, /productprobe, METRICS.ndjson, or instruction-smell lin
 
 ## 16. Changelog
 
-### v1.1.1b - 2026-07-08
-
-Changed:
-
-- Strengthened `/fastpatch` with added-line content guards for allowlisted UI files.
-- Added explicit stop limits for repair loops.
-- Added compact machine-produced GitHub sync evidence.
-- Added hard package validation for referenced paths, PowerShell syntax, JSON state, `.cbmignore`, and placeholder hooks.
-- Added root `scripts/cbm-index-current-rpc.cjs` and `scripts/cbm-wrapper-smoke.cjs` to match documented paths.
-- Replaced placeholder template hook scripts with minimal deterministic guards.
-- Preserved v1.1.1a architecture; no v1.2.0 redesign.
 ### v1.1.1a — 2026-07-07
 
 Changed:
@@ -1058,17 +1047,3 @@ Verification means deterministic evidence:
 A human may explicitly override the recommended next command, but the agent must record the override and residual risk in `.agy/EVIDENCE_LOG.md`.
 
 ```
-
----
-
-## Appendix B - v1.1.1b Productivity and Package-Integrity Guards
-
-This patch is intentionally narrow. It improves productivity and reduces false confidence by adding:
-
-- content-level `/fastpatch` guards;
-- explicit repair-loop stop limits;
-- compact machine-produced GitHub sync evidence;
-- CI/hard validation for PowerShell syntax, referenced files, JSON state, `.cbmignore`, and placeholder hooks;
-- documented-path consistency for Codebase Memory helper scripts.
-
-It does not add autonomous loop engineering, multi-agent routing, git worktree parallelism as default, mandatory ROI telemetry, or new runtime-brain files.

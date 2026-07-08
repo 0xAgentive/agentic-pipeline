@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$PlaybookSrc = Join-Path $ScriptDir "agentic_pipeline_playbook_v1.1.1.md"
+$PlaybookSrc = Join-Path (Split-Path (Split-Path $ScriptDir -Parent) -Parent) "docs\AGENTIC_PIPELINE_PLAYBOOK.md"; if (!(Test-Path $PlaybookSrc)) { $PlaybookSrc = Join-Path $ScriptDir "agentic_pipeline_playbook_v1.1.1.md" }
 
 function Write-Utf8File {
   param(

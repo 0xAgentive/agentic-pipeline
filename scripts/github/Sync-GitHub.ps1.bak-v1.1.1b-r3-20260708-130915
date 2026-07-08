@@ -13,7 +13,6 @@ $ErrorActionPreference = "Stop"
 
 function Require-Command {
   param([string]$Name)
-
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
     throw "Required command not found: $Name"
   }
@@ -21,11 +20,9 @@ function Require-Command {
 
 function Read-JsonFile {
   param([string]$Path)
-
   if (Test-Path $Path) {
     return (Get-Content $Path -Raw | ConvertFrom-Json)
   }
-
   return $null
 }
 
@@ -92,52 +89,6 @@ function Assert-NoDangerousStagedFiles {
     $bad | Sort-Object -Unique | ForEach-Object { Write-Host "- $_" }
     throw "Sensitive/generated files are staged. Fix .gitignore or unstage them."
   }
-}
-
-function Append-GitHubSyncEvidence {
-  param(
-    [string]$Repo,
-    [string]$Mode,
-    [string]$Branch,
-    [string]$Commit,
-    [string]$RemoteUrl,
-    [string]$Result
-  )
-
-  $EvidencePath = ".agy\EVIDENCE_LOG.md"
-
-  if (!(Test-Path $EvidencePath)) {
-    return
-  }
-
-  $utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-
-  $entry = @"
-## $utc - githubsync
-
-Command:
-scripts/github/Sync-GitHub.ps1
-
-Mode:
-$Mode
-
-Repo:
-$Repo
-
-Branch:
-$Branch
-
-Commit:
-$Commit
-
-Remote:
-$RemoteUrl
-
-Result:
-$Result
-"@
-
-  Add-Content $EvidencePath $entry -Encoding UTF8
 }
 
 Require-Command git
@@ -237,18 +188,9 @@ elseif ($Mode -eq "pr") {
     --body "Automated project update from Antigravity pipeline."
 }
 
-$commit = (git rev-parse HEAD).Trim()
-$remoteUrl = ""
-try {
-  $remoteUrl = (git remote get-url origin).Trim()
-} catch {}
-
-Append-GitHubSyncEvidence -Repo $Repo -Mode $Mode -Branch $Branch -Commit $commit -RemoteUrl $remoteUrl -Result "push completed"
-
 Write-Host ""
 Write-Host "GitHub sync complete."
 Write-Host "Repo: https://github.com/$Repo"
-Write-Host "Commit: $commit"
 
 gh repo view $Repo --web=false
 

@@ -10,6 +10,23 @@ $Hooks = @(
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $Root
 
+function Get-PowerShellExecutable {
+  $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+  if ($pwsh) {
+    return $pwsh.Source
+  }
+
+  $windowsPowerShell = Get-Command powershell -ErrorAction SilentlyContinue
+  if ($windowsPowerShell) {
+    return $windowsPowerShell.Source
+  }
+
+  throw "No PowerShell executable found. Expected pwsh or powershell."
+}
+
+$Shell = Get-PowerShellExecutable
+$ShellName = [System.IO.Path]::GetFileName($Shell)
+
 $Failed = @()
 
 foreach ($Hook in $Hooks) {
@@ -18,7 +35,16 @@ foreach ($Hook in $Hooks) {
     continue
   }
 
-  powershell -NoProfile -ExecutionPolicy Bypass -File $Hook
+  $Args = @("-NoProfile")
+
+  if ($ShellName -match "^(?i:powershell)(\.exe)?$") {
+    $Args += @("-ExecutionPolicy", "Bypass")
+  }
+
+  $Args += @("-File", $Hook)
+
+  & $Shell @Args
+
   if ($LASTEXITCODE -ne 0) {
     $Failed += "$Hook exited with $LASTEXITCODE"
   }

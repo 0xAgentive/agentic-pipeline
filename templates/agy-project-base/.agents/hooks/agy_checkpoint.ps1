@@ -4,23 +4,24 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if ([Console]::IsInputRedirected) {
+  $null = [Console]::In.ReadToEnd()
+}
+
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $Root
 
-New-Item -ItemType Directory -Force ".agy\checkpoints" | Out-Null
-$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$base = ".agy\checkpoints\$stamp"
+$CheckpointDir = Join-Path $Root ".agy\checkpoints"
+New-Item -ItemType Directory -Force $CheckpointDir | Out-Null
 
-try {
-  git status --short | Set-Content "$base.status.txt" -Encoding UTF8
-  git diff --stat | Set-Content "$base.diffstat.txt" -Encoding UTF8
-  git diff --binary | Set-Content "$base.patch" -Encoding UTF8
-} catch {
-  "git checkpoint capture failed: $($_.Exception.Message)" | Set-Content "$base.error.txt" -Encoding UTF8
+$Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$StatusPath = Join-Path $CheckpointDir "git-status-$Stamp.txt"
+$DiffStatPath = Join-Path $CheckpointDir "git-diff-stat-$Stamp.txt"
+
+if (Get-Command git -ErrorAction SilentlyContinue) {
+  git status --short 2>$null | Set-Content $StatusPath -Encoding UTF8
+  git diff --stat 2>$null | Set-Content $DiffStatPath -Encoding UTF8
 }
 
-@{
-  event = $Event
-  checkpoint = $base
-  utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-} | ConvertTo-Json -Compress
+[Console]::Out.Write("{}")
+exit 0

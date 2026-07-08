@@ -7,39 +7,42 @@ $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $Root
 
-$scanRoots = @("src", "package.json", "package-lock.json") | Where-Object { Test-Path $_ }
-if (!$scanRoots) {
-  Write-Host "Offline/local-only guard skipped: no standard source roots found."
-  exit 0
-}
+$Findings = @()
+$ScanRoots = @("src", "package.json")
 
-$pattern = '(https?://|telemetry|analytics|sentry|posthog|mixpanel|segment|google-analytics)'
-$violations = @()
-
-foreach ($root in $scanRoots) {
-  if (Test-Path $root -PathType Leaf) {
-    $files = @(Get-Item $root)
-  } else {
-    $files = Get-ChildItem $root -Recurse -File -Include *.ts,*.tsx,*.js,*.jsx,*.json,*.css,*.html -ErrorAction SilentlyContinue
+foreach ($RootPath in $ScanRoots) {
+  if (!(Test-Path $RootPath)) {
+    continue
   }
 
-  foreach ($file in $files) {
-    $text = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
-    if ($text -match $pattern) {
-      $rel = Resolve-Path $file.FullName -Relative
-      $violations += $rel
+  $Files = @()
+  if (Test-Path $RootPath -PathType Leaf) {
+    $Files = @(Get-Item $RootPath)
+  } else {
+    $Files = Get-ChildItem $RootPath -Recurse -File -ErrorAction SilentlyContinue
+  }
+
+  foreach ($File in $Files) {
+    if ($File.FullName -match "\\node_modules\\|\\dist\\|\\build\\|\\.git\\") {
+      continue
+    }
+
+    $Text = Get-Content $File.FullName -Raw -ErrorAction SilentlyContinue
+
+    if ($Text -match "https?://|fetch\(|XMLHttpRequest|analytics|telemetry") {
+      $Findings += $File.FullName
     }
   }
 }
 
-$violations = $violations | Sort-Object -Unique
+if ($Findings.Count -gt 0) {
+  Write-Host "Potential external/network references:"
+  $Findings | Sort-Object -Unique | ForEach-Object { Write-Host "- $_" }
 
-if ($violations.Count -gt 0) {
-  Write-Host "Possible remote/telemetry/offline violations:"
-  $violations | ForEach-Object { Write-Host " - $_" }
-  if ($Strict) { exit 1 }
-  exit 0
+  if ($Strict) {
+    exit 1
+  }
 }
 
-Write-Host "Offline/local-only guard OK."
+Write-Host "Offline/local-only guard completed."
 exit 0

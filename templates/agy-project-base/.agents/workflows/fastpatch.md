@@ -1,60 +1,31 @@
 ---
-description: Execute a tiny UI/styling patch only when the deterministic fastpatch gate approves the current diff.
+description: Script-gated fastpatch for very small UI/style changes only. The final gate must run after edits.
 ---
 
 # /fastpatch
 
-Do not use this workflow for backend, data, security, reports, exports, sanitizer, storage, hooks, workflows, MCP config, or dependencies.
+Do not use this workflow for backend, data, security, reports, exports, storage, hooks, templates, MCP config, package/dependency changes, or release readiness.
 
-## Required gate
+## Required flow
 
-Before editing or claiming fastpatch eligibility, run:
+1. Read `.agy/PHASE_STATUS.json`.
+2. Run the clean-start preflight gate:
 
     powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-FastPatchAllowed.ps1
 
-The gate must exit with code 0.
+3. Make only the requested small UI/style edit.
+4. Run the mandatory post-edit gate before reporting success:
 
-The gate checks both:
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-FastPatchAllowed.ps1 -RequireChanges
 
-- changed file paths;
-- added diff lines for blocked imports, backend coupling, network/storage calls, unsafe DOM APIs, dynamic evaluation, and Node/system APIs.
+5. Run one targeted cheap check if available.
+6. Append one evidence-lite entry only if `.agy/EVIDENCE_LOG.md` exists.
+7. Stop.
 
-## If the gate fails
+## Important rule
 
-Stop.
+A clean preflight with no changed files is not authorization for completion. The post-edit gate with `-RequireChanges` is mandatory.
 
-Report:
+## Failure
 
-- blocked files or lines;
-- required next command: `/auditphase` or `/nextphase`.
-
-Do not continue under `/fastpatch`.
-
-## Allowed work after gate passes
-
-Only:
-
-- make the approved tiny UI/styling edit;
-- run a targeted cheap check;
-- append one evidence-lite entry if `.agy/EVIDENCE_LOG.md` exists;
-- stop.
-
-## Forbidden
-
-- broad scans;
-- `/planonly`;
-- `/auditphase`;
-- `/codebase-map`;
-- dependency changes;
-- release-readiness claims;
-- editing `.agents`, `.agy`, hooks, workflows, templates, MCP config, package files, backend, reports, exports, sanitizer, database/storage, or semantic/domain logic.
-
-## Evidence-lite format
-
-    UTC:
-    Command: /fastpatch
-    Files:
-    Checks:
-    Result:
-    Risk class: low UI/styling only
-    Next:
+If the gate fails, stop immediately. The next command must be `/auditphase` or `/nextphase`.

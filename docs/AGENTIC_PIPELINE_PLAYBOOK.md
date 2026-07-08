@@ -1,12 +1,12 @@
 # Agentic Development Pipeline Playbook
 
-Version: `1.1.1b`  
-Date: `2026-07-06`  
-Owner: `VB / User`  
-Active runtime: `Google Antigravity only`  
-Active model policy: `Gemini 3.5 Flash — Medium by default, High only for hard gates`  
-Local mutation shell: `Windows PowerShell`  
-Status: `productivity-guards and package-integrity hotfix; v1.1.1a architecture preserved`
+Version: `1.1.1b-r4`
+Date: `2026-07-06`
+Owner: `VB / User`
+Active runtime: `Google Antigravity only`
+Active model policy: `Gemini 3.5 Flash — Medium by default, High only for hard gates`
+Local mutation shell: `Windows PowerShell`
+Status: `stabilization patch; v1.1.1b-r4b`
 
 ---
 
@@ -875,6 +875,17 @@ Do not introduce /route, /productprobe, METRICS.ndjson, or instruction-smell lin
 
 ## 16. Changelog
 
+### v1.1.1b-r4b - 2026-07-08
+
+Changed:
+
+- Stabilized the v1.1.1b patch layer.
+- Added checked native command execution requirements.
+- Strengthened fastpatch with untracked-file handling, post-edit gate requirement, file count limits, and added-line limits.
+- Reframed hook scripts as manual guard scripts by default unless hooks.json is explicitly enabled and verified.
+- Added hard package validation for references, JSON, PowerShell syntax, CJS syntax, cbm helper paths, backup hygiene, and placeholder hooks.
+- Preserved legacy validate-package.sh in CI while adding hard validator, node syntax checks, fastpatch synthetic tests, and hook contract smoke.
+- Added v1.2 Performance Edition draft without implementing v1.2 architecture.
 ### v1.1.1b - 2026-07-08
 
 Changed:
@@ -1072,3 +1083,19 @@ This patch is intentionally narrow. It improves productivity and reduces false c
 - documented-path consistency for Codebase Memory helper scripts.
 
 It does not add autonomous loop engineering, multi-agent routing, git worktree parallelism as default, mandatory ROI telemetry, or new runtime-brain files.
+---
+
+## Appendix C - v1.1.1b-r4b Stabilization Patch
+
+This appendix records a stabilization patch only. It does not introduce v1.2 architecture.
+
+The r4 patch exists to make the patch layer itself reliable:
+
+- native command failures must stop patch/sync scripts;
+- fastpatch must be validated after the final diff exists;
+- untracked files must be included in fastpatch checks;
+- hook scripts are manual guard scripts unless hooks.json is explicitly enabled and verified;
+- backups must live under .pipeline_patch_backup and must not be committed;
+- CI must preserve the legacy package validator and add hard validation.
+
+v1.2 remains a future Performance Edition candidate.

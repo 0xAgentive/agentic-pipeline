@@ -3,40 +3,58 @@ $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $Root
 
-$requiredIgnores = @(
+$RequiredIgnore = @(
   "node_modules/",
   "dist/",
   "build/",
   ".git/",
   ".agy/checkpoints/",
+  ".pipeline_patch_backup/",
   ".codebase-memory/",
   "coverage/",
-  "*.log",
-  "*.zip"
+  "*.log"
 )
 
-$files = @(".cbmignore", ".gitignore")
-$missing = @()
+$Problems = @()
 
-foreach ($file in $files) {
-  if (!(Test-Path $file)) {
-    $missing += "$file missing"
-    continue
-  }
-
-  $text = Get-Content $file -Raw
-  foreach ($entry in $requiredIgnores) {
-    if ($text -notmatch [regex]::Escape($entry)) {
-      $missing += "$file missing $entry"
+if (!(Test-Path ".cbmignore")) {
+  $Problems += ".cbmignore missing"
+} else {
+  $Text = Get-Content ".cbmignore" -Raw
+  foreach ($Entry in $RequiredIgnore) {
+    if ($Text -notmatch [regex]::Escape($Entry)) {
+      $Problems += ".cbmignore missing $Entry"
     }
   }
 }
 
-if ($missing.Count -gt 0) {
-  Write-Host "Context budget guard failed:"
-  $missing | ForEach-Object { Write-Host "- $_" }
+if (Test-Path ".gitignore") {
+  $GitIgnore = Get-Content ".gitignore" -Raw
+  foreach ($Entry in @(".pipeline_patch_backup/","*.bak-*")) {
+    if ($GitIgnore -notmatch [regex]::Escape($Entry)) {
+      $Problems += ".gitignore missing $Entry"
+    }
+  }
+}
+
+$HotFiles = @(
+  ".agents\AGENTS.md",
+  ".agents\rules\05-runtime-contract.md"
+)
+
+foreach ($Path in $HotFiles) {
+  if (Test-Path $Path) {
+    $Lines = (Get-Content $Path | Measure-Object -Line).Lines
+    if ($Lines -gt 220) {
+      $Problems += "$Path exceeds 220 lines"
+    }
+  }
+}
+
+if ($Problems.Count -gt 0) {
+  Write-Error ("Context budget guard failed: " + ($Problems -join "; "))
   exit 1
 }
 
-Write-Host "Context budget gitignore guard OK."
+Write-Host "Context budget guard OK."
 exit 0

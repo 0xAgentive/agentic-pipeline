@@ -1,0 +1,16 @@
+.pipeline_patch_backup/
+*.bak-*
+*.bak-v*
+.agy/checkpoints/
+.agy/cbm/*.stdout.log
+.agy/cbm/*.stderr.log
+node_modules/
+dist/
+build/
+coverage/
+.env
+.env.*
+*.log
+*.zip
+*.har
+*.trace

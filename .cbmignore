@@ -26,3 +26,5 @@ temp/
 *.html
 *.har
 *.trace
+*.bak-*
+*.bak-v*

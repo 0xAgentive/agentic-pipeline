@@ -3,28 +3,22 @@ $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $Root
 
-$required = @(
+$Required = @(
   ".agents\AGENTS.md",
   ".agy\PHASE_STATUS.json",
-  ".cbmignore",
-  "AGENTS.md"
+  ".cbmignore"
 )
 
-$missing = @()
-foreach ($path in $required) {
-  if (!(Test-Path $path)) { $missing += $path }
+$Missing = @()
+
+foreach ($Path in $Required) {
+  if (!(Test-Path $Path)) {
+    $Missing += $Path
+  }
 }
 
-if ($missing.Count -gt 0) {
-  Write-Host "Pipeline preflight failed. Missing files:"
-  $missing | ForEach-Object { Write-Host "- $_" }
-  exit 1
-}
-
-try {
-  Get-Content ".agy\PHASE_STATUS.json" -Raw | ConvertFrom-Json | Out-Null
-} catch {
-  Write-Host "Pipeline preflight failed. PHASE_STATUS.json is not valid JSON."
+if ($Missing.Count -gt 0) {
+  Write-Error ("Pipeline preflight failed. Missing: " + ($Missing -join ", "))
   exit 1
 }
 

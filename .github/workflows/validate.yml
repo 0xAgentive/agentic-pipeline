@@ -9,26 +9,64 @@ permissions:
   contents: read
 
 jobs:
-  package-hard-validation:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Hard package validation
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          if (Test-Path "scripts/windows/Validate-AgenticPipelinePackage.ps1") {
-            pwsh -NoProfile -File scripts/windows/Validate-AgenticPipelinePackage.ps1 -RepoRoot . -Strict
-          } else {
-            throw "Missing scripts/windows/Validate-AgenticPipelinePackage.ps1"
-          }
-
-      - name: Validate shell scripts
+      - name: Legacy package validator
         shell: bash
         run: |
-          set -euo pipefail
-          while IFS= read -r -d '' file; do
-            echo "Checking $file"
-            bash -n "$file"
-          done < <(find . -type f -name '*.sh' -print0)
+          if [ -f scripts/bash/validate-package.sh ]; then
+            bash scripts/bash/validate-package.sh
+          fi
+
+      - name: Hard package validator
+        shell: pwsh
+        run: |
+          ./scripts/windows/Validate-AgenticPipelinePackage.ps1 -RepoRoot . -Strict
+
+      - name: PowerShell parser check
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -File -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List *
+              throw "PowerShell parser check failed: $($_.FullName)"
+            }
+          }
+
+      - name: Node syntax check
+        shell: bash
+        run: |
+          find . -name '*.cjs' -not -path './node_modules/*' -print0 | xargs -0 -r -n1 node --check
+
+      - name: Shell syntax check
+        shell: bash
+        run: |
+          find scripts -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+
+      - name: Hook contract smoke
+        shell: pwsh
+        run: |
+          ./templates/agy-project-base/.agents/hooks/Test-HookContract.ps1
+
+      - name: Fastpatch synthetic tests
+        shell: pwsh
+        run: |
+          ./scripts/windows/Test-FastPatchSynthetic.ps1
+
+      - name: No backup artifacts in repository
+        shell: bash
+        run: |
+          if find . -name '*.bak-*' -o -name '*.bak-v*' | grep -q .; then
+            find . -name '*.bak-*' -o -name '*.bak-v*'
+            exit 1
+          fi
+
+      - name: Git diff whitespace check
+        shell: bash
+        run: git diff --check

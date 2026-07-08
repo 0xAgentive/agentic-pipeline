@@ -1,0 +1,8 @@
+{
+  "hooks": [
+    {
+      "event": "manual",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .agents/hooks/guard_preflight.ps1"
+    }
+  ]
+}

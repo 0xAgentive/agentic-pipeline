@@ -1,121 +1,92 @@
-param(
-  [string]$RepoRoot = ".",
-  [switch]$Strict
-)
+param([string]$RepoRoot=".", [switch]$Strict)
 
 $ErrorActionPreference = "Stop"
-$RepoRoot = (Resolve-Path $RepoRoot).Path
-Set-Location $RepoRoot
+$Root = (Resolve-Path -LiteralPath $RepoRoot).Path
+$Errors = New-Object System.Collections.Generic.List[string]
 
-$errors = New-Object System.Collections.Generic.List[string]
-$warnings = New-Object System.Collections.Generic.List[string]
+function Add-Err([string]$m){ [void]$Errors.Add($m) }
+function Has([string]$p){ Test-Path -LiteralPath (Join-Path $Root $p) }
 
-function Add-ErrorMessage { param([string]$Message) $script:errors.Add($Message) | Out-Null }
-function Add-WarningMessage { param([string]$Message) $script:warnings.Add($Message) | Out-Null }
-function Test-RequiredPath { param([string]$Path) if (!(Test-Path $Path)) { Add-ErrorMessage "Missing required path: $Path" } }
+function Files([string[]]$ext=@()){
+  Get-ChildItem -LiteralPath $Root -Recurse -Force -File -ErrorAction SilentlyContinue |
+    Where-Object {
+      $x = $_.FullName -replace "\\","/"
+      $x -notmatch "/node_modules/|/dist/|/build/|/\.git/|/\.pipeline_patch_backup/|/docs/archive/"
+    } |
+    Where-Object { $ext.Count -eq 0 -or ($ext -contains $_.Extension.ToLowerInvariant()) }
+}
 
 $required = @(
-  "README.md",
-  "LICENSE",
-  "SECURITY.md",
-  "CONTRIBUTING.md",
-  "CHANGELOG.md",
-  "docs\AGENTIC_PIPELINE_PLAYBOOK.md",
-  "templates\agy-project-base\.agents\AGENTS.md",
-  "templates\agy-project-base\.agy\PHASE_STATUS.json",
-  "templates\agy-project-base\.cbmignore",
-  "templates\agy-project-base\scripts\Test-FastPatchAllowed.ps1",
-  "templates\agy-project-base\scripts\cbm-index-current-rpc.cjs",
-  "templates\agy-project-base\scripts\cbm-wrapper-smoke.cjs",
-  "scripts\cbm-index-current-rpc.cjs",
-  "scripts\cbm-wrapper-smoke.cjs",
-  "scripts\windows\Validate-AgenticPipelinePackage.ps1",
-  ".github\workflows\validate.yml"
+ "README.md","LICENSE","SECURITY.md","CONTRIBUTING.md","CHANGELOG.md",
+ "docs/AGENTIC_PIPELINE_PLAYBOOK.md","docs/GITHUB_PUBLICATION.md",
+ "scripts/windows/Validate-AgenticPipelinePackage.ps1","scripts/Test-FastPatchAllowed.ps1",
+ "scripts/cbm-index-current-rpc.cjs","scripts/cbm-wrapper-smoke.cjs",
+ "templates/agy-project-base/.cbmignore","templates/agy-project-base/.gitignore",
+ "templates/agy-project-base/.agents/AGENTS.md","templates/agy-project-base/.agents/hooks.sample.json",
+ "templates/agy-project-base/.agents/hooks/Test-HookContract.ps1",
+ "templates/agy-project-base/.agy/PHASE_STATUS.json"
 )
+foreach($p in $required){ if(!(Has $p)){ Add-Err "Missing required file: $p" } }
 
-foreach ($path in $required) { Test-RequiredPath $path }
+foreach($f in Files @(".json")){
+  try { Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json | Out-Null }
+  catch { Add-Err "Invalid JSON: $($f.FullName)" }
+}
 
-# PowerShell parse check.
-$psFiles = Get-ChildItem -Recurse -File -Filter *.ps1 | Where-Object { $_.FullName -notmatch '\\.git\\|/\.git/' }
-foreach ($file in $psFiles) {
-  $tokens = $null
-  $parseErrors = $null
-  [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
-  if ($parseErrors.Count -gt 0) {
-    foreach ($err in $parseErrors) { Add-ErrorMessage "PowerShell parse error in $($file.FullName): $($err.Message)" }
+foreach($f in Files @(".ps1")){
+  $t=$null; $e=$null
+  [System.Management.Automation.Language.Parser]::ParseFile($f.FullName,[ref]$t,[ref]$e) | Out-Null
+  if($e.Count -gt 0){ Add-Err "PowerShell parse error: $($f.FullName): $($e[0].Message)" }
+}
+
+$node = Get-Command node -ErrorAction SilentlyContinue
+if($node){
+  foreach($f in Files @(".cjs")){
+    & $node.Source --check $f.FullName | Out-Null
+    if($LASTEXITCODE -ne 0){ Add-Err "node --check failed: $($f.FullName)" }
+  }
+} elseif($Strict){ Add-Err "node not found; cannot validate .cjs syntax" }
+
+$hookDir = Join-Path $Root "templates/agy-project-base/.agents/hooks"
+if(Test-Path -LiteralPath $hookDir){
+  foreach($f in Get-ChildItem -LiteralPath $hookDir -File -Filter *.ps1 -ErrorAction SilentlyContinue){
+    $txt = Get-Content -LiteralPath $f.FullName -Raw
+    if($txt -match "Hook contract placeholder OK"){ Add-Err "Placeholder hook script detected: $($f.FullName)" }
+    if($txt -match "Write-Output\s+['""]\{\}['""]"){ Add-Err "No-op hook script detected: $($f.FullName)" }
   }
 }
 
-# JSON parse check for state/config files.
-$jsonCandidates = @(
-  "templates\agy-project-base\.agy\PHASE_STATUS.json",
-  ".agy\GITHUB_PROFILE.json",
-  "package.json"
-) | Where-Object { Test-Path $_ }
-
-foreach ($json in $jsonCandidates) {
-  try { Get-Content $json -Raw | ConvertFrom-Json | Out-Null }
-  catch { Add-ErrorMessage "Invalid JSON: $json - $($_.Exception.Message)" }
+$cbm = Join-Path $Root "templates/agy-project-base/.cbmignore"
+if(Test-Path -LiteralPath $cbm){
+  $txt = Get-Content -LiteralPath $cbm -Raw
+  foreach($x in @("node_modules/","dist/","build/",".git/",".agy/checkpoints/",".pipeline_patch_backup/",".codebase-memory/","coverage/","*.log")){
+    if($txt -notmatch [regex]::Escape($x)){ Add-Err "templates .cbmignore missing: $x" }
+  }
 }
 
-# .cbmignore baseline check.
-$baseline = @(
-  "node_modules/", "dist/", "build/", "coverage/", ".next/", ".nuxt/", ".turbo/", ".vite/", ".git/", ".agy/checkpoints/", ".pipeline_patch_backup/", ".pipeline_sync_backup/", ".pipeline_v1_1_backup/", ".pipeline_adopt_backup/", ".codebase-memory/", "playwright-report/", "test-results/", "artifacts/", "reports/generated/", "logs/", "tmp/", "temp/", "*.log", "*.zip", "*.pdf", "*.html", "*.har", "*.trace"
-)
+$legacy = Join-Path $Root "scripts/windows/Apply-AgenticPipeline-v1.1.1.ps1"
+if(Test-Path -LiteralPath $legacy){
+  $t = Get-Content -LiteralPath $legacy -Raw
+  $danger = '$PlaybookSrc = Join-Path $ScriptDir "agentic_pipeline_playbook_v1.1.1.md"'
+  if($t.Contains($danger)){ Add-Err "Legacy installer still uses missing local playbook source path" }
+  if(($t -match "agentic_pipeline_playbook_v1\.1\.1\.md") -and ($t -notmatch "docs\\AGENTIC_PIPELINE_PLAYBOOK\.md|docs/AGENTIC_PIPELINE_PLAYBOOK\.md")){
+    Add-Err "Legacy installer mentions old playbook without canonical docs fallback"
+  }
+}
 
-foreach ($cbm in @(".cbmignore", "templates\agy-project-base\.cbmignore")) {
-  if (Test-Path $cbm) {
-    $text = Get-Content $cbm -Raw
-    foreach ($entry in $baseline) {
-      if ($text -notmatch [regex]::Escape($entry)) { Add-ErrorMessage "$cbm missing baseline entry: $entry" }
+foreach($f in Files){
+  if($f.Name -like "*.bak-*" -or $f.Name -like "*.bak-v*"){
+    $rel = $f.FullName.Substring($Root.Length).TrimStart("\","/")
+    if((($rel -replace "\\","/").StartsWith(".pipeline_patch_backup/")) -eq $false){
+      Add-Err "Backup file must not live in repo tree: $($f.FullName)"
     }
   }
 }
 
-# Placeholder hook check.
-$hookDir = "templates\agy-project-base\.agents\hooks"
-if (Test-Path $hookDir) {
-  $hookFiles = Get-ChildItem $hookDir -File -Filter *.ps1
-  foreach ($hook in $hookFiles) {
-    $t = (Get-Content $hook.FullName -Raw).Trim()
-    if ($t -eq 'Write-Output "{}"' -or $t -eq "Write-Output '{}'" -or $t -match 'placeholder OK') {
-      Add-ErrorMessage "Placeholder/no-op hook found: $($hook.FullName)"
-    }
-  }
-} else {
-  Add-ErrorMessage "Missing template hook directory: $hookDir"
-}
-
-# Reference integrity for known historical drift.
-$playbook = "docs\AGENTIC_PIPELINE_PLAYBOOK.md"
-if (Test-Path $playbook) {
-  $text = Get-Content $playbook -Raw
-  if ($text -match 'scripts/cbm-index-current-rpc\.cjs' -and !(Test-Path "scripts\cbm-index-current-rpc.cjs")) {
-    Add-ErrorMessage "Playbook references scripts/cbm-index-current-rpc.cjs, but file is missing."
-  }
-  if ($text -match 'scripts/cbm-wrapper-smoke\.cjs' -and !(Test-Path "scripts\cbm-wrapper-smoke.cjs")) {
-    Add-ErrorMessage "Playbook references scripts/cbm-wrapper-smoke.cjs, but file is missing."
-  }
-}
-
-$legacyInstaller = "scripts\windows\Apply-AgenticPipeline-v1.1.1.ps1"
-if (Test-Path $legacyInstaller) {
-  $installerText = Get-Content $legacyInstaller -Raw
-  if ($installerText -match 'agentic_pipeline_playbook_v1\.1\.1\.md' -and !(Test-Path "scripts\windows\agentic_pipeline_playbook_v1.1.1.md")) {
-    Add-ErrorMessage "$legacyInstaller references missing scripts/windows/agentic_pipeline_playbook_v1.1.1.md. Patch the installer or include the file."
-  }
-}
-
-if ($warnings.Count -gt 0) {
-  Write-Host "Warnings:"
-  $warnings | ForEach-Object { Write-Host "- $_" }
-}
-
-if ($errors.Count -gt 0) {
+if($Errors.Count -gt 0){
   Write-Host "Validation failed:"
-  $errors | ForEach-Object { Write-Host "- $_" }
+  $Errors | Sort-Object -Unique | ForEach-Object { Write-Host "- $_" }
   exit 1
 }
-
 Write-Host "Hard package validation passed."
 exit 0

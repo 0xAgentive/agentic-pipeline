@@ -15,3 +15,6 @@ node_modules/
 .agy/cbm/*.stderr.log
 .agy/cbm/*summary*.log
 .pipeline_*_backup/
+.pipeline_patch_backup/
+*.bak-*
+*.bak-v*

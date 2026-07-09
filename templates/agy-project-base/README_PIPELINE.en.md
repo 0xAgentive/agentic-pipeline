@@ -32,4 +32,4 @@ For any project workspace using this pipeline, execute workflows in this sequenc
 
 Do not skip phases. LLM chat reports are not verification. Trust only deterministic commands, tests, diffs, and logs in the local environment.
 
-For detailed documentation, refer to the root [README.md](file:///c:/Users/Администратор/Documents/antigravity/agentic-pipeline/README.md) of the agentic-pipeline repository.
+For detailed documentation, refer to the root [README.md](../../README.md) of the agentic-pipeline repository.

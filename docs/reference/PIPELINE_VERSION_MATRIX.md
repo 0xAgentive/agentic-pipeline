@@ -1,26 +1,22 @@
 # Pipeline Version Matrix
 
-This repository uses `docs/AGENTIC_PIPELINE_PLAYBOOK.md` as the canonical latest playbook.
+This file records the public version posture of `agentic-pipeline`.
 
-## Versions
+## Current public state
 
-| Version | Role | Status / Notes |
-| --- | --- | --- |
-| 1.0.0 | Historical baseline | Early ChatGPT Project → Antigravity → Codex-era playbook. |
-| 1.1.0 | Antigravity-only baseline | Removed Codex from active runtime and tightened `.agents/.agy` governance. |
-| 1.1.1 | Hotfix baseline | Preserved v1.1.0 architecture; added Windows MCP hardening, CBM RPC policy, script-gated `/fastpatch`, semantic verification rule. |
-| 1.1.1a | Stable runtime | Current stable runtime baseline. Adds runtime contract without adding a new companion brain/state-machine layer. |
-| 1.1.1b-r4/r4b | Stabilization patches | Active stabilization layer addressing immediate performance, path validation, and local developer environment issues. |
-| 1.2.2a | Docs & Landing Cleanup | **Current Release**. Structural clean up of human-facing documentation, directories, and root GitHub landing pages. Does not alter runtime behavior or project templates. |
-| 1.2 (Planned) | Product Evidence Control Plane | **Under Development / Scaffold stage**. Planned next-gen control plane introducing compiled runtimes, machine-readable evidence ledgers, and automated evaluations. *Not yet active by default.* |
+| Layer | Status | Notes |
+|---|---|---|
+| Active canonical playbook | v1.2-family | `docs/AGENTIC_PIPELINE_PLAYBOOK.md` is the canonical root path for validators and downstream scripts. |
+| Versioned playbook floor | v1.2.0 | The versioned playbook is preserved under `docs/maintainers/AGENTIC_PIPELINE_PLAYBOOK_v1.2.0.md`. The repository must not regress below the v1.2.0 playbook family. |
+| Stabilization patch line | v1.1.1b-r4/r4b | r4/r4b are the stabilization and hardening patches for validation, fastpatch safety, path consistency and GitHub publication hygiene. |
+| Human docs cleanup | v1.2.2a | GitHub landing pages and human documentation structure were cleaned up without changing runtime behavior. |
+| ChatGPT Companion pack | v1.2.1 | Companion context is stored separately under `docs/companion/`. |
+| Planned next-gen control plane | v1.2 Product Evidence Control Plane | Compiled runtime, full metrics/evals/evidence ledger and deeper product-contract gates are planned/maintainer-level work unless proven active by validators. |
 
-## Canonical files
+## Important distinction
 
-- Current: `docs/AGENTIC_PIPELINE_PLAYBOOK.md`
-- Archive: `docs/archive/AGENTIC_PIPELINE_PLAYBOOK_v*.md`
-- Runtime contract: `templates/agy-project-base/.agents/rules/05-runtime-contract.md`
-- Companion prompt: `docs/COMPANION_SYSTEM_PROMPT_GPT55_v1.1.1a.md`
+`v1.2.0` is the minimum current playbook family. `v1.2.2a` is a documentation/publication cleanup release. `v1.1.1b-r4/r4b` remains an important stabilization patch line and must stay visible in release notes and validators.
 
-## Repository rule
+## Do not claim
 
-Do not publish a release that only contains patch notes. The public repository must include the canonical latest playbook, archived prior versions, template files, workflows, rules, hooks, scripts, and installation/publication docs.
+Do not claim that compiled runtime, full eval suite, complete metrics ledger, or full Product Evidence Control Plane runtime is active by default unless the repository contains the corresponding scripts, schemas, validators and passing evidence.

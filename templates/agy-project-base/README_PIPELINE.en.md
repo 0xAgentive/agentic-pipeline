@@ -1,30 +1,35 @@
 # How to use this template
 
-This is the base Antigravity project template.
+This folder contains the base Antigravity project template files for the Agentic Development Pipeline.
 
-## New project
+## Workspace Lifecycle
 
-1. Copy the template into a new folder.
-2. Open the folder in Antigravity.
-3. Run `/specdoc`.
-4. Then `/planonly`.
-5. Then `/nextphase`, one phase at a time.
+For any project workspace using this pipeline, execute workflows in this sequence:
 
-## Existing project
+1.  **Requirement Specification**:
+    ```text
+    /specdoc
+    ```
+2.  **Implementation Planning**:
+    ```text
+    /planonly
+    ```
+3.  **Local Workspace Verification**:
+    ```text
+    /auditphase
+    ```
+4.  **Incremental Implementation**:
+    ```text
+    /nextphase
+    ```
+    *(Always implement exactly one phase, verify it, commit/checkpoint, and stop.)*
+5.  **Final Verification & Shipping**:
+    ```text
+    /shipcheck
+    ```
 
-If the project already exists, first check:
+## Crucial Rule
 
-```powershell
-Get-Content .agy\PHASE_STATUS.json -Raw
-git status --short
-```
+Do not skip phases. LLM chat reports are not verification. Trust only deterministic commands, tests, diffs, and logs in the local environment.
 
-If unsure:
-
-```text
-/auditphase
-```
-
-## Main rule
-
-The agent must not silently jump to the next phase. It implements one phase, runs checks, updates state, and stops.
+For detailed documentation, refer to the root [README.md](file:///c:/Users/Администратор/Documents/antigravity/agentic-pipeline/README.md) of the agentic-pipeline repository.

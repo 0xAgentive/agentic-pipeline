@@ -1,55 +1,142 @@
-# Agentic Pipeline
+# Agentic Development Pipeline
 
-A practical Antigravity-first workflow for building software with an AI agent without letting the agent drift, skip phases, or ship unsupported claims.
+A lightweight, disciplined, and deterministic framework for coordinating AI agent workflows in local development environments. It prevents AI agents from drifting, skipping phases, or making unverified claims.
 
-This repository is meant to answer one simple question:
+---
 
-> What do I tell the agent, in what order, and how do I know the result is safe enough to continue?
+## рџЋЇ Value Proposition & Purpose
 
-## Start here
+AI coding assistants are highly capable but prone to **state drift** and **over-claiming**:
+1. An agent starts implementing a feature.
+2. It mutates dozens of files across multiple modules.
+3. It declares the task completed based on its own internal reasoning.
+4. The system fails to build, tests fail, or human review reveals extensive unintended side-effects.
 
-English:
-- [Start Here](docs/START_HERE.en.md)
-- [New Project Guide](docs/NEW_PROJECT_GUIDE.en.md)
-- [Existing Project Guide](docs/EXISTING_PROJECT_GUIDE.en.md)
-- [Command Cheat Sheet](docs/COMMANDS_CHEATSHEET.en.md)
+**Agentic Pipeline solves this.** It forces a structured, step-by-step loop where the agent cannot proceed to the next phase without providing **deterministic evidence** (passing test runs, clean diffs, and exact terminal commands) and obtaining **explicit human approval** at phase boundaries.
 
-Russian:
-- [Старт здесь](README.ru.md)
-- [Быстрый старт](docs/START_HERE.ru.md)
-- [Новый проект](docs/NEW_PROJECT_GUIDE.ru.md)
-- [Действующий проект](docs/EXISTING_PROJECT_GUIDE.ru.md)
-- [Шпаргалка команд](docs/COMMANDS_CHEATSHEET.ru.md)
+---
 
-## The pipeline in one sentence
+## рџ‘Ґ Who is this for?
 
-Plan first, implement one phase at a time, verify with deterministic checks, keep evidence, then publish only after release gates pass.
+*   **Software Engineers** pair-programming with advanced AI agents who want to maintain absolute control over code quality and architecture.
+*   **Team Leads** establishing safety guidelines for AI-assisted development.
+*   **Security & QA Teams** requiring verifiable, audit-ready compliance trails for AI-generated code.
 
-## The normal flow
+---
 
-```text
-raw idea
-  -> /specdoc
-  -> /planonly
-  -> /auditphase
-  -> /nextphase
-  -> /visualqa if UI changed
-  -> /securityaudit if data/privacy/security changed
-  -> /shipcheck
-  -> /githubprepare for first publication
-  -> /githubsync for GitHub update
+## рџ”„ The Three-Layer Operating Model
+
+The pipeline separates reasoning, process, and product code into three distinct planes:
+
+```mermaid
+graph TD
+    A["рџ’¬ ChatGPT Companion / Chat Console<br>(Divergent Thinking, Design, Ideation)"]
+    -->|Plan/Spec Instructions| B["вљЎ Agentic Pipeline<br>(Workflows, Durable Rules, Hooks, Skills)"]
+    B -->|Deterministic Mutation & Tests| C["рџ“¦ Product Project<br>(Source Code, Tests, Evidence Ledger)"]
+    C -->|Verified Artifacts / Status| B
+    B -->|Strict Checkpoints & Logs| A
 ```
 
-For small UI-only fixes, use `/fastpatch` only when the script gate allows it.
+1.  **ChatGPT Companion (Chat Console)**: The entry point for divergent thinking, architecture debates, and high-level goal definition. *Note: The companion is not the executor. The chat console cannot verify safety constraints by itself.*
+2.  **Agentic Pipeline (Governance & Environment)**: Coordinates the local agent using strict workflows, durable rules (e.g. `00-project-rules.md`), narrow on-demand skills, and local hooks (`guard_preflight.ps1`).
+3.  **Product Project (The Workspace)**: The target codebase containing actual source files, automated test suites, the machine-readable `.agy/PHASE_STATUS.json`, and the append-only `.agy/EVIDENCE_LOG.md`.
 
-## Current operating rule
+> [!IMPORTANT]
+> **Core Trust Invariant**: LLM claims in chat are not verification. Deterministic terminal commands, test results, git diffs, screenshots, and exit codes in the workspace are verification.
 
-Do not apply a new pipeline version in the middle of an active feature phase. Finish the current phase, run audit/security/shipcheck, then migrate the project pipeline as a separate infrastructure phase.
+---
 
-## What this is not
+## рџљЂ Quick Start
 
-This is not an autonomous coding bot that writes, verifies, publishes, and deploys everything without you. The human stays in the loop at phase boundaries and release gates.
+Ensure you have [Google Antigravity](https://github.com/google/antigravity) and git configured locally.
 
-## GitHub repository hygiene
+### рџ†• Option A: Starting a New Project
+1.  Copy `templates/agy-project-base/` into your new project directory.
+2.  Open the folder in your Antigravity-supported workspace.
+3.  Initialize the specification document:
+    ```text
+    /specdoc
+    ```
+4.  Generate the implementation plan:
+    ```text
+    /planonly
+    ```
 
-A public repository should have a clear README, license, security policy, contribution notes, validation workflow, and simple getting-started instructions. This repository keeps those files in the root and detailed guides under `docs/`.
+### рџ“‚ Option B: Adopting an Existing Project
+Run the adoption script to initialize pipeline configuration in your existing directory:
+```bash
+bash scripts/bash/adopt-pipeline.sh /path/to/your/project
+```
+Then, perform the initial environment audit:
+```text
+/auditphase
+```
+
+---
+
+## рџ—єпёЏ Command Map
+
+Workflows are executed sequentially. Each command represents a strict phase boundary:
+
+```text
+  [Idea]
+    в”‚
+    в–ј
+/specdoc          # Create the SPEC.md and PROJECT.md requirements
+    в”‚
+    в–ј
+/planonly         # Create implementation_plan.md & verification tasks
+    в”‚
+    в–ј
+/auditphase       # Verify workspace cleanliness and rule alignment
+    в”‚
+    в–ј
+/nextphase        # Implement exactly ONE planned phase and stop
+    в”‚
+    в–ј
+/visualqa         # (Optional) Verify browser UI using DevTools MCP
+    в”‚
+    в–ј
+/securityaudit    # (Optional) Verify privacy, data flows, and secrets
+    в”‚
+    в–ј
+/shipcheck        # Enforce final release checks (tests, status, logs)
+    в”‚
+    в–ј
+/githubprepare    # Scaffold README, license, and workflows for GitHub
+    в”‚
+    в–ј
+/githubsync       # Safely commit and push updates to the remote repo
+```
+
+For minor styling or UI-only edits, the agent may use `/fastpatch` **only** if the local check script allows it:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-FastPatchAllowed.ps1
+```
+
+---
+
+## вљ“ Evidence-First SHIP/NO-SHIP Philosophy
+
+The decision to publish code is strictly binary and evidence-gated:
+
+*   **SHIP**: Allowed only if `.agy/PHASE_STATUS.json` is fully approved, all automated semantic test runs pass, visual QA reports no regressions, and no high-risk items remain in the risk ledger.
+*   **NO-SHIP**: Triggered automatically if any hook fails, a command returns a non-zero exit code, unverified LLM claims exist, or rollback notes are missing.
+
+---
+
+## рџ—єпёЏ Documentation Navigation
+
+Explore detailed guides and conceptual articles in Russian and English:
+
+*   **Getting Started**: [START_HERE.en.md](docs/START_HERE.en.md) / [START_HERE.ru.md](docs/START_HERE.ru.md)
+*   **Context Control**: [CONTEXT_SPLIT.en.md](docs/concepts/CONTEXT_SPLIT.en.md) explaining how to isolate instructions from codebase knowledge.
+*   **Installation**: Detailed environment guides inside [docs/guides/](docs/guides/).
+*   **Version History**: [docs/PIPELINE_VERSION_MATRIX.md](docs/PIPELINE_VERSION_MATRIX.md).
+*   **Full Index**: Refer to the complete [docs/README.md](docs/README.md) documentation sitemap.
+
+---
+
+## рџ“њ License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

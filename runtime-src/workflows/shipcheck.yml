@@ -1,0 +1,11 @@
+name: shipcheck
+mode: release_gate
+output: SHIP_OR_NO_SHIP
+requires:
+  - valid_phase_status
+  - no_blocking_requirement_deltas
+  - evidence_ndjson
+  - required_artifacts
+  - visualqa_when_ui
+  - reportqa_when_exports
+  - securityqa_when_sensitive

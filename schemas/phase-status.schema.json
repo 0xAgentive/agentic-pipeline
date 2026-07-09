@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PHASE_STATUS v1.2.0",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_name",
+    "current_phase",
+    "next_required_command",
+    "phase_lock",
+    "batch_allowed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.2.0"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "current_phase": {
+      "type": "string"
+    },
+    "next_required_command": {
+      "type": "string"
+    },
+    "commands_allowed_now": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "phase_lock": {
+      "type": "boolean"
+    },
+    "batch_allowed": {
+      "type": "boolean"
+    },
+    "risk_level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "dirty_state": {
+      "enum": [
+        "clean",
+        "dirty",
+        "unknown"
+      ]
+    },
+    "hook_mode": {
+      "enum": [
+        "manual",
+        "advisory",
+        "enforcing"
+      ]
+    },
+    "open_blockers": {
+      "type": "array"
+    },
+    "unresolved_requirement_deltas": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "required_artifacts_missing": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PRODUCT_CONTRACT v1.2.0",
+  "type": "object",
+  "required": [
+    "product_goal",
+    "mandatory_gates",
+    "shipcheck_blockers"
+  ],
+  "properties": {
+    "product_goal": {
+      "type": "string"
+    },
+    "product_modes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mandatory_gates": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbidden_claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "shipcheck_blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sensitive_data": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

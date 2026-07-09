@@ -57,3 +57,7 @@ Checklists and templates for pipeline development and future scoping:
 
 ### 📂 [Archive](archive)
 *   [README.md](archive/README.md) — Information about archived documents.
+
+## ChatGPT Companion
+
+- [ChatGPT Companion Pack v1.2.1](companion/README.md)

@@ -1,109 +1,116 @@
 # Agentic Development Pipeline
 
-Lokalnyy, strogyy i proveriaemyy freymvork dlia upravleniia razrabotkoy s AI-agentami v Google Antigravity.
+Локальный, строгий и проверяемый фреймворк для управления разработкой с AI-агентами в Google Antigravity.
 
-Agentic Pipeline pomogaet ne dopuskat dreifa sostoyaniya, pereskakivaniya faz i nepodtverzhdennyh zayavleniy o gotovnosti.
-
----
-
-## Tsennost i naznachenie
-
-AI-assistenty bystro pishut kod, no chasto oshibayutsya v protsesse:
-
-1. Agent nachinaet realizovyvat zadachu.
-2. Menyaet desyatki faylov v raznyh chastyah proekta.
-3. Obyavlyaet zadachu zavershennoy na osnovanii sobstvennoy logiki.
-4. Sborka ili testy padayut, ili review pokazyvaet nezhelatelnye pobochnye effekty.
-
-Agentic Pipeline reshaet etu problemu. On zadaet poshagovyy tsikl, gde agent ne perehodit k sleduyushchey faze bez deterministicheskih dokazatelstv: uspeshnyh proverok, chistogo diff, tochnyh komand terminala i yavnyh granits faz.
+Agentic Pipeline помогает не допускать дрейфа состояния, перескакивания фаз и неподтверждённых заявлений о готовности.
 
 ---
 
-## Dlya kogo eto
+## Ценность и назначение
 
-- Razrabotchiki, kotorye ispolzuyut prodvinutyh AI-agentov, no hotyat sohranyat kontrol nad arhitekturoy i kachestvom koda.
-- Timlidy, kotorym nuzhny pravila bezopasnoy AI-razrabotki v komande.
-- Security i QA, kotorym nuzhny proveriaemye sledy izmeneniy i audit-ready evidence.
+AI-ассистенты быстро пишут код, но часто ошибаются в процессе:
 
----
+1. Агент начинает реализовывать задачу.
+2. Меняет десятки файлов в разных частях проекта.
+3. Объявляет задачу завершённой на основании собственной логики.
+4. Сборка или тесты падают, либо review показывает нежелательные побочные эффекты.
 
-## Trekhsloynaya operatsionnaya model
-
-ChatGPT Companion
-  -> formuliruet idei, gotovit TZ, provodit research i audit, pishet prompts
-
-Agentic Pipeline
-  -> zadaet workflows, rules, hooks, validators, evidence gates
-
-Product Project
-  -> soderzhit realnyy kod, testy, .agy state i artefakty proverki
-
-1. ChatGPT Companion - sloy myshleniya, research, audita i podgotovki tochnyh prompts. Eto ne ispolnitel.
-2. Agentic Pipeline - sloy protsessa: workflows, durable rules, hooks, skills, validators i shablony.
-3. Product Project - rabochaya papka prilozheniya ili instrumenta, gde nahodyatsya ishodniki, testy i dokazatelstva vypolneniya.
-
-Vazhnyy invariant: slova modeli v chate ne yavlyayutsya proverkoy. Proverkoy yavlyayutsya komandy, exit codes, testy, diff, skrinshoty, logi i artefakty vnutri workspace.
+**Agentic Pipeline решает эту проблему.** Он задаёт пошаговый цикл, где агент не переходит к следующей фазе без детерминированных доказательств: успешных проверок, чистого diff, точных команд терминала и явного подтверждения человека на границах фаз.
 
 ---
 
-## Bystryy start
+## Для кого это
 
-### Novyy proekt
-
-1. Skopiruyte templates/agy-project-base/ v papku novogo proekta.
-2. Otkroyte etu papku v Antigravity.
-3. Zapustite:
-
-    /specdoc
-    /planonly
-    /nextphase
-
-### Sushchestvuyushchiy proekt
-
-Dlya sushchestvuyushchego proekta snachala vypolnite audit:
-
-    /auditphase
-
-Posle audita perehodite k odnoy faze realizatsii:
-
-    /nextphase
+- **Разработчики**, которые используют продвинутых AI-агентов, но хотят сохранять контроль над архитектурой и качеством кода.
+- **Тимлиды**, которым нужны правила безопасной AI-разработки в команде.
+- **Security и QA**, которым нужны проверяемые следы изменений и audit-ready evidence.
 
 ---
 
-## Karta komand
+## Трёхслойная операционная модель
 
-/specdoc       - sozdat ili obnovit spetsifikatsiyu bez koda
-/planonly      - sozdat fazovyy plan bez realizatsii
-/auditphase    - proverit tekushchee sostoyanie workspace
-/probephase    - proverit riskovannye API, dannye, zhelezo ili prava
-/nextphase     - realizovat rovno odnu fazu, proverit, zafiksirovat sostoyanie i ostanovitsya
-/fastpatch     - malaya pravka tolko esli skript razreshil diff
-/visualqa      - vizualnaya proverka UI
-/securityaudit - proverka privatnosti, sekretov, eksporta i opasnyh deystviy
-/shipcheck     - finalnaya proverka SHIP / NO-SHIP
-/githubprepare - podgotovka GitHub-publikatsii
-/githubsync    - bezopasnyy commit/push posle proverok
+    ChatGPT Companion
+      -> формулирует идеи, готовит ТЗ, проводит research и audit, пишет prompts
+
+    Agentic Pipeline
+      -> задаёт workflows, rules, hooks, validators, evidence gates
+
+    Product Project
+      -> содержит реальный код, тесты, .agy state и артефакты проверки
+
+1. **ChatGPT Companion** - слой мышления, research, аудита и подготовки точных prompts. Это не исполнитель.
+2. **Agentic Pipeline** - слой процесса: workflows, durable rules, hooks, skills, validators и шаблоны.
+3. **Product Project** - рабочая папка приложения или инструмента, где находятся исходники, тесты и доказательства выполнения.
+
+Важный инвариант: слова модели в чате не являются проверкой. Проверкой являются команды, exit codes, тесты, diff, скриншоты, логи и артефакты внутри workspace.
+
+---
+
+## Быстрый старт
+
+### Новый проект
+
+1. Скопируйте `templates/agy-project-base/` в папку нового проекта.
+2. Откройте эту папку в Antigravity.
+3. Запустите:
+
+        /specdoc
+        /planonly
+        /nextphase
+
+### Существующий проект
+
+Для существующего проекта сначала выполните аудит:
+
+        /auditphase
+
+После аудита переходите к одной фазе реализации:
+
+        /nextphase
+
+---
+
+## Карта команд
+
+- `/specdoc` - создать или обновить спецификацию без кода.
+- `/planonly` - создать фазовый план без реализации.
+- `/auditphase` - проверить текущее состояние workspace.
+- `/probephase` - проверить рискованные API, данные, железо или права.
+- `/nextphase` - реализовать ровно одну фазу, проверить, зафиксировать состояние и остановиться.
+- `/fastpatch` - маленькая правка только если скрипт разрешил diff.
+- `/visualqa` - визуальная проверка UI.
+- `/securityaudit` - проверка приватности, секретов, экспорта и опасных действий.
+- `/shipcheck` - финальная проверка SHIP / NO-SHIP.
+- `/githubprepare` - подготовка GitHub-публикации.
+- `/githubsync` - безопасный commit/push после проверок.
 
 ---
 
 ## Evidence-first SHIP / NO-SHIP
 
-Reliznoe reshenie binarnoe:
+Релизное решение бинарно:
 
-- SHIP - tolko esli sostoyanie .agy/PHASE_STATUS.json soglasovano, proverki proydeny, evidence prisutstvuet, riski zakryty ili yavno prinyaty.
-- NO-SHIP - esli est failed command, neproverennye claims, otsutstvuyushchie rollback notes, visual/security/report blockers ili dreif trebovaniy.
+- **SHIP** - только если состояние `.agy/PHASE_STATUS.json` согласовано, проверки пройдены, evidence присутствует, риски закрыты или явно приняты.
+- **NO-SHIP** - если есть failed command, непроверенные claims, отсутствующие rollback notes, visual/security/report blockers или дрейф требований.
 
 ---
 
-## Navigatsiya po dokumentatsii
+## ChatGPT Companion
 
-- Start: [START_HERE.en.md](docs/START_HERE.en.md) / [START_HERE.ru.md](docs/START_HERE.ru.md)
+Отдельный companion-пакет для ChatGPT лежит в [docs/companion/](docs/companion/). Его задача - помогать формулировать требования, проводить аудит, готовить Agent Task Pack и писать точные prompts для Antigravity. Companion не является исполнителем и не заменяет workspace evidence.
+
+---
+
+## Навигация по документации
+
+- Старт: [START_HERE.en.md](docs/START_HERE.en.md) / [START_HERE.ru.md](docs/START_HERE.ru.md)
 - Context Split: [CONTEXT_SPLIT.ru.md](docs/concepts/CONTEXT_SPLIT.ru.md)
-- Indeks dokumentatsii: [docs/README.md](docs/README.md)
-- Matritsa versiy: [docs/PIPELINE_VERSION_MATRIX.md](docs/PIPELINE_VERSION_MATRIX.md)
+- Companion Pack: [docs/companion/README.md](docs/companion/README.md)
+- Индекс документации: [docs/README.md](docs/README.md)
+- Матрица версий: [docs/PIPELINE_VERSION_MATRIX.md](docs/PIPELINE_VERSION_MATRIX.md)
 
 ---
 
-## Litsenziya
+## Лицензия
 
-Proekt rasprostranyaetsya pod litsenziey MIT. Podrobnosti v fayle [LICENSE](LICENSE).
+Проект распространяется под лицензией MIT. Подробности в файле [LICENSE](LICENSE).

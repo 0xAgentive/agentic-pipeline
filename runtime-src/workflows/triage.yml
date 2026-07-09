@@ -1,0 +1,8 @@
+name: triage
+mode: readonly
+output: json
+allowed_writes: []
+stop_conditions:
+  - never_edit_files
+  - never_mark_ready
+  - never_run_broad_tests

@@ -1,0 +1,8 @@
+version: 1.2.0
+name: product-evidence-control-plane
+principles:
+  - evidence_beats_claims
+  - product_contract_blocks_stale_shipcheck
+  - artifacts_are_first_class
+  - hot_runtime_is_small
+  - read_only_parallelism_only

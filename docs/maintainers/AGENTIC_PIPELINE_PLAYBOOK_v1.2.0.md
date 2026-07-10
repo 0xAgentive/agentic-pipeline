@@ -435,22 +435,22 @@ Logs must redact secrets, device IDs, raw biometrics, local paths and personal n
 
 ## 14. v1.2 phased implementation
 
-P0 — Stabilization gate and baseline  
-P1 — Runtime source and compiler  
-P2 — Workflow contracts and state schemas  
-P3 — Evidence ledger and Artifact Delivery Contract  
-P4 — Product Contract and Requirement Drift Gate  
-P5 — Hard validator suite  
-P6 — Local eval suite  
-P7 — Skills and progressive disclosure  
-P8 — Hook modes and production hook contract  
-P9 — VisualQA / ReportQA / SecurityQA gates  
-P10 — Tool/MCP profiles and approvals  
-P11 — Metrics and observability  
-P12 — codebase-map-fast and CBM policy  
-P13 — read-only triage  
-P14 — read-only parallel audit  
-P15 — package builder, migration and rollback  
+P0 — Stabilization gate and baseline
+P1 — Runtime source and compiler
+P2 — Workflow contracts and state schemas
+P3 — Evidence ledger and Artifact Delivery Contract
+P4 — Product Contract and Requirement Drift Gate
+P5 — Hard validator suite
+P6 — Local eval suite
+P7 — Skills and progressive disclosure
+P8 — Hook modes and production hook contract
+P9 — VisualQA / ReportQA / SecurityQA gates
+P10 — Tool/MCP profiles and approvals
+P11 — Metrics and observability
+P12 — codebase-map-fast and CBM policy
+P13 — read-only triage
+P14 — read-only parallel audit
+P15 — package builder, migration and rollback
 P16 — final shipcheck v2 and release archive
 
 ## 15. Definition of Done

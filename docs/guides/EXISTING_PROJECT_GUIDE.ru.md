@@ -1,50 +1,28 @@
-# Действующий проект
+# Подключение существующего проекта
 
-Используй это, когда проект уже существует и нужно безопасно продолжить.
+Не подключай и не обновляй pipeline во время активной продуктовой фазы.
 
-## Шаг 1. Прочитать состояние
+## Предусловия
+
+- текущая продуктовая фаза завершена;
+- рабочее дерево чистое или явно проверено;
+- понятен статус тестов/сборки;
+- есть rollback или backup.
+
+## Windows
+
+Dry-run:
 
 ```powershell
-Get-Content .agy\PHASE_STATUS.json -Raw
-Get-Content .agy\AGENT_STATE.md -Raw
-git status --short
+$Repo = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline"
+$Project = "C:\path\to\existing-project"
+powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\scripts\windows\Initialize-AgenticProject.ps1" -Mode Adopt -TargetRoot $Project
 ```
 
-## Шаг 2. Если не уверен — read-only аудит
+Применение после проверки:
 
-```text
-/auditphase
-
-Do not implement code.
-Inspect current state, changed files, checks, risks and next required command.
-Stop after the audit report.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\scripts\windows\Initialize-AgenticProject.ps1" -Mode Adopt -TargetRoot $Project -Apply
 ```
 
-## Шаг 3. Продолжать только ожидаемой командой
-
-Если `PHASE_STATUS.json` говорит `/securityaudit`, запускай `/securityaudit`.
-Если говорит `/shipcheck`, запускай `/shipcheck`.
-Если говорит `/nextphase`, реализуй только одну запланированную фазу.
-
-## Шаг 4. Не мигрировать пайплайн посреди фазы
-
-Обновление пайплайна — это инфраструктурная задача. Делай её только когда:
-- текущая фаза завершена;
-- tests/build проходят;
-- git diff понятен;
-- состояние не blocked.
-
-## Шаг 5. GitHub
-
-Первая публикация:
-
-```text
-/githubprepare
-/githubsync
-```
-
-Обновления:
-
-```text
-/githubsync
-```
+По умолчанию действует конфликтная политика `Keep`. Существующие файлы и состояние `.agy` не заменяются молча. Новый adoption-профиль начинается с `/landing`, затем `/auditphase`.

@@ -2,6 +2,10 @@
 
 A lightweight, disciplined, and deterministic framework for coordinating AI agent workflows in local development environments. It prevents AI agents from drifting, skipping phases, or making unverified claims.
 
+**Current package release:** `1.2.3 Distribution Integrity`
+**Canonical playbook/runtime:** `1.2.0`
+**ChatGPT Companion:** `1.2.1`
+
 ---
 
 ## 🎯 Value Proposition & Purpose
@@ -48,28 +52,34 @@ graph TD
 
 ## 🚀 Quick Start
 
-Ensure you have [Google Antigravity](https://github.com/google/antigravity) and git configured locally.
+### 🆕 Option A: Starting a New Project on Windows
 
-### 🆕 Option A: Starting a New Project
-1.  Copy `templates/agy-project-base/` into your new project directory.
-2.  Open the folder in your Antigravity-supported workspace.
-3.  Initialize the specification document:
-    ```text
-    /specdoc
-    ```
-4.  Generate the implementation plan:
-    ```text
-    /planonly
-    ```
+Run the deterministic installer from the pipeline repository:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Initialize-AgenticProject.ps1 -Mode New -TargetRoot "$env:USERPROFILE\Documents\antigravity\My New Project"
+```
+
+The first run is a dry-run. Add `-Apply` after reviewing it. A new project always starts at:
+
+```text
+/specdoc
+```
 
 ### 📂 Option B: Adopting an Existing Project
-Run the adoption script to initialize pipeline configuration in your existing directory:
+
+Adoption is a separate infrastructure operation. Finish active feature work first, then run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Initialize-AgenticProject.ps1 -Mode Adopt -TargetRoot "C:\path\to\existing-project"
+```
+
+After review, add `-Apply`. Adoption starts at `/landing`, followed by `/auditphase`. Existing `.agy` state is not silently overwritten.
+
+Bash users may use:
+
 ```bash
 bash scripts/bash/adopt-pipeline.sh /path/to/your/project
-```
-Then, perform the initial environment audit:
-```text
-/auditphase
 ```
 
 ---

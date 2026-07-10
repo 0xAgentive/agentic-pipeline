@@ -17,14 +17,27 @@ function Files([string[]]$ext=@()){
 }
 
 $required = @(
- "README.md","LICENSE","SECURITY.md","CONTRIBUTING.md","CHANGELOG.md",
- "docs/AGENTIC_PIPELINE_PLAYBOOK.md","docs/GITHUB_PUBLICATION.md",
- "scripts/windows/Validate-AgenticPipelinePackage.ps1","scripts/Test-FastPatchAllowed.ps1",
+ "README.md","README.ru.md","VERSION.json","LICENSE","SECURITY.md","CONTRIBUTING.md","CHANGELOG.md",
+ "docs/AGENTIC_PIPELINE_PLAYBOOK.md","docs/GITHUB_PUBLICATION.md","docs/PIPELINE_VERSION_MATRIX.md",
+ "config/command-inventory.json","schemas/phase-status.schema.json","schemas/command-inventory.schema.json","schemas/version.schema.json",
+ "scripts/windows/Validate-AgenticPipelinePackage.ps1","scripts/windows/Test-DistributionIntegrity.ps1","scripts/windows/Test-PowerShellRuntimeContracts.ps1",
+ "scripts/windows/Test-StateProfiles.ps1","scripts/windows/Test-CommandInventory.ps1",
+ "scripts/windows/Test-TemplateHygiene.ps1","scripts/windows/Test-ProjectLeakage.ps1",
+ "scripts/windows/Test-FreshInstall.ps1","scripts/windows/Build-ReleasePackage.ps1",
+ "scripts/windows/Initialize-AgenticProject.ps1","scripts/Test-FastPatchAllowed.ps1",
  "scripts/cbm-index-current-rpc.cjs","scripts/cbm-wrapper-smoke.cjs",
+ "templates/state-profiles/new-project/PHASE_STATUS.json",
+ "templates/state-profiles/adopt-existing/PHASE_STATUS.json",
  "templates/agy-project-base/.cbmignore","templates/agy-project-base/.gitignore",
- "templates/agy-project-base/.agents/AGENTS.md","templates/agy-project-base/.agents/hooks.sample.json",
+ "templates/agy-project-base/.agents/AGENTS.md","templates/agy-project-base/.agents/COMMAND_INVENTORY.json",
+ "templates/agy-project-base/.agents/hooks.sample.json",
  "templates/agy-project-base/.agents/hooks/Test-HookContract.ps1",
- "templates/agy-project-base/.agy/PHASE_STATUS.json"
+ "templates/agy-project-base/.agents/workflows/githubprepare.md",
+ "templates/agy-project-base/.agents/workflows/githubsync.md",
+ "templates/agy-project-base/.agy/PHASE_STATUS.json",
+ "templates/agy-project-base/.agy/GITHUB_PROFILE.json",
+ "templates/agy-project-base/scripts/github/Prepare-GitHubPackage.ps1",
+ "templates/agy-project-base/scripts/github/Sync-GitHub.ps1"
 )
 foreach($p in $required){ if(!(Has $p)){ Add-Err "Missing required file: $p" } }
 
@@ -59,7 +72,7 @@ if(Test-Path -LiteralPath $hookDir){
 $cbm = Join-Path $Root "templates/agy-project-base/.cbmignore"
 if(Test-Path -LiteralPath $cbm){
   $txt = Get-Content -LiteralPath $cbm -Raw
-  foreach($x in @("node_modules/","dist/","build/",".git/",".agy/checkpoints/",".pipeline_patch_backup/",".codebase-memory/","coverage/","*.log")){
+  foreach($x in @("node_modules/","dist/","build/",".git/",".agy/checkpoints/",".pipeline_patch_backup/",".codebase-memory/","coverage/",".artifacts/","*.log")){
     if($txt -notmatch [regex]::Escape($x)){ Add-Err "templates .cbmignore missing: $x" }
   }
 }
@@ -72,6 +85,17 @@ if(Test-Path -LiteralPath $legacy){
   if(($t -match "agentic_pipeline_playbook_v1\.1\.1\.md") -and ($t -notmatch "docs\\AGENTIC_PIPELINE_PLAYBOOK\.md|docs/AGENTIC_PIPELINE_PLAYBOOK\.md")){
     Add-Err "Legacy installer mentions old playbook without canonical docs fallback"
   }
+}
+
+
+$templateRoot = Join-Path $Root "templates/agy-project-base"
+if(Test-Path -LiteralPath $templateRoot){
+  $generated = Get-ChildItem -LiteralPath $templateRoot -Recurse -Force -File -ErrorAction SilentlyContinue |
+    Where-Object {
+      $rel = $_.FullName.Substring($templateRoot.Length).TrimStart("\","/") -replace "\\","/"
+      $rel -match '^\.agy/checkpoints/' -or $rel -match '(^|/)(git-status|checkpoint|validation|transcript)-\d{8}'
+    }
+  foreach($f in $generated){ Add-Err "Generated runtime artifact in template: $($f.FullName)" }
 }
 
 foreach($f in Files){

@@ -67,6 +67,17 @@
     "required_artifacts_missing": {
       "type": "integer",
       "minimum": 0
+    },
+    "framework_version": {
+      "type": "string"
+    },
+    "state_profile": {
+      "enum": [
+        "new-project",
+        "adopt-existing",
+        "active-project",
+        "migration"
+      ]
     }
   }
 }

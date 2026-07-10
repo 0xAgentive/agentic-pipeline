@@ -25,6 +25,13 @@ record evidence
 stop
 ```
 
+## Initial state profiles
+
+- A freshly installed project uses `new-project` and starts at `/specdoc`.
+- An adopted existing repository uses `adopt-existing` and starts at `/landing`, followed by `/auditphase`.
+
+Do not manually reuse one state for both scenarios.
+
 ## Which command should I use now?
 
 If you are starting from an idea:

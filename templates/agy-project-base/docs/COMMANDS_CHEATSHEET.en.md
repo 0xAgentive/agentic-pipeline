@@ -1,50 +1,42 @@
 # Command Cheat Sheet
 
-## Core commands
+The canonical command inventory is `config/command-inventory.json`; every entry below has a distributed workflow.
 
-`/specdoc` — write product/spec docs only.
+## Specification and planning
 
-`/planonly` — write implementation plan only.
+- `/specdoc` - write or update product/specification documents only.
+- `/planonly` - create a phased implementation and verification plan only.
+- `/probephase` - run one bounded technical probe.
 
-`/auditphase` — inspect current state, risks, docs, checks. No feature work.
+## Orientation and audit
 
-`/probephase` — bounded local investigation. No implementation unless explicitly allowed.
+- `/triage` - classify the request and recommend the next safe command.
+- `/landing` - recover project orientation without implementation.
+- `/auditphase` - read-only verification of state, claims, evidence and blockers.
+- `/codebase-map` - build a bounded structural map of the codebase.
+- `/parallel-audit` - run independent read-only audit lanes; no source writes.
 
-`/nextphase` — implement one approved phase only.
+## Implementation and repair
 
-`/fastpatch` — tiny UI/style patch only if the script gate allows it.
+- `/nextphase` - implement exactly one approved phase and stop.
+- `/fastpatch` - tiny script-gated UI/style patch with mandatory post-edit `-RequireChanges`.
+- `/fixcritical` - fix only previously verified critical blockers.
+- `/phasebatch` - disabled by default; requires explicit human unlock.
+- `/lessons` - record candidate lessons without mutating durable runtime rules.
 
-`/visualqa` — verify UI/browser/screenshots/console/readability.
+## Evidence gates
 
-`/securityaudit` — verify privacy, exports, filesystem, MCP, secrets, remote calls.
+- `/visualqa` - validate UI evidence.
+- `/reportqa` - validate reports and export bundles.
+- `/securityaudit` - read-only security and privacy audit.
+- `/artifactaudit` - verify artifact existence, index entries, size and hashes.
+- `/shipcheck` - final evidence-based `SHIP` or `NO-SHIP` decision.
 
-`/shipcheck` — release decision. Output must be SHIP or NO-SHIP based on deterministic evidence.
+## GitHub publication
 
-`/githubprepare` — prepare README, license, security docs, templates for first GitHub publication.
+- `/githubprepare` - prepare bilingual repository metadata and publication files; no push.
+- `/githubsync` - commit/push through deterministic local `git` and `gh` scripts.
 
-`/githubsync` — commit and push through deterministic git/gh commands.
+## Stop conditions
 
-## Safe phrases to use
-
-```text
-Implement only the next planned phase. Stop after verification and checkpoint.
-```
-
-```text
-Do not implement code. Audit only. Stop after the report.
-```
-
-```text
-Do not write SHIP unless all deterministic checks and required evidence pass.
-```
-
-## When to stop
-
-Stop if the agent wants to:
-- modify source data;
-- use admin/elevation;
-- add cloud upload;
-- use write-capable MCP without approval;
-- skip tests;
-- publish without validation;
-- start the next phase automatically.
+Stop when the requested action does not match `.agy/PHASE_STATUS.json`, when deterministic evidence is missing, or when a write-capable tool requires approval.

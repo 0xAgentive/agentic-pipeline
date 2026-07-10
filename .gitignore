@@ -18,3 +18,4 @@ node_modules/
 .pipeline_patch_backup/
 *.bak-*
 *.bak-v*
+.artifacts/

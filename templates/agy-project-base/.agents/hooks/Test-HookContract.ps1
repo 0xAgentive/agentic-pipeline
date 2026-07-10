@@ -35,15 +35,15 @@ foreach ($Hook in $Hooks) {
     continue
   }
 
-  $Args = @("-NoProfile")
+  $HookArguments = @("-NoProfile")
 
   if ($ShellName -match "^(?i:powershell)(\.exe)?$") {
-    $Args += @("-ExecutionPolicy", "Bypass")
+    $HookArguments += @("-ExecutionPolicy", "Bypass")
   }
 
-  $Args += @("-File", $Hook)
+  $HookArguments += @("-File", $Hook)
 
-  & $Shell @Args
+  & $Shell @HookArguments
 
   if ($LASTEXITCODE -ne 0) {
     $Failed += "$Hook exited with $LASTEXITCODE"

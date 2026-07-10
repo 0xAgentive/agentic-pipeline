@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "repo": "",
+  "visibility": "private",
+  "mode": "direct",
+  "branch": "main",
+  "project_title": "<ProjectName>",
+  "project_one_liner": "TODO: add one-sentence project description.",
+  "license": "MIT",
+  "default_commit_message": "ship: update project",
+  "configured": false
+}

@@ -16,10 +16,7 @@ jobs:
 
       - name: Legacy package validator
         shell: bash
-        run: |
-          if [ -f scripts/bash/validate-package.sh ]; then
-            bash scripts/bash/validate-package.sh
-          fi
+        run: bash scripts/bash/validate-package.sh
 
       - name: Hard package validator
         shell: pwsh
@@ -28,6 +25,10 @@ jobs:
       - name: Runtime truth validator
         shell: pwsh
         run: ./scripts/windows/Test-RuntimeTruth.ps1 -RepoRoot . -StrictHotPath
+
+      - name: Distribution integrity validator
+        shell: pwsh
+        run: ./scripts/windows/Test-DistributionIntegrity.ps1 -RepoRoot .
 
       - name: PowerShell parser check
         shell: pwsh
@@ -56,7 +57,11 @@ jobs:
 
       - name: Fastpatch synthetic tests
         shell: pwsh
-        run: ./scripts/windows/Test-FastPatchSynthetic.ps1
+        run: ./scripts/windows/Test-FastPatchSynthetic.ps1 -RepoRoot .
+
+      - name: Release package extraction smoke
+        shell: pwsh
+        run: ./scripts/windows/Build-ReleasePackage.ps1 -RepoRoot . -OutputRoot "$env:RUNNER_TEMP/agentic-pipeline-release" -Force
 
       - name: No backup artifacts in repository
         shell: bash

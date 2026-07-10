@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Command Inventory",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "runtime_version",
+    "commands"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "command",
+          "mode",
+          "workflow",
+          "required_paths"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "pattern": "^/[a-z][a-z0-9-]*$"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "workflow": {
+            "type": "string"
+          },
+          "required_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

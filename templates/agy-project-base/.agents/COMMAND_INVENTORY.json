@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0.0",
+  "runtime_version": "1.2.0",
+  "commands": [
+    {
+      "command": "/specdoc",
+      "mode": "write-docs",
+      "workflow": ".agents/workflows/specdoc.md",
+      "required_paths": []
+    },
+    {
+      "command": "/planonly",
+      "mode": "write-docs",
+      "workflow": ".agents/workflows/planonly.md",
+      "required_paths": []
+    },
+    {
+      "command": "/auditphase",
+      "mode": "read-only",
+      "workflow": ".agents/workflows/auditphase.md",
+      "required_paths": []
+    },
+    {
+      "command": "/probephase",
+      "mode": "bounded-write",
+      "workflow": ".agents/workflows/probephase.md",
+      "required_paths": []
+    },
+    {
+      "command": "/nextphase",
+      "mode": "write",
+      "workflow": ".agents/workflows/nextphase.md",
+      "required_paths": []
+    },
+    {
+      "command": "/fastpatch",
+      "mode": "script-gated-write",
+      "workflow": ".agents/workflows/fastpatch.md",
+      "required_paths": [
+        "scripts/Test-FastPatchAllowed.ps1"
+      ]
+    },
+    {
+      "command": "/visualqa",
+      "mode": "read-only-gate",
+      "workflow": ".agents/workflows/visualqa.md",
+      "required_paths": []
+    },
+    {
+      "command": "/reportqa",
+      "mode": "read-only-gate",
+      "workflow": ".agents/workflows/reportqa.md",
+      "required_paths": []
+    },
+    {
+      "command": "/securityaudit",
+      "mode": "read-only-gate",
+      "workflow": ".agents/workflows/securityaudit.md",
+      "required_paths": []
+    },
+    {
+      "command": "/artifactaudit",
+      "mode": "read-only-gate",
+      "workflow": ".agents/workflows/artifactaudit.md",
+      "required_paths": []
+    },
+    {
+      "command": "/shipcheck",
+      "mode": "read-only-gate",
+      "workflow": ".agents/workflows/shipcheck.md",
+      "required_paths": []
+    },
+    {
+      "command": "/landing",
+      "mode": "read-only",
+      "workflow": ".agents/workflows/landing.md",
+      "required_paths": []
+    },
+    {
+      "command": "/triage",
+      "mode": "read-only",
+      "workflow": ".agents/workflows/triage.md",
+      "required_paths": []
+    },
+    {
+      "command": "/codebase-map",
+      "mode": "read-only",
+      "workflow": ".agents/workflows/codebase-map.md",
+      "required_paths": [
+        "scripts/cbm-index-current-rpc.cjs"
+      ]
+    },
+    {
+      "command": "/parallel-audit",
+      "mode": "read-only",
+      "workflow": ".agents/workflows/parallel-audit.md",
+      "required_paths": []
+    },
+    {
+      "command": "/phasebatch",
+      "mode": "disabled-by-default",
+      "workflow": ".agents/workflows/phasebatch.md",
+      "required_paths": []
+    },
+    {
+      "command": "/fixcritical",
+      "mode": "bounded-write",
+      "workflow": ".agents/workflows/fixcritical.md",
+      "required_paths": []
+    },
+    {
+      "command": "/lessons",
+      "mode": "write-docs",
+      "workflow": ".agents/workflows/lessons.md",
+      "required_paths": []
+    },
+    {
+      "command": "/githubprepare",
+      "mode": "publication-prepare",
+      "workflow": ".agents/workflows/githubprepare.md",
+      "required_paths": [
+        "scripts/github/Prepare-GitHubPackage.ps1",
+        ".agy/GITHUB_PROFILE.json"
+      ]
+    },
+    {
+      "command": "/githubsync",
+      "mode": "publication-write",
+      "workflow": ".agents/workflows/githubsync.md",
+      "required_paths": [
+        "scripts/github/Sync-GitHub.ps1",
+        ".agy/GITHUB_PROFILE.json"
+      ]
+    }
+  ]
+}

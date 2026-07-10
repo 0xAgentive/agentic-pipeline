@@ -4,6 +4,10 @@
 
 Agentic Pipeline помогает не допускать дрейфа состояния, перескакивания фаз и неподтверждённых заявлений о готовности.
 
+**Текущий пакет:** `1.2.3 Distribution Integrity`
+**Канонический playbook/runtime:** `1.2.0`
+**ChatGPT Companion:** `1.2.1`
+
 ---
 
 ## Ценность и назначение
@@ -48,25 +52,29 @@ AI-ассистенты быстро пишут код, но часто ошиб
 
 ## Быстрый старт
 
-### Новый проект
+### Новый проект в Windows
 
-1. Скопируйте `templates/agy-project-base/` в папку нового проекта.
-2. Откройте эту папку в Antigravity.
-3. Запустите:
+Сначала запусти детерминированный установщик в dry-run режиме:
 
-        /specdoc
-        /planonly
-        /nextphase
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Initialize-AgenticProject.ps1 -Mode New -TargetRoot "$env:USERPROFILE\Documents\antigravity\My New Project"
+```
 
-### Существующий проект
+После проверки добавь `-Apply`. Новый проект всегда начинается с:
 
-Для существующего проекта сначала выполните аудит:
+```text
+/specdoc
+```
 
-        /auditphase
+### Подключение существующего проекта
 
-После аудита переходите к одной фазе реализации:
+Это отдельная инфраструктурная операция. Сначала закончи активную продуктовую фазу, затем запусти:
 
-        /nextphase
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Initialize-AgenticProject.ps1 -Mode Adopt -TargetRoot "C:\path\to\existing-project"
+```
+
+После проверки добавь `-Apply`. Adoption начинается с `/landing`, затем `/auditphase`. Существующее состояние `.agy` не перезаписывается молча.
 
 ---
 

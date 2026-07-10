@@ -1,7 +1,5 @@
 param(
-  [string]$TargetRoot = "$env:USERPROFILE\Documents\antigravity\H10 Athlete Cardio Lab",
-  [string]$TemplateRoot = "$env:USERPROFILE\Documents\antigravity\_templates\agy-project-base",
-  [switch]$UpdateMcpConfig
+  [string]$TargetRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,11 +7,11 @@ $ErrorActionPreference = "Stop"
 throw @"
 Apply-AgenticPipeline-v1.1.1.ps1 is deprecated and intentionally blocked.
 
-Reason: the legacy installer embedded stale fastpatch/runtime content and could downgrade a v1.2 project.
+Reason: the legacy installer embedded stale runtime content and could downgrade a v1.2 project.
 
-Use the current v1.2 migration tool instead:
-  Update-Polar-AgenticFramework-v1.2.ps1
+Use the current installer instead:
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Initialize-AgenticProject.ps1 -Mode New -TargetRoot <path> -Apply
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\Initialize-AgenticProject.ps1 -Mode Adopt -TargetRoot <path> -Apply
 
 Requested TargetRoot: $TargetRoot
-Requested TemplateRoot: $TemplateRoot
 "@

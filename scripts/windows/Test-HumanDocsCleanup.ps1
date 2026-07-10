@@ -84,8 +84,8 @@ Write-Host "Checking links in $($filesToCheck.Count) markdown files..."
 foreach ($file in $filesToCheck) {
   $content = Get-Content -LiteralPath $file.FullName -Encoding utf8 -Raw
   # Match [text](url) where url does not have http/https
-  $matches = [regex]::Matches($content, '\[[^\]]*\]\(([^)]+)\)')
-  foreach ($match in $matches) {
+  $LinkMatches = [regex]::Matches($content, '\[[^\]]*\]\(([^)]+)\)')
+  foreach ($match in $LinkMatches) {
     $url = $match.Groups[1].Value.Trim()
     
     # Skip web links, email links, anchors

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.2.0",
+  "project_name": "<ProjectName>",
+  "framework_version": "1.2.0",
+  "state_profile": "adopt-existing",
+  "current_phase": "adoption_audit_required",
+  "next_required_command": "/landing",
+  "commands_allowed_now": [
+    "/landing",
+    "/triage",
+    "/auditphase"
+  ],
+  "phase_lock": false,
+  "batch_allowed": false,
+  "risk_level": "medium",
+  "dirty_state": "unknown",
+  "hook_mode": "manual",
+  "open_blockers": [
+    "adoption_audit_not_completed"
+  ],
+  "unresolved_requirement_deltas": 0,
+  "required_artifacts_missing": 0
+}

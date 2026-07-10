@@ -1,50 +1,28 @@
-# Existing Project Guide
+# Existing Project Adoption Guide
 
-Use this when a project already exists and you want to continue safely.
+Do not adopt or upgrade the pipeline during active feature implementation.
 
-## Step 1. Read state
+## Preconditions
+
+- the current product phase is complete;
+- the worktree is clean or explicitly reviewed;
+- tests/build status is understood;
+- rollback or backup is available.
+
+## Windows
+
+Dry-run:
 
 ```powershell
-Get-Content .agy\PHASE_STATUS.json -Raw
-Get-Content .agy\AGENT_STATE.md -Raw
-git status --short
+$Repo = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline"
+$Project = "C:\path\to\existing-project"
+powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\scripts\windows\Initialize-AgenticProject.ps1" -Mode Adopt -TargetRoot $Project
 ```
 
-## Step 2. Ask for a read-only audit if unsure
+Apply after review:
 
-```text
-/auditphase
-
-Do not implement code.
-Inspect current state, changed files, checks, risks and next required command.
-Stop after the audit report.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$Repo\scripts\windows\Initialize-AgenticProject.ps1" -Mode Adopt -TargetRoot $Project -Apply
 ```
 
-## Step 3. Continue only with the expected command
-
-If `PHASE_STATUS.json` says `/securityaudit`, do `/securityaudit`.
-If it says `/shipcheck`, do `/shipcheck`.
-If it says `/nextphase`, implement one planned phase.
-
-## Step 4. Do not migrate pipeline mid-phase
-
-A pipeline upgrade is an infrastructure task. Do it only when:
-- current phase is complete;
-- tests/build pass;
-- git diff is understood;
-- current state is not blocked.
-
-## Step 5. For GitHub
-
-First publication:
-
-```text
-/githubprepare
-/githubsync
-```
-
-Updates:
-
-```text
-/githubsync
-```
+Default conflict policy is `Keep`. Existing files and `.agy` state are not silently replaced. New adoption state starts at `/landing`, followed by `/auditphase`.

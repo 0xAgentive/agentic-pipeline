@@ -4,19 +4,16 @@ This file records the public version posture of `agentic-pipeline`.
 
 ## Current public state
 
-| Layer | Status | Notes |
-|---|---|---|
-| Active canonical playbook | v1.2-family | `docs/AGENTIC_PIPELINE_PLAYBOOK.md` is the canonical root path for validators and downstream scripts. |
-| Versioned playbook floor | v1.2.0 | The versioned playbook is preserved under `docs/maintainers/AGENTIC_PIPELINE_PLAYBOOK_v1.2.0.md`. The repository must not regress below the v1.2.0 playbook family. |
-| Stabilization patch line | v1.1.1b-r4/r4b | r4/r4b are the stabilization and hardening patches for validation, fastpatch safety, path consistency and GitHub publication hygiene. |
-| Human docs cleanup | v1.2.2a | GitHub landing pages and human documentation structure were cleaned up without changing runtime behavior. |
-| ChatGPT Companion pack | v1.2.1 | Companion context is stored separately under `docs/companion/`. |
-| Planned next-gen control plane | v1.2 Product Evidence Control Plane | Compiled runtime, full metrics/evals/evidence ledger and deeper product-contract gates are planned/maintainer-level work unless proven active by validators. |
+| Layer | Current version | Notes |
+|---|---:|---|
+| Package release | **1.2.3** | Distribution Integrity: state profiles, fresh-install smoke, command inventory, template hygiene, leakage checks, tracked-only release packages. |
+| Canonical playbook/runtime | **1.2.0** | `docs/AGENTIC_PIPELINE_PLAYBOOK.md` and the versioned/reference copies remain byte-identical. |
+| Runtime Truth patch | 1.2.1a | Fastpatch parity, schema baseline, evidence placeholders, self-contained hot workflows and runtime-truth validation. |
+| Documentation cleanup | 1.2.2a | Historical patch label for bilingual GitHub landing and docs structure. It is not the runtime version. |
+| ChatGPT Companion | 1.2.1 | Stored separately under `docs/companion/`. |
+| Product Evidence Runtime | planned | Safe writers, artifact manifests and deterministic shipcheck are not yet fully active. |
+| Runtime compiler | deferred | `runtime-src/` remains a scaffold until a deterministic compiler and drift validator exist. |
 
-## Important distinction
+## Version rule
 
-`v1.2.0` is the minimum current playbook family. `v1.2.2a` is a documentation/publication cleanup release. `v1.1.1b-r4/r4b` remains an important stabilization patch line and must stay visible in release notes and validators.
-
-## Do not claim
-
-Do not claim that compiled runtime, full eval suite, complete metrics ledger, or full Product Evidence Control Plane runtime is active by default unless the repository contains the corresponding scripts, schemas, validators and passing evidence.
+Use `VERSION.json` for machine-readable package/runtime/companion versions. Do not infer the active runtime from historical archive filenames.

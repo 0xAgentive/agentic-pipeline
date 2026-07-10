@@ -1,50 +1,42 @@
-# Шпаргалка команд
+# Краткая карта команд
 
-## Основные команды
+Канонический список находится в `config/command-inventory.json`; для каждой команды ниже поставляется workflow.
 
-`/specdoc` — только ТЗ и документы. Без кода.
+## Спецификация и планирование
 
-`/planonly` — только план реализации. Без кода.
+- `/specdoc` - создать или обновить документы продукта и ТЗ без реализации.
+- `/planonly` - создать фазовый план реализации и проверок.
+- `/probephase` - выполнить один ограниченный технический probe.
 
-`/auditphase` — проверка текущего состояния, рисков, документов и проверок. Без feature work.
+## Ориентация и аудит
 
-`/probephase` — ограниченное локальное исследование. Без реализации, если явно не разрешено.
+- `/triage` - классифицировать запрос и рекомендовать следующую безопасную команду.
+- `/landing` - восстановить контекст проекта без реализации.
+- `/auditphase` - read-only проверка состояния, claims, evidence и blockers.
+- `/codebase-map` - построить ограниченную структурную карту кодовой базы.
+- `/parallel-audit` - независимые read-only audit lanes без записи исходников.
 
-`/nextphase` — реализация только одной утверждённой фазы.
+## Реализация и исправления
 
-`/fastpatch` — маленькая UI/style правка только если скрипт-гейт разрешил.
+- `/nextphase` - реализовать ровно одну утверждённую фазу и остановиться.
+- `/fastpatch` - маленькая script-gated UI/style правка с обязательным post-edit `-RequireChanges`.
+- `/fixcritical` - исправить только ранее подтверждённые критические blockers.
+- `/phasebatch` - отключён по умолчанию и требует явного разрешения человека.
+- `/lessons` - записать candidate lessons без изменения durable runtime rules.
 
-`/visualqa` — проверка UI, браузера, скриншотов, console, читаемости.
+## Evidence gates
 
-`/securityaudit` — приватность, экспорты, файловая система, MCP, секреты, внешние вызовы.
+- `/visualqa` - проверить UI evidence.
+- `/reportqa` - проверить отчёты и export bundles.
+- `/securityaudit` - read-only security/privacy audit.
+- `/artifactaudit` - проверить наличие артефактов, индекс, размер и хеши.
+- `/shipcheck` - финальное evidence-based решение `SHIP` или `NO-SHIP`.
 
-`/shipcheck` — решение по релизу. Только SHIP или NO-SHIP на основе deterministic evidence.
+## Публикация GitHub
 
-`/githubprepare` — подготовка README, license, security docs, templates перед первой публикацией.
+- `/githubprepare` - подготовить двуязычные файлы публикации без push.
+- `/githubsync` - commit/push через детерминированные локальные `git` и `gh` scripts.
 
-`/githubsync` — commit/push через git/gh.
+## Когда остановиться
 
-## Полезные формулировки
-
-```text
-Implement only the next planned phase. Stop after verification and checkpoint.
-```
-
-```text
-Do not implement code. Audit only. Stop after the report.
-```
-
-```text
-Do not write SHIP unless all deterministic checks and required evidence pass.
-```
-
-## Когда останавливать агента
-
-Остановить, если агент хочет:
-- менять исходные данные;
-- просить admin/elevation;
-- добавить cloud upload;
-- использовать write-capable MCP без approval;
-- пропустить тесты;
-- публиковать без validation;
-- автоматически начать следующую фазу.
+Остановись, если действие не соответствует `.agy/PHASE_STATUS.json`, отсутствует детерминированное evidence или write-capable tool требует approval.

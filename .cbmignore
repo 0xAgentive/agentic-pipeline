@@ -15,6 +15,7 @@ coverage/
 .codebase-memory/
 playwright-report/
 test-results/
+.artifacts/
 artifacts/
 reports/generated/
 logs/

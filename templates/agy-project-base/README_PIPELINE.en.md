@@ -1,35 +1,25 @@
-# How to use this template
+# Agentic Pipeline project template
 
-This folder contains the base Antigravity project template files for the Agentic Development Pipeline.
+This is a self-contained project template for Agentic Pipeline runtime `1.2.0`.
 
-## Workspace Lifecycle
+## New project lifecycle
 
-For any project workspace using this pipeline, execute workflows in this sequence:
+1. `/specdoc`
+2. `/planonly`
+3. `/auditphase`
+4. `/nextphase`
+5. the required visual/report/security/artifact gates
+6. `/shipcheck`
 
-1.  **Requirement Specification**:
-    ```text
-    /specdoc
-    ```
-2.  **Implementation Planning**:
-    ```text
-    /planonly
-    ```
-3.  **Local Workspace Verification**:
-    ```text
-    /auditphase
-    ```
-4.  **Incremental Implementation**:
-    ```text
-    /nextphase
-    ```
-    *(Always implement exactly one phase, verify it, commit/checkpoint, and stop.)*
-5.  **Final Verification & Shipping**:
-    ```text
-    /shipcheck
-    ```
+The distributed initial state is `new-project`, so `.agy/PHASE_STATUS.json` requires `/specdoc` first.
 
-## Crucial Rule
+For an existing repository, do not copy this template manually over active work. Use the installer in `adopt-existing` mode only after the current product phase is complete and the worktree is understood.
 
-Do not skip phases. LLM chat reports are not verification. Trust only deterministic commands, tests, diffs, and logs in the local environment.
+## Local documentation
 
-For detailed documentation, refer to the root [README.md](../../README.md) of the agentic-pipeline repository.
+- [Start here](docs/START_HERE.en.md)
+- [Command cheat sheet](docs/COMMANDS_CHEATSHEET.en.md)
+- [Operating model](docs/OPERATING_MODEL.en.md)
+- [GitHub publication](docs/GITHUB_PUBLICATION.md)
+
+Model prose is not verification. Trust deterministic commands, exit codes, tests, diffs, logs, screenshots and artifact hashes.

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Pipeline Version",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "package_version",
+    "release_name",
+    "playbook_version",
+    "runtime_version",
+    "companion_version",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "package_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "release_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "playbook_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "runtime_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "companion_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(?:\\.\\d+)?$"
+    },
+    "status": {
+      "enum": [
+        "development",
+        "candidate",
+        "stable",
+        "deprecated"
+      ]
+    }
+  }
+}

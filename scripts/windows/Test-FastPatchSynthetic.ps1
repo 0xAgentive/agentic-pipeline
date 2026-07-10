@@ -58,12 +58,12 @@ function Invoke-Gate {
   )
 
   $shell = Get-PowerShellExecutable
-  $args = @("-NoProfile")
+  $GateArguments = @("-NoProfile")
   if ([System.IO.Path]::GetFileName($shell) -match "^(?i:powershell)(\.exe)?$") {
-    $args += @("-ExecutionPolicy", "Bypass")
+    $GateArguments += @("-ExecutionPolicy", "Bypass")
   }
 
-  $args += @(
+  $GateArguments += @(
     "-File", $GatePath,
     "-RepoRoot", $SyntheticRoot,
     "-MaxChangedFiles", "$MaxChangedFiles",
@@ -71,13 +71,13 @@ function Invoke-Gate {
     "-MaxDeletedLines", "$MaxDeletedLines"
   )
 
-  if ($RequireChanges) { $args += "-RequireChanges" }
+  if ($RequireChanges) { $GateArguments += "-RequireChanges" }
 
   # AGY_GATE_STDERR_SAFE
   $oldPreference = $ErrorActionPreference
   try {
     $ErrorActionPreference = "Continue"
-    & $shell @args 2>&1 | ForEach-Object { Write-Host $_ }
+    & $shell @GateArguments 2>&1 | ForEach-Object { Write-Host $_ }
     $code = $LASTEXITCODE
   }
   finally {

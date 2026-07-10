@@ -1,1101 +1,494 @@
-# Agentic Development Pipeline Playbook
+# Agentic Development Pipeline Playbook v1.2.0
 
-Version: `1.1.1b-r4`
-Date: `2026-07-06`
-Owner: `VB / User`
-Active runtime: `Google Antigravity only`
-Active model policy: `Gemini 3.5 Flash — Medium by default, High only for hard gates`
-Local mutation shell: `Windows PowerShell`
-Status: `stabilization patch; v1.1.1b-r4b`
+Version: `1.2.0`
+Codename: `Product Evidence Control Plane`
+Status: `major framework specification`
+Primary runtime: `Google Antigravity`
+Active models: `Gemini Flash 3.5 Medium/High`
+Codex status: `optional compatibility layer, not active runtime by default`
 
----
+## 1. Executive summary
 
-## 0. Executive Summary
+v1.2.0 upgrades the pipeline from a Markdown-heavy phase process into a measurable product-evidence control plane.
 
-This release is a narrow hotfix. It does not introduce a new agentic philosophy, a multi-track router, a product-probe system, or ROI telemetry. The v1.1.0 phase-gated architecture remains the baseline.
+The framework must prevent observed failure modes:
 
-The v1.1.1 changes are limited to four operational needs:
+- the agent writes `SHIP` while requirements changed;
+- reports contradict quality gates;
+- artifacts are missing or only visible in IDE internals;
+- screenshots/walkthroughs are not preserved;
+- UI blockers are treated as cosmetic;
+- generated reports leak raw enum keys, paths, device IDs, or forbidden wording;
+- a model-written evidence note is treated as verification;
+- a large playbook is repeatedly loaded into hot context;
+- MCP/tool surface expands without approval.
 
-```text
-1. Windows MCP hardening through cmd.exe wrappers in C:\Users\Public\mcp-wrappers.
-2. Codebase Memory Windows policy: do not use CLI index_repository; use MCP JSON-RPC reindexing when needed.
-3. A script-gated /fastpatch path for a very small allowlisted UI surface only.
-4. Deterministic semantic tests for critical projects such as H10; /shipcheck must trust exit codes, not model prose.
-```
+## 2. Non-negotiable principles
 
-The main trust rule is:
+### 2.1 Evidence beats claims
 
-```text
-LLM reports are not verification.
-Deterministic commands, tests, diffs, screenshots, logs, and exit codes are verification.
-```
+Model prose is not verification.
 
-The core control principle remains:
+Valid evidence is:
 
-```text
-workflow = ordered execution contract
-rules = durable project invariants
-skills = narrow on-demand expertise
-hooks = deterministic local guardrails/checkpoints
-MCP = optional tool surface, never autopilot
-project docs = human-readable source of truth
-.agy = machine-readable state and evidence pointers, not truth itself
-```
+- exit code 0 from deterministic checks;
+- git diff;
+- test output;
+- parser/build/lint output;
+- screenshot or browser artifact for UI;
+- ZIP/PDF/HTML/CSV artifact manifest;
+- SHA-256 and file size;
+- grep/static scan output;
+- semantic/domain tests where applicable.
 
----
+### 2.2 Product contract beats stale plans
 
-## 1. Active Scope
+If the user changes product scope, the pipeline must update requirements, acceptance criteria, artifacts, tests and state before further implementation.
 
-### 1.1 In scope
+Unresolved requirement deltas block `/shipcheck`.
 
-```text
-Google Antigravity
-Gemini 3.5 Flash Medium / High
-PowerShell-only local mutation
-Antigravity project templates
-.agents workflows/rules/skills/hooks
-.agy phase and evidence state
-Context7 MCP
-Codebase Memory MCP via Windows wrapper + RPC reindexing
-Chrome DevTools MCP / Browser verification
-GitHub MCP read-only after remote exists
-agent-skills plugin if installed and useful
-```
+### 2.3 Artifacts are first-class
 
-### 1.2 Out of active scope
+Material audit/shipcheck/report/visual phases must write evidence artifacts to disk, not only to chat.
+
+### 2.4 Hot runtime must be small
+
+The full playbook is a reference. Normal workflows must not require reading the full playbook.
+
+### 2.5 Read-only parallelism only
+
+Parallel lanes are allowed only for read-only audits. Write-capable implementation remains single executor and phase-gated.
+
+## 3. v1.2 source layout
 
 ```text
-OpenAI Codex as active runtime
-Claude Code / Cursor / Windsurf / Kiro / Aider
-Autonomous cloud deployment
-Write-capable MCP by default
-Docker MCP Gateway as baseline
-/router-style multi-track orchestration
-/productprobe as a required workflow
-METRICS.ndjson as a required system
-instruction-smell linters as required infrastructure
-```
+runtime-src/
+  core.yml
+  workflows/*.yml
+  rules/*.yml
+  hooks.yml
+  skills.yml
+  tool-profiles/*.yml
 
-Codex may exist as a historical note, but it is not part of the active runtime, default project template, or execution policy.
-
----
-
-## 2. Platform and Model Baseline
-
-Google Antigravity is the active platform baseline.
-
-Older Gemini CLI references are compatibility notes only when a confirmed Antigravity equivalent exists. Do not let older Gemini/Codex conventions override project-local Antigravity workflows and state contracts.
-
-Canonical model family:
-
-```text
-gemini-3.5-flash
-```
-
-Default thinking level:
-
-```text
-Medium
-```
-
-Use Medium for:
-
-```text
-routine implementation phases
-ordinary audit loops
-low-risk bug fixes
-test-following corrections
-localized UI changes
-small refactors with clear acceptance criteria
-```
-
-Escalate to High for:
-
-```text
-architecture decisions
-security/privacy audits
-MCP policy changes
-large cross-module refactors
-stuck debugging after one failed repair
-release / ship-no-ship decisions
-state drift reconciliation
-hook/workflow/template design
-sensitive data or filesystem-safety work
-```
-
-After the hard decision is made, de-escalate back to Medium for ordinary implementation.
-
----
-
-## 3. Trust Model
-
-### 3.1 What counts as evidence
-
-Accepted evidence:
-
-```text
-exit code 0 from deterministic command
-failing exit code from a seeded or real regression
-specific git diff
-specific files changed
-specific test output
-specific build output
-specific grep/search output
-specific screenshot/video artifact
-specific MCP JSON-RPC result when tool status is relevant
-```
-
-Not accepted as evidence by itself:
-
-```text
-LLM says “looks good”
-LLM writes a long EVIDENCE_LOG entry
-LLM says a test exists but did not run it
-LLM says a security/privacy invariant is satisfied without a deterministic check
-LLM claims release readiness without /shipcheck evidence
-```
-
-### 3.2 Ledger status
-
-`.agy/EVIDENCE_LOG.md` is an audit pointer ledger. It is not source of truth. It should point to commands, outputs, artifacts, and residual risks.
-
-For small approved `/fastpatch` work, use `evidence-lite` only:
-
-```text
-UTC:
-Command:
-Files:
-Checks:
-Result:
-Risk class:
-Next:
-```
-
-Do not let the agent write essays in the evidence ledger.
-
----
-
-## 4. Workspace Layout
-
-Canonical important-project layout:
-
-```text
-<ProjectRoot>\
-  .agents\
+templates/agy-project-base/
+  .agents/
     AGENTS.md
-    agents.md                         # optional compatibility shim only
+    workflows/*.md
+    rules/*.md
+    skills/*/SKILL.md
     hooks.json
-    hooks\
-      agy_checkpoint.ps1
-      guard_preflight.ps1
-      guard_context_budget.ps1
-      guard_offline_local_only.ps1
-      Test-HookContract.ps1
-    rules\
-      00-project-rules.md
-      10-pipeline-rules.md
-      20-safety-boundaries.md
-      30-verification-gates.md
-      40-mcp-tooling.md
-      50-v1.1-governance.md
-      51-v1.1.1-hotfix.md
-    workflows\
-      specdoc.md
-      planonly.md
-      auditphase.md
-      probephase.md
-      nextphase.md
-      phasebatch.md
-      fastpatch.md
-      fixcritical.md
-      landing.md
-      visualqa.md
-      securityaudit.md
-      shipcheck.md
-      lessons.md
-      codebase-map.md
-    skills\
-      project-domain-accuracy\SKILL.md
-      project-review-gate\SKILL.md
-      <project-specific-skill>\SKILL.md
-
-  .agy\
+    hooks.sample.json
+    hooks/*.ps1
+    tool-profiles/*.json
+  .agy/
     PHASE_STATUS.json
+    PHASE_STATUS.schema.json
+    PRODUCT_CONTRACT.json
+    REQUIREMENTS_DELTA.md
+    REQUIREMENTS_DELTA.ndjson
+    ARTIFACT_INDEX.ndjson
+    evidence.ndjson
+    RUN_METRICS.ndjson
+    APPROVALS.json
     AGENT_STATE.md
     RECOVERY_PROMPT.md
-    MCP_PROFILE.md
-    EVIDENCE_LOG.md
-    checkpoints\
-    cbm\
+  .artifacts/
+    README.md
 
-  docs\
-    PROJECT.md
-    SPEC.md
-    ARCHITECTURE.md
-    DATA_SOURCES.md
-    IMPLEMENTATION_PLAN.md
-    VERIFICATION_PLAN.md
-    RISKS_AND_ASSUMPTIONS.md
-    EXECUTION_PROMPTS.md
-    AGENTIC_PIPELINE_PLAYBOOK.md
+scripts/
+  runtime/
+  validate/
+  artifacts/
+  state/
+  evals/
+  package/
+  migration/
 
-  scripts\
-    Test-FastPatchAllowed.ps1
-    cbm-index-current-rpc.cjs
-    cbm-wrapper-smoke.cjs
-
-  AGENTS.md                         # short pointer only
-  .gitignore
-  .cbmignore
+evals/golden/
+schemas/
+docs/
 ```
 
-Root `AGENTS.md` is only a short pointer. Canonical runtime instructions live in `.agents/AGENTS.md`.
+## 4. Required state files
 
----
+### `.agy/PHASE_STATUS.json`
 
-## 5. Phase-Gated Lifecycle
+Minimum fields:
 
-The standard lifecycle remains:
+```json
+{
+  "schema_version": "1.2.0",
+  "project_name": "",
+  "current_phase": "/auditphase",
+  "next_required_command": "/nextphase",
+  "commands_allowed_now": [],
+  "phase_lock": true,
+  "batch_allowed": false,
+  "risk_level": "low|medium|high|critical",
+  "dirty_state": "clean|dirty|unknown",
+  "hook_mode": "manual|advisory|enforcing",
+  "last_verified_at_utc": null,
+  "open_blockers": [],
+  "unresolved_requirement_deltas": 0,
+  "required_artifacts_missing": 0
+}
+```
+
+### `.agy/PRODUCT_CONTRACT.json`
+
+Defines current product goal, modes, required gates, forbidden artifacts/claims, sensitive data boundaries and shipcheck blockers.
+
+### `.agy/REQUIREMENTS_DELTA.ndjson`
+
+Each user-driven scope change creates one entry:
+
+```json
+{
+  "ts_utc": "2026-07-08T00:00:00Z",
+  "run_id": "...",
+  "old_goal": "...",
+  "new_goal": "...",
+  "affected_workflows": [],
+  "affected_artifacts": [],
+  "tests_required": [],
+  "blocks_shipcheck": true,
+  "status": "open"
+}
+```
+
+### `.agy/evidence.ndjson`
+
+Machine evidence source of truth. Markdown evidence is a human-readable view, not gate input.
+
+### `.agy/RUN_METRICS.ndjson`
+
+Records command, phase, duration, files read/changed, checks, artifacts, tool/MCP use, model/thinking level when available.
+
+### `.agy/ARTIFACT_INDEX.ndjson`
+
+Indexes artifacts with path, kind, size, SHA-256, creator command, phase id and required_for_shipcheck flag.
+
+## 5. Artifact Delivery Contract
+
+Every material auditphase, reportqa, visualqa, shipcheck and artifact-producing nextphase must produce an evidence archive.
+
+Default path:
 
 ```text
+.artifacts/<phase_id>_<run_id>/<phase_id>_evidence.zip
+```
+
+Minimum archive contents:
+
+```text
+00_AUDIT_SUMMARY.md
+01_COMMAND_RESULTS.md
+02_CHANGED_FILES.md
+03_ARTIFACT_FILE_LISTS.md
+04_FORBIDDEN_TEXT_SCAN.md
+05_MANUAL_VERIFICATION.md
+06_RISKS_AND_UNVERIFIED.md
+07_NEXT_STEP.md
+ARTIFACT_MANIFEST.json
+task.md
+walkthrough.md
+```
+
+Final response after such a phase must print:
+
+```text
+Evidence ZIP absolute path:
+Evidence ZIP relative path:
+Size bytes:
+SHA-256:
+Contents:
+```
+
+If required artifacts are missing, `/auditphase` and `/shipcheck` must fail.
+
+## 6. Workflow contracts
+
+Every workflow has a contract:
+
+```yaml
+name: nextphase
+mode: write
+allowed_reads: []
+allowed_writes: []
+forbidden_writes: []
+required_gates: []
+required_artifacts: []
+tool_profile: local-only
+stop_conditions: []
+next_state_rule: ""
+```
+
+Required workflows:
+
+```text
+/triage
 /specdoc
 /planonly
+/probephase
 /auditphase
-/probephase if needed
-/nextphase one phase at a time
-/visualqa if browser UI exists
-/securityaudit if privacy/security/data-flow matters
+/nextphase
+/fastpatch
+/fixcritical
+/visualqa
+/reportqa
+/securityaudit
+/artifactaudit
+/parallel-audit
+/landing
+/lessons
+/githubprepare
+/githubsync
 /shipcheck
 ```
 
-### 5.1 `/specdoc`
+## 7. Gate policy
 
-Specification documents only. No source code edits, scaffolding, dependency install, build/test/publish, feature implementation, or batch unlock.
+### `/triage`
 
-### 5.2 `/planonly`
+Read-only. JSON only. Recommends next command. Never edits. Never marks ready.
 
-Implementation and verification plan only. No source code edits, scaffolding, dependency install, build/test/publish, feature implementation, or batch unlock.
+### `/fastpatch`
 
-### 5.3 `/auditphase`
+Requires preflight plus post-diff gate. Must inspect staged, unstaged and untracked files. Must block backend imports, network/storage APIs, dangerous HTML, secrets, broad diffs and files outside allowlist.
 
-Verify current workspace consistency before further work. Must check docs vs `.agy`, phase ledger freshness, build/test/lint commands if known, unverified claims, open risks, forbidden file mutations, and MCP/tool assumptions. No feature work.
+### `/visualqa`
 
-### 5.4 `/probephase`
+Required for browser/UI projects. Must capture screenshot/walkthrough/console evidence. Blocks raw i18n keys, unreadable dark dropdowns, clipped charts, browser alert/confirm and missing accessibility basics.
 
-Validate local assumptions before implementation. Use for hardware/system APIs, large-file parsing, permissions, storage, network/source adapters, security/privacy-sensitive paths. No full product build.
+### `/reportqa`
 
-### 5.5 `/nextphase`
+Required for generated PDF/HTML/ZIP/CSV artifacts. Must unpack/scan generated artifacts for manifest, redaction, forbidden text, raw enum labels, unit consistency and required sections.
 
-One and only one phase. It must read `.agy/PHASE_STATUS.json`, verify approval, run preflight, implement only the selected phase, run targeted checks, review scope/security/privacy/regressions, fix only blockers, append evidence, checkpoint, and stop.
+### `/securityaudit`
 
-### 5.6 `/fastpatch`
+Read-only by default. Required for secrets, local data, MCP, exports, sanitizers, file systems and privacy boundaries.
 
-A narrow, script-gated micro-workflow for low-risk UI/styling changes only.
+### `/parallel-audit`
 
-It is not a router and not a model judgment path. The agent cannot self-authorize `/fastpatch` based on prose. It must pass:
+Read-only lanes only. Writes artifacts only. No source writes. One coordinator merge. Fixes happen later in single `/nextphase`.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-FastPatchAllowed.ps1
-```
+### `/shipcheck`
 
-Allowed only when the script approves the current git diff.
+Returns `SHIP` or `NO-SHIP`.
 
-Default H10 stance:
+`SHIP` requires:
 
-```text
-Fastpatch is allowed only for explicitly allowlisted UI/styling files.
-Any touched file outside the allowlist blocks fastpatch and requires /auditphase or /nextphase.
-```
+- valid PHASE_STATUS;
+- no open blocking requirement deltas;
+- required checks pass;
+- required artifacts exist;
+- evidence.ndjson valid;
+- visual/report/security gates pass where applicable;
+- rollback path exists;
+- no critical unverified claims.
 
-Forbidden in `/fastpatch`:
+## 8. Skills
 
-```text
-backend code
-analytics / HRV / QC logic
-source ingestion
-LLM Pack / export / redaction / sanitizer
-reports / PDF / medical wording / disclaimers
-storage / DB / migrations / schema
-auth / secrets / env
-package/dependency/build-tooling changes
-hooks / workflows / templates / MCP config
-.agy state changes except one evidence-lite entry
-release-readiness claims
-```
-
-`/fastpatch` may append one compact evidence-lite entry. It must not run `/planonly`, `/auditphase`, `/codebase-map`, or broad scans.
-
-If the fastpatch gate fails, stop and require the standard flow.
-
-### 5.7 `/phasebatch`
-
-Disabled by default. Maximum 2 low-risk adjacent phases only if explicitly enabled and no high-risk scope exists. Never default.
-
-### 5.8 `/fixcritical`
-
-Fix only blockers found by `/auditphase`, `/securityaudit`, `/visualqa`, or `/shipcheck`. No new features, redesigns, broad refactors, publish/package/signing, or speculative improvements.
-
-### 5.9 `/landing`
-
-Recovery only. Allowed: read status, summarize diff, update `.agy`, append evidence, checkpoint, stop. Forbidden: implementation, refactor, long commands, feature fixes.
-
-### 5.10 `/visualqa`
-
-Browser/UI verification only. Required evidence: tested URL/screen scope, screenshot path(s), console summary, network summary, visual defects or pass notes.
-
-### 5.11 `/securityaudit`
-
-Security/privacy audit only. Required evidence: grep/search results, test results, config findings, risk classification, unverified items.
-
-### 5.12 `/shipcheck`
-
-Release readiness only.
-
-Must refuse “ready” if:
+Use narrow skills for project-specific procedures:
 
 ```text
-.agy state is stale
-EVIDENCE_LOG is missing or incomplete for material gates
-build/tests are missing
-semantic tests are required but absent or failing
-visual QA required but absent
-security audit required but absent
-open high-risk risks exist
-rollback notes are missing
-```
-
-For H10 and similarly sensitive projects, `/shipcheck` must require:
-
-```text
-npm run test:semantic
-```
-
-or the project’s equivalent deterministic semantic test command.
-
-### 5.13 `/lessons`
-
-Postmortem only. It writes candidate lessons to an inbox/patch proposal. It must not silently mutate durable rules, workflows, skills, or global instructions.
-
-### 5.14 `/codebase-map`
-
-Manual Codebase Memory use. Only after `.cbmignore` validation. No feature work.
-
-On this Windows workspace, do not use Codebase Memory CLI `index_repository`. Use existing MCP index/query tools first; if reindexing is needed, use `scripts/cbm-index-current-rpc.cjs`.
-
----
-
-## 6. Deterministic Semantic Verification
-
-For critical projects, semantic verification must be implemented as ordinary tests, not as model review.
-
-### 6.1 H10 Semantic Pack
-
-Minimum H10 deterministic test groups:
-
-```text
-HRV/QC golden cases:
-- RMSSD
-- SDNN
-- pNN50
-- empty/short/constant RR intervals
-
-LLM Pack redaction:
-- no real username
-- no local filesystem paths
-- no Polar serial/device IDs
-- no raw nested path leakage in ZIP exports
-
-Medical wording:
-- no clinical diagnostic claims
-- disclaimer required in report/export/UI surfaces
-
-Source log read-only:
-- no writes, renames, temp files, or lock files under configured raw source roots such as Z:\Polar Logs
-
-Sanitizer:
-- strips script tags
-- strips dangerous inline HTML
-- preserves benign markdown
-
-Local-only runtime:
-- server binds to loopback
-- no CDN/remote calls in frontend bundle
-```
-
-### 6.2 Fault injection
-
-Fault injection is a human protocol, not an AI workflow.
-
-Use a throwaway branch or worktree:
-
-```text
-1. create throwaway branch
-2. manually introduce one known semantic defect
-3. run npm run test:semantic or target test command
-4. confirm non-zero exit code
-5. revert/delete branch
-```
-
-Do not let the agent “prove” semantic tests by weakening assertions.
-
----
-
-## 7. State and Evidence
-
-Required state files:
-
-```text
-.agy/PHASE_STATUS.json
-.agy/AGENT_STATE.md
-.agy/RECOVERY_PROMPT.md
-.agy/MCP_PROFILE.md
-.agy/EVIDENCE_LOG.md
-```
-
-`PHASE_STATUS.json` minimum fields:
-
-```json
-{
-  "project_name": "<ProjectName>",
-  "current_policy": "one_phase_only",
-  "batch_allowed": false,
-  "project_status": "not_started|needs_independent_audit|in_progress|blocked|ready_candidate|shipped",
-  "next_required_command": "/specdoc",
-  "last_updated_utc": null,
-  "last_audit_utc": null,
-  "last_evidence_entry": null,
-  "commands_allowed_now": [],
-  "open_risks": [],
-  "phases": []
-}
-```
-
-Evidence policy:
-
-```text
-Full evidence for T2/T3 material gates.
-Evidence-lite for script-approved /fastpatch only.
-No long self-justifying essays.
-Evidence points to deterministic outputs; it is not the output itself.
-```
-
----
-
-## 8. Hooks and Local Scripts
-
-Hooks are deterministic local guardrails, not reasoning agents.
-
-Rules:
-
-```text
-never block on interactive stdin
-short runtime
-clear timeout
-no long indexing
-no broad scans on critical path
-stdout must be valid JSON when invoked by Antigravity
-logs go to stderr or files
-manual mode must not hang
-```
-
-Required hook scripts:
-
-```text
-agy_checkpoint.ps1
-guard_preflight.ps1
-guard_context_budget.ps1
-guard_offline_local_only.ps1
-Test-HookContract.ps1
-```
-
-Required non-hook utility scripts for v1.1.1:
-
-```text
-scripts/Test-FastPatchAllowed.ps1
-scripts/cbm-index-current-rpc.cjs
-scripts/cbm-wrapper-smoke.cjs
-```
-
-After template updates and before trusting hooks:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ".agents\hooks\Test-HookContract.ps1"
-```
-
----
-
-## 9. Context and Indexing Controls
-
-Baseline `.cbmignore`:
-
-```text
-node_modules/
-dist/
-build/
-coverage/
-.next/
-.nuxt/
-.turbo/
-.vite/
-.git/
-.agy/checkpoints/
-.pipeline_patch_backup/
-.pipeline_sync_backup/
-.pipeline_v1_1_backup/
-.pipeline_adopt_backup/
-.codebase-memory/
-playwright-report/
-test-results/
-artifacts/
-reports/generated/
-logs/
-tmp/
-temp/
-*.log
-*.zip
-*.pdf
-*.html
-*.har
-*.trace
-```
-
-Do not globally ignore all `.json`, `.png`, `.md`, or fixtures. These may be source/config/test data.
-
----
-
-## 10. MCP Governance
-
-### 10.1 Default MCP stance
-
-```text
-read-only first
-smallest tool surface
-manual/project-triggered for heavy tools
-no write-capable MCP without approval
-no duplicate direct + gateway server for same purpose
-no MCP as source of release truth
-```
-
-### 10.2 Windows wrapper model
-
-Do not point Antigravity directly at binaries under a non-ASCII user profile path when a wrapper is available.
-
-Preferred local wrapper directory:
-
-```text
-C:\Users\Public\mcp-wrappers
-```
-
-Preferred Codebase Memory cache:
-
-```text
-C:\Users\Public\codebase-memory-cache
-```
-
-Expected Codebase Memory server entry:
-
-```json
-{
-  "codebase-memory": {
-    "command": "C:\\Windows\\System32\\cmd.exe",
-    "args": [
-      "/d",
-      "/c",
-      "C:\\Users\\Public\\mcp-wrappers\\codebase-memory-mcp.cmd"
-    ]
-  }
-}
-```
-
-Expected wrapper content:
-
-```cmd
-@echo off
-setlocal
-
-if "%LOCALAPPDATA%"=="" set "LOCALAPPDATA=%USERPROFILE%\AppData\Local"
-set "CBM_EXE=%LOCALAPPDATA%\Programs\codebase-memory-mcp\codebase-memory-mcp.exe"
-
-set "CBM_CACHE_DIR=C:\Users\Public\codebase-memory-cache"
-set "CBM_LOG_LEVEL=error"
-set "CBM_DIAGNOSTICS=0"
-set "TEMP=C:\Users\Public\codebase-memory-temp"
-set "TMP=C:\Users\Public\codebase-memory-temp"
-
-if not exist "%CBM_EXE%" (
-  echo Codebase Memory executable not found: "%CBM_EXE%" 1>&2
-  exit /b 127
-)
-
-"%CBM_EXE%" %*
-```
-
-### 10.3 Codebase Memory Windows policy
-
-On this Windows workspace:
-
-```text
-Do not use codebase-memory-mcp cli index_repository as canonical path.
-Do not create repository mirrors.
-Do not create junctions.
-Do not run mklink.
-Do not run robocopy to duplicate the repository.
-Do not use subst.
-Do not create C:\h10-athlete-cardio-lab.
-```
-
-If reindexing is needed, use:
-
-```powershell
-node .\scripts\cbm-index-current-rpc.cjs
-```
-
-Then use existing MCP query tools:
-
-```text
-list_projects
-index_status
-search_code
-search_graph
-get_architecture
-trace_path if useful
-```
-
-### 10.4 Chrome DevTools MCP
-
-Use only for `/visualqa` or explicit browser debugging.
-
-Default privacy stance:
-
-```text
-separate clean browser profile if possible
-no personal logins during QA
---no-usage-statistics
---no-performance-crux
-screenshot evidence required
-console/network notes required
-```
-
----
-
-## 11. Skills
-
-Generic skills:
-
-```text
-project-domain-accuracy
-project-review-gate
-```
-
-Project-specific skills are allowed only for repeating domain/safety risks.
-
-H10 examples:
-
-```text
+artifact-audit
+requirement-drift-audit
+release-evidence-packaging
+visual-qa
+report-qa
+security-privacy-review
+windows-powershell-hardening
+github-publication
 h10-medical-language-safety
 h10-llm-pack-security
-h10-ingestion-readonly-guard
+h10-source-ingestion-safety
 ```
 
-Skill hygiene:
+Skills are loaded on demand. They must not duplicate the entire playbook.
+
+## 9. Hooks
+
+Hook modes:
 
 ```text
-one narrow purpose
-clear trigger description
-explicit non-goals
-short SKILL.md
-no hidden shell snippets
-no duplicated workflow text
-version/owner if long-lived
+manual
+advisory
+enforcing
 ```
 
-Do not install broad skill packs into every project.
+Production hooks are valid only if `hooks.json` wires them or the release explicitly labels them as manual scripts.
 
----
+Required hook families:
 
-## 12. Required v1.1.1 Scripts
+```text
+guard_preflight
+guard_phase_transition
+guard_context_budget
+guard_worktree_scope
+guard_reference_integrity
+guard_evidence_required
+guard_artifact_manifest
+guard_visualqa_required
+guard_reportqa_required
+guard_tool_surface
+guard_offline_local_only
+guard_fastpatch_postdiff
+agy_checkpoint
+Test-HookContract
+```
 
-### 12.1 `scripts/Test-FastPatchAllowed.ps1`
+## 10. Tool/MCP profiles
 
-This script must be project-specific. For H10, keep the allowlist deliberately narrow.
+Default tool surface is local/read-only.
 
-```powershell
-$ErrorActionPreference = "Stop"
+No write-capable MCP without explicit approval. MCP output is not release truth. Codebase Memory remains optional/read-only/raw-data-safe and is not hot-path default.
 
-$Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-Set-Location $Root
+Every workflow has a tool profile:
 
-$changed = @()
-try {
-  $changed += git diff --name-only --
-  $changed += git diff --name-only --cached --
-} catch {
-  Write-Error "git diff failed; fastpatch denied"
-  exit 1
+```json
+{
+  "workflow": "visualqa",
+  "read_only": true,
+  "allowed_mcp_servers": [],
+  "max_active_tools": 8,
+  "network": "none",
+  "write_requires_approval": true
 }
-
-$changed = $changed | Where-Object { $_ -and $_.Trim() } | Sort-Object -Unique
-
-if ($changed.Count -eq 0) {
-  Write-Host "No changed files. Fastpatch gate passes trivially."
-  exit 0
-}
-
-# H10 conservative allowlist. Edit per project only after human review.
-$allowed = @(
-  '^src/frontend/components/AppSelect\.tsx$',
-  '^src/frontend/components/OverlayRoot\.tsx$',
-  '^src/frontend/styles/',
-  '^src/frontend/.*\.css$'
-)
-
-$blocked = @()
-foreach ($file in $changed) {
-  $norm = $file -replace '\\','/'
-  $ok = $false
-  foreach ($rx in $allowed) {
-    if ($norm -match $rx) { $ok = $true; break }
-  }
-  if (-not $ok) { $blocked += $file }
-}
-
-if ($blocked.Count -gt 0) {
-  Write-Host "FASTPATCH DENIED. These files are outside the approved allowlist:"
-  $blocked | ForEach-Object { Write-Host "- $_" }
-  Write-Host "Required next command: /auditphase or /nextphase"
-  exit 1
-}
-
-Write-Host "FASTPATCH ALLOWED. Changed files are inside the approved allowlist:"
-$changed | ForEach-Object { Write-Host "- $_" }
-exit 0
 ```
 
-### 12.2 `scripts/cbm-index-current-rpc.cjs`
+## 11. Validators
 
-Use for Codebase Memory reindexing when needed. This script calls MCP JSON-RPC directly and avoids the Windows CLI `repo_path is required` failure mode.
-
-### 12.3 `scripts/cbm-wrapper-smoke.cjs`
-
-Use when MCP startup is suspected broken. It should call `list_projects` through the same `cmd.exe /d /c wrapper` path Antigravity uses.
-
----
-
-## 13. Template and Project Validation
-
-Validate template:
-
-```powershell
-$TemplateRoot = "$env:USERPROFILE\Documents\antigravity\_templates\agy-project-base"
-
-Test-Path "$TemplateRoot\.agents\AGENTS.md"
-Test-Path "$TemplateRoot\.agy\EVIDENCE_LOG.md"
-Get-Content "$TemplateRoot\.cbmignore" -Raw
-powershell -NoProfile -ExecutionPolicy Bypass -File "$TemplateRoot\.agents\hooks\Test-HookContract.ps1"
-```
-
-Validate active project:
-
-```powershell
-$ProjectRoot = "$env:USERPROFILE\Documents\antigravity\<ProjectName>"
-Set-Location $ProjectRoot
-
-powershell -NoProfile -ExecutionPolicy Bypass -File ".agents\hooks\Test-HookContract.ps1"
-Get-Content ".agy\PHASE_STATUS.json" -Raw | ConvertFrom-Json
-Get-Content ".agy\EVIDENCE_LOG.md" -Raw
-Get-Content ".cbmignore" -Raw
-```
-
-Validate MCP wrapper:
-
-```powershell
-cmd.exe /d /c "C:\Users\Public\mcp-wrappers\codebase-memory-mcp.cmd --version"
-node .\scripts\cbm-wrapper-smoke.cjs
-```
-
-Validate fastpatch gate:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-FastPatchAllowed.ps1
-```
-
----
-
-## 14. H10 Athlete Cardio Lab Current Rule
-
-For current active H10 project:
+Required validators:
 
 ```text
-/codebase-map
-/auditphase
-/fixcritical only if blockers exist
-/visualqa
-/securityaudit
-/shipcheck
+Validate-All.ps1
+Validate-ReferenceIntegrity.ps1
+Validate-WorkflowContracts.ps1
+Validate-StateMachine.ps1
+Validate-HookContracts.ps1
+Validate-Skills.ps1
+Validate-ToolProfiles.ps1
+Validate-ArtifactContract.ps1
+Validate-RequirementDrift.ps1
+Validate-ShipcheckEvidence.ps1
+Validate-PackageNoArtifacts.ps1
+Validate-CIParity.ps1
 ```
 
-Do not run:
+Validators must detect:
+
+- missing references;
+- stale generated runtime;
+- invalid schemas;
+- placeholder hooks;
+- active-hooks claim mismatch;
+- backup artifacts;
+- raw local paths in package;
+- SHIP without evidence;
+- semantic tests required but missing;
+- visual/report/security gate claims without artifacts.
+
+## 12. Eval suite
+
+Local regression harness, not cloud-only.
+
+Golden evals:
 
 ```text
-/phasebatch
-/build auto
-feature work
-Codebase Memory CLI index_repository
-mklink / junction / mirror / robocopy / subst for indexing
+planonly_no_write
+auditphase_no_feature_write
+nextphase_one_phase_only
+fastpatch_blocks_backend
+fastpatch_sees_untracked
+fastpatch_requires_postdiff
+shipcheck_requires_evidence
+visualqa_required_for_ui
+reportqa_required_for_exports
+securityaudit_required_for_sensitive_data
+artifact_missing_blocks_audit
+artifact_contradiction_blocks_shipcheck
+requirements_delta_blocks_shipcheck
+stale_phase_status_blocks_nextphase
 ```
 
-Current Codebase Memory stance:
+## 13. Structured diagnostics reusable requirement
+
+For mature local apps with data, the pipeline requires structured logs and diagnostic bundle contract.
+
+Recommended categories:
 
 ```text
-MCP server visible and responsive.
-Existing RPC index usable.
-Use list_projects and query tools.
-Do not reindex unless necessary.
-If reindexing is necessary, use scripts/cbm-index-current-rpc.cjs.
+source
+sync
+parser
+qc
+analytics
+report
+llm_pack
+ui
+chart
+security
 ```
 
----
-
-## 15. What Must Not Change
-
-```text
-Do not remove one-phase gating.
-Do not make /phasebatch default.
-Do not make Codebase Memory default for every project.
-Do not replace tests with model review.
-Do not allow write-capable MCP by default.
-Do not scan dependency/generated folders as context.
-Do not let planning write implementation files.
-Do not let /landing become a fix/build command.
-Do not silently mutate durable rules from /lessons.
-Do not introduce /route, /productprobe, METRICS.ndjson, or instruction-smell linters as mandatory v1.1.1 work.
-```
-
----
-
-## 16. Changelog
-
-### v1.1.1b-r4b - 2026-07-08
-
-Changed:
-
-- Stabilized the v1.1.1b patch layer.
-- Added checked native command execution requirements.
-- Strengthened fastpatch with untracked-file handling, post-edit gate requirement, file count limits, and added-line limits.
-- Reframed hook scripts as manual guard scripts by default unless hooks.json is explicitly enabled and verified.
-- Added hard package validation for references, JSON, PowerShell syntax, CJS syntax, cbm helper paths, backup hygiene, and placeholder hooks.
-- Preserved legacy validate-package.sh in CI while adding hard validator, node syntax checks, fastpatch synthetic tests, and hook contract smoke.
-- Added v1.2 Performance Edition draft without implementing v1.2 architecture.
-### v1.1.1b - 2026-07-08
-
-Changed:
-
-- Strengthened `/fastpatch` with added-line content guards for allowlisted UI files.
-- Added explicit stop limits for repair loops.
-- Added compact machine-produced GitHub sync evidence.
-- Added hard package validation for referenced paths, PowerShell syntax, JSON state, `.cbmignore`, and placeholder hooks.
-- Added root `scripts/cbm-index-current-rpc.cjs` and `scripts/cbm-wrapper-smoke.cjs` to match documented paths.
-- Replaced placeholder template hook scripts with minimal deterministic guards.
-- Preserved v1.1.1a architecture; no v1.2.0 redesign.
-### v1.1.1a — 2026-07-07
-
-Changed:
-
-- Added ARL-lite Runtime Contract.
-- Added `.agents/rules/05-runtime-contract.md`.
-- Added pointer from `.agents/AGENTS.md` to the runtime contract.
-- Kept Task Pack generation in the external ChatGPT Project companion.
-- Rejected separate runtime-brain files such as `00_COMPANION_RUNTIME_CORE.md`, `01_PIPELINE_STATE_MACHINE.md`, and `02_TASK_PACK_INTERPRETER.md`.
-- Preserved v1.1.1 architecture; no v1.2.0 redesign.
-### v1.1.1 — 2026-07-06
-
-Changed:
-
-```text
-Kept v1.1.0 architecture intact; no v1.2.0 redesign.
-Clarified that .agy evidence is an audit pointer, not source of truth.
-Updated MCP config policy to Windows cmd.exe wrapper model.
-Added Codebase Memory Windows policy: no CLI index_repository, no mklink/mirror/subst; use MCP JSON-RPC script.
-Added script-gated /fastpatch with strict path allowlist.
-Added deterministic semantic-test requirement for sensitive projects and H10 /shipcheck.
-Rejected /route, /productprobe, METRICS.ndjson, and instruction-smell linting as mandatory current work.
-```
-
-### v1.1.0 — 2026-06-22
-
-Changed:
-
-```text
-Narrowed active scope to Antigravity-only.
-Moved Codex to historical/optional notes.
-Normalized model policy around Gemini 3.5 Flash Medium/High.
-Canonicalized .agents/AGENTS.md as runtime instruction surface.
-Added append-only .agy/EVIDENCE_LOG.md.
-Tightened /visualqa, /securityaudit, /shipcheck, /landing, /codebase-map contracts.
-Expanded .cbmignore baseline.
-Added hook self-test requirement.
-Added Chrome DevTools MCP privacy flags.
-Clarified Codebase Memory activation policy.
-```
-
-### v1.0.0 — 2026-06-22
-
-Initial playbook with Antigravity workflows, `.agy` state, PowerShell-only mutation, MCP discipline, project templates, and phase gates.
-
----
-
-## 17. Maintenance Cadence
-
-Re-audit:
-
-```text
-after every major Antigravity update
-after Gemini model/mode changes
-after MCP server/config changes
-after any pipeline failure or false-done incident
-monthly for active templates
-quarterly for stable baseline
-```
-
-Update contract:
-
-```text
-prefer deterministic project tests over new workflow text
-preserve phase gates and local-first principle
-propose minimal diff
-include validation and rollback when scripts change
-never add new mandatory meta-systems without measured need
-```
-
-
----
-
-## Appendix A — v1.1.1a ARL-lite Runtime Contract
-
-# v1.1.1a Patch Notes — ARL-lite
-
-This is a narrow patch for `agentic_pipeline_v1.1.1`.
-
-## Decision
-
-Do not add a new companion runtime brain inside Antigravity. Do not add mandatory files such as:
-
-- `00_COMPANION_RUNTIME_CORE.md`
-- `01_PIPELINE_STATE_MACHINE.md`
-- `02_TASK_PACK_INTERPRETER.md`
-
-The v1.1.1 pipeline already has native runtime surfaces:
-
-- `.agents/AGENTS.md`
-- `.agents/workflows/*`
-- `.agents/rules/*`
-- `.agy/PHASE_STATUS.json`
-- `.agy/AGENT_STATE.md`
-- `.agy/EVIDENCE_LOG.md`
-
-## What changes
-
-1. Add `.agents/rules/05-runtime-contract.md`.
-2. Add a short pointer to `.agents/AGENTS.md` if missing.
-3. Keep Task Pack generation in the external ChatGPT Project companion.
-4. Keep `/fastpatch`, `/githubprepare`, `/githubsync`, diagnostics, and recovery lightweight.
-5. Escalate to deterministic hooks/scripts only if real phase-jumping repeats.
-
-## Version meaning
-
-This is `v1.1.1a`, not `v1.2.0`: no new architecture, no multi-agent runtime, no mandatory new workflows.
-
-
-## Runtime Contract Text
-
-```markdown
-# Runtime Contract
-
-This workspace is operated through the Agentic Development Pipeline.
-
-## Source of truth
-
-Before any substantial action, read:
-
-- `.agy/PHASE_STATUS.json`
-- `.agy/AGENT_STATE.md`
-- `.agy/RECOVERY_PROMPT.md`
-
-The field `next_required_command` defines the expected next workflow.
-
-## State discipline
-
-Do not silently jump phases.
-
-If the user asks for work that does not match the current state, respond with:
-
-```text
-STATE CHECK
-Current expected command: <value from .agy/PHASE_STATUS.json>
-User requested: <requested action>
-Recommended next command: <safe next command>
-Reason: <short reason>
-```
-
-Do not execute implementation work from a planning, audit, landing, or shipcheck state.
-
-## Phase separation
-
-- `/specdoc` writes specifications only.
-- `/planonly` writes plans only.
-- `/auditphase` verifies state, docs, checks, and risks only.
-- `/probephase` validates local assumptions only.
-- `/nextphase` implements one approved phase only.
-- `/fastpatch` is allowed only if `scripts/Test-FastPatchAllowed.ps1` exits with code 0.
-- `/githubprepare` prepares repository metadata only.
-- `/githubsync` publishes through deterministic `git` and `gh` commands only.
-- `/landing` saves recoverable state only.
-- `/shipcheck` decides release readiness only.
-
-## Verification rule
-
-Model-written reports are not verification.
-
-Verification means deterministic evidence:
-
-- exit code 0 from checks;
-- git diff reviewed;
-- screenshots or browser artifacts for UI;
-- security/privacy grep or tests when relevant;
-- semantic/domain tests for critical logic.
-
-## Override rule
-
-A human may explicitly override the recommended next command, but the agent must record the override and residual risk in `.agy/EVIDENCE_LOG.md`.
-
-```
-
----
-
-## Appendix B - v1.1.1b Productivity and Package-Integrity Guards
-
-This patch is intentionally narrow. It improves productivity and reduces false confidence by adding:
-
-- content-level `/fastpatch` guards;
-- explicit repair-loop stop limits;
-- compact machine-produced GitHub sync evidence;
-- CI/hard validation for PowerShell syntax, referenced files, JSON state, `.cbmignore`, and placeholder hooks;
-- documented-path consistency for Codebase Memory helper scripts.
-
-It does not add autonomous loop engineering, multi-agent routing, git worktree parallelism as default, mandatory ROI telemetry, or new runtime-brain files.
----
-
-## Appendix C - v1.1.1b-r4b Stabilization Patch
-
-This appendix records a stabilization patch only. It does not introduce v1.2 architecture.
-
-The r4 patch exists to make the patch layer itself reliable:
-
-- native command failures must stop patch/sync scripts;
-- fastpatch must be validated after the final diff exists;
-- untracked files must be included in fastpatch checks;
-- hook scripts are manual guard scripts unless hooks.json is explicitly enabled and verified;
-- backups must live under .pipeline_patch_backup and must not be committed;
-- CI must preserve the legacy package validator and add hard validation.
-
-v1.2 remains a future Performance Edition candidate.
+Logs must redact secrets, device IDs, raw biometrics, local paths and personal notes unless explicitly allowed.
+
+## 14. v1.2 phased implementation
+
+P0 — Stabilization gate and baseline
+P1 — Runtime source and compiler
+P2 — Workflow contracts and state schemas
+P3 — Evidence ledger and Artifact Delivery Contract
+P4 — Product Contract and Requirement Drift Gate
+P5 — Hard validator suite
+P6 — Local eval suite
+P7 — Skills and progressive disclosure
+P8 — Hook modes and production hook contract
+P9 — VisualQA / ReportQA / SecurityQA gates
+P10 — Tool/MCP profiles and approvals
+P11 — Metrics and observability
+P12 — codebase-map-fast and CBM policy
+P13 — read-only triage
+P14 — read-only parallel audit
+P15 — package builder, migration and rollback
+P16 — final shipcheck v2 and release archive
+
+## 15. Definition of Done
+
+v1.2 is complete only if:
+
+1. r4/r4b stabilization green.
+2. Runtime compiles from runtime-src.
+3. Hot workflows are self-contained.
+4. Full playbook not required in normal hot path.
+5. Product contract exists and validates.
+6. Requirements delta blocks stale shipcheck.
+7. Artifact manifests exist for material phases.
+8. evidence.ndjson is source of truth.
+9. RUN_METRICS.ndjson is created by smoke runs.
+10. VisualQA gate has screenshot/console evidence.
+11. ReportQA checks generated artifacts.
+12. SecurityQA exists for sensitive/local-data projects.
+13. Eval suite runs in CI.
+14. Skills are narrow and lazy-loaded.
+15. Every workflow has a tool profile.
+16. MCP write capability requires approval.
+17. `/triage` is read-only JSON.
+18. `/parallel-audit` is read-only only.
+19. Release archive verifies after extraction.
+20. Migration and rollback docs exist.
+21. `/shipcheck` returns `NO-SHIP` on any critical missing evidence.
+
+## 16. Non-goals
+
+Do not include by default:
+
+- write-capable autonomous multi-agent implementation;
+- automatic cloud deploy;
+- automatic GitHub publish;
+- mandatory API executor;
+- mandatory prompt-cache optimization;
+- mandatory Codebase Memory, Sourcegraph, or MCP;
+- silent durable rule mutation from `/lessons`;
+- model-only verification;
+- provider lock-in for evals/metrics.

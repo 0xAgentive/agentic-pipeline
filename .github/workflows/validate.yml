@@ -23,8 +23,11 @@ jobs:
 
       - name: Hard package validator
         shell: pwsh
-        run: |
-          ./scripts/windows/Validate-AgenticPipelinePackage.ps1 -RepoRoot . -Strict
+        run: ./scripts/windows/Validate-AgenticPipelinePackage.ps1 -RepoRoot . -Strict
+
+      - name: Runtime truth validator
+        shell: pwsh
+        run: ./scripts/windows/Test-RuntimeTruth.ps1 -RepoRoot . -StrictHotPath
 
       - name: PowerShell parser check
         shell: pwsh
@@ -41,23 +44,19 @@ jobs:
 
       - name: Node syntax check
         shell: bash
-        run: |
-          find . -name '*.cjs' -not -path './node_modules/*' -print0 | xargs -0 -r -n1 node --check
+        run: find . -name '*.cjs' -not -path './node_modules/*' -print0 | xargs -0 -r -n1 node --check
 
       - name: Shell syntax check
         shell: bash
-        run: |
-          find scripts -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+        run: find scripts -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
 
       - name: Hook contract smoke
         shell: pwsh
-        run: |
-          ./templates/agy-project-base/.agents/hooks/Test-HookContract.ps1
+        run: ./templates/agy-project-base/.agents/hooks/Test-HookContract.ps1
 
       - name: Fastpatch synthetic tests
         shell: pwsh
-        run: |
-          ./scripts/windows/Test-FastPatchSynthetic.ps1
+        run: ./scripts/windows/Test-FastPatchSynthetic.ps1
 
       - name: No backup artifacts in repository
         shell: bash

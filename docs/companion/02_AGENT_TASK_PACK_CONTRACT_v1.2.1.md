@@ -52,3 +52,18 @@ End every Antigravity prompt with:
 - run listed checks;
 - report changed files, commands, pass/fail, risks, artifacts, exact next command;
 - stop.
+## Runtime Truth Block
+
+For runtime, framework, migration, hook, workflow, validator or release tasks include:
+
+- claimed behavior;
+- exact files that must exist;
+- exact scripts and required parameters;
+- validators that must fail on mismatch;
+- active-project files that must not be modified;
+- required backup/checkpoint;
+- deterministic checks and evidence paths;
+- stop/no-SHIP conditions;
+- exact next safe command.
+
+Do not include token-price or cost-per-task fields as mandatory output.

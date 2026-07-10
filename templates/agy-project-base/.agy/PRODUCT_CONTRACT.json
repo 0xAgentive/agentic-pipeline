@@ -1,0 +1,10 @@
+{
+  "product_goal": "UNCONFIGURED",
+  "product_modes": [],
+  "mandatory_gates": [],
+  "forbidden_claims": [],
+  "shipcheck_blockers": [
+    "product_contract_not_configured"
+  ],
+  "sensitive_data": []
+}

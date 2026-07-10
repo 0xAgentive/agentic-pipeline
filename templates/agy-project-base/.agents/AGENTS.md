@@ -1,34 +1,57 @@
 # Runtime Agent Instructions
 
-This file is the canonical runtime instruction surface for this Antigravity project.
+Framework Runtime Version: `1.2.0`
+Primary runtime: Google Antigravity
+Hook mode by default: manual guard scripts
 
-Root `AGENTS.md` is only a short pointer and must not duplicate policy.
+This file is the canonical runtime instruction surface for the project. Root `AGENTS.md` is only a pointer.
 
-## Core execution policy
-- Use `/specdoc` for specifications only.
-- Use `/planonly` for planning only.
-- Use `/auditphase` before trusting inherited or previously generated state.
-- Use `/nextphase` for exactly one implementation phase.
-- Keep `/phasebatch` disabled unless explicit unlock criteria pass.
-- Use `/landing` for recovery only, not implementation.
+## Start with state
 
-## Evidence policy
-Every substantial workflow must update:
+Before substantial work read:
+
 - `.agy/PHASE_STATUS.json`
 - `.agy/AGENT_STATE.md`
 - `.agy/RECOVERY_PROMPT.md`
-- `.agy/EVIDENCE_LOG.md`
+- the selected workflow under `.agents/workflows/`
 
-Do not claim completion without commands/checks, pass/fail evidence, changed files, and remaining risks.
+`next_required_command` defines the expected next workflow. Do not silently jump phases.
 
-## Tool policy
-Use the smallest tool surface.
-Use Context7 for version-sensitive external docs.
-Use Codebase Memory only for mature codebase structural questions after `.cbmignore` is verified.
-Use Chrome DevTools/Browser only for explicit visual QA or browser debugging.
-No write-capable MCP tools without explicit approval.
-## Runtime Contract
+## Command discipline
 
-Read `.agents/rules/05-runtime-contract.md` before substantial work. `.agy/PHASE_STATUS.json` defines the expected next workflow. Do not silently jump phases; use STATE CHECK when user intent conflicts with current state.
-Read .agents/rules/52-v1.1.1b-productivity-guards.md for fastpatch content guards, repair-loop stop limits, hard package validation, and GitHub sync evidence policy.
-Read README_PIPELINE.ru.md / README_PIPELINE.en.md for the human operating guide. Follow .agy/PHASE_STATUS.json for the next command.
+- `/specdoc`: specification only.
+- `/planonly`: plan only.
+- `/auditphase`: read-only verification.
+- `/probephase`: bounded probe only.
+- `/nextphase`: exactly one approved implementation phase.
+- `/fastpatch`: only after the post-edit `-RequireChanges` script gate passes.
+- `/visualqa`, `/reportqa`, `/securityaudit`, `/artifactaudit`: evidence gates, not feature implementation.
+- `/shipcheck`: SHIP/NO-SHIP decision only.
+- `/landing`: recovery/orientation only.
+- `/phasebatch`: disabled unless explicitly unlocked.
+
+## Evidence policy
+
+Model prose is not verification. Use deterministic commands, exit codes, diffs, tests, logs, screenshots and artifact manifests.
+
+Material work must keep state/evidence pointers consistent. Empty placeholder files are not evidence.
+
+## Product evidence
+
+Before SHIP, verify:
+
+- `.agy/PRODUCT_CONTRACT.json` is configured;
+- requirement deltas are resolved;
+- required evidence and artifacts exist;
+- visual/report/security gates are complete when applicable;
+- rollback notes exist.
+
+## Tools and hooks
+
+Use the smallest tool surface. No write-capable MCP tools without explicit approval.
+
+Hook scripts are manual guards unless `.agents/hooks.json` is non-empty and a local Antigravity hook probe has passed. Do not claim active hooks when configuration is empty.
+
+## Project-specific context
+
+Project-specific rules and skills may extend this runtime, but cannot weaken phase, safety, evidence or shipcheck contracts.

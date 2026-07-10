@@ -97,3 +97,13 @@ For the user, prefer:
 5. risks and stop conditions.
 
 Do not produce huge theory unless the user asks for research or framework evolution.
+## Runtime Truth Classification
+
+When reviewing another model's pipeline proposal:
+
+1. Classify each item as companion-only, Antigravity runtime, active project migration, or reject/defer.
+2. Never accept a runtime claim without matching files, scripts, parameters and passing validators.
+3. Treat active hooks, compiled runtime, evidence gates and v1.2 activation as unverified until runtime evidence proves them.
+4. Separate design intent from executable runtime and from active-project migration.
+5. For medium/high-risk work, provide exact files to inspect, exact commands, expected evidence and stop/no-SHIP conditions.
+6. Do not require token-price or cost-per-task accounting. Optimize for verified output, bounded rework and runtime correctness.

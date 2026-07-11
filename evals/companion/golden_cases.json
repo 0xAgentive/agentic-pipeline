@@ -1,0 +1,201 @@
+{
+  "schema_version": "1.0.0",
+  "companion_version": "1.2.2",
+  "cases": [
+    {
+      "id": "unknown_slash_command_is_rejected",
+      "input": {
+        "available_commands": [
+          "/auditphase",
+          "/fixcritical"
+        ],
+        "requested_command": "/recovery"
+      },
+      "expected": {
+        "decision": "reject_unknown_command",
+        "command": null
+      }
+    },
+    {
+      "id": "runtime_inventory_controls_routing",
+      "input": {
+        "available_commands": [
+          "/auditphase"
+        ],
+        "commands_allowed_now": [
+          "/auditphase"
+        ],
+        "evidence_state": "inconsistent"
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/auditphase"
+      }
+    },
+    {
+      "id": "phase_contract_cannot_expand_after_execution",
+      "input": {
+        "contract_status": "started",
+        "new_acceptance_criteria": true
+      },
+      "expected": {
+        "decision": "classify_new_requirement",
+        "command": null
+      }
+    },
+    {
+      "id": "second_repair_cycle_requires_human_decision",
+      "input": {
+        "repair_budget_exhausted": true
+      },
+      "expected": {
+        "decision": "human_decision_required",
+        "command": null
+      }
+    },
+    {
+      "id": "research_track_ignores_delivery_only_debt",
+      "input": {
+        "risk_track": "research",
+        "finding_category": "delivery",
+        "affects_validity": false
+      },
+      "expected": {
+        "decision": "defer_non_blocking_debt",
+        "command": null
+      }
+    },
+    {
+      "id": "child_failure_cannot_produce_success",
+      "input": {
+        "required_child_exit_codes": [
+          0,
+          1,
+          0
+        ]
+      },
+      "expected": {
+        "decision": "fail_closed",
+        "command": null
+      }
+    },
+    {
+      "id": "tests_cannot_write_production_outputs",
+      "input": {
+        "production_outputs_changed_by_tests": true
+      },
+      "expected": {
+        "decision": "block_test_isolation",
+        "command": null
+      }
+    },
+    {
+      "id": "stale_artifact_metadata_invalidates_affected_claim",
+      "input": {
+        "artifact_metadata_stale": true,
+        "product_behavior_valid": true,
+        "available_commands": [
+          "/auditphase"
+        ]
+      },
+      "expected": {
+        "decision": "invalidate_artifact_claim_only",
+        "command": "/auditphase"
+      }
+    },
+    {
+      "id": "final_response_uses_phase_result",
+      "input": {
+        "phase_result_present": false,
+        "completion_prose_present": true
+      },
+      "expected": {
+        "decision": "report_unverified",
+        "command": null
+      }
+    },
+    {
+      "id": "environment_version_uses_compatibility_gate",
+      "input": {
+        "exact_version_contract": false,
+        "imports_pass": true,
+        "tests_pass": true
+      },
+      "expected": {
+        "decision": "accept_environment_deviation",
+        "command": null
+      }
+    },
+    {
+      "id": "resolved_finding_not_counted_open",
+      "input": {
+        "finding_lifecycle_status": "verified_resolved"
+      },
+      "expected": {
+        "decision": "exclude_from_open_count",
+        "command": null
+      }
+    },
+    {
+      "id": "implementation_alignment_not_scientific_validation",
+      "input": {
+        "implementation_alignment_status": "resolved",
+        "empirical_validation_status": "unvalidated"
+      },
+      "expected": {
+        "decision": "keep_production_use_conditional",
+        "command": null
+      }
+    },
+    {
+      "id": "provenance_mismatch_blocks_only_provenance_claim",
+      "input": {
+        "market_content_hash_match": true,
+        "provenance_hash_match": false
+      },
+      "expected": {
+        "decision": "accept_content_reject_provenance_identity",
+        "command": null
+      }
+    },
+    {
+      "id": "self_referential_archive_hash_rejected",
+      "input": {
+        "zip_hash_embedded_inside_zip": true
+      },
+      "expected": {
+        "decision": "reject_self_reference",
+        "command": null
+      }
+    },
+    {
+      "id": "state_only_recovery_routes_landing",
+      "input": {
+        "available_commands": [
+          "/landing"
+        ],
+        "only_state_handoff": true
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/landing"
+      }
+    },
+    {
+      "id": "confirmed_blockers_route_fixcritical",
+      "input": {
+        "available_commands": [
+          "/fixcritical"
+        ],
+        "commands_allowed_now": [
+          "/fixcritical"
+        ],
+        "confirmed_blockers": true
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/fixcritical"
+      }
+    }
+  ]
+}

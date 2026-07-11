@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Frozen Phase Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_version",
+    "phase_id",
+    "goal",
+    "risk_track",
+    "evidence_level",
+    "status",
+    "allowed_paths",
+    "forbidden_paths",
+    "required_outputs",
+    "required_checks",
+    "acceptance_criteria",
+    "blocking_conditions",
+    "non_blocking_debt_categories",
+    "repair_budget",
+    "next_allowed_commands",
+    "contract_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "contract_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "phase_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk_track": {
+      "enum": [
+        "scratch",
+        "research",
+        "standard",
+        "critical",
+        "release"
+      ]
+    },
+    "evidence_level": {
+      "enum": [
+        "E0",
+        "E1",
+        "E2",
+        "E3",
+        "E4"
+      ]
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "frozen",
+        "started",
+        "closed"
+      ]
+    },
+    "allowed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbidden_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_outputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_checks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocking_conditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "non_blocking_debt_categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "repair_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_audit_fix_cycles_per_subsystem",
+        "max_total_repairs_per_phase",
+        "on_budget_exhausted"
+      ],
+      "properties": {
+        "max_audit_fix_cycles_per_subsystem": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_total_repairs_per_phase": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "on_budget_exhausted": {
+          "const": "human_decision_required"
+        }
+      }
+    },
+    "next_allowed_commands": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^/"
+      }
+    },
+    "frozen_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "started_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "contract_hash": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    }
+  }
+}

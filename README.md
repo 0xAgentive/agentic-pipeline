@@ -4,7 +4,7 @@ A lightweight, disciplined, and deterministic framework for coordinating AI agen
 
 **Current package release:** `1.2.3 Distribution Integrity`
 **Canonical playbook/runtime:** `1.2.0`
-**ChatGPT Companion:** `1.2.1`
+**ChatGPT Companion:** `1.2.2`
 
 ---
 

@@ -1,41 +1,55 @@
 # Product Evidence Control Plane
 
-v1.2 is not “more bureaucracy”. It exists to prevent false readiness.
+The control plane prevents false readiness. It must be proportionate to risk; it must not turn every local experiment into archival release engineering.
 
-A project is not ready because the agent says it is ready. It is ready only when the current product goal, requirements, artifacts, UI/report/security gates, tests, and evidence agree.
+A project is not ready because an agent says it is ready. Readiness exists only when the current product goal, phase contract, implementation, checks, artifacts and required gates agree.
 
 ## Core contracts
 
 ### Product Contract
 
-What product is being built now, for whom, and what counts as done.
+What is being built now, for whom, and what counts as done.
 
 ### Requirement Drift
 
-Every substantial change in user goal must update state/docs/tests before shipcheck.
+A substantial goal change updates contract, plan and checks before implementation continues.
+
+### Phase Contract
+
+The current phase has frozen acceptance criteria and a contract hash. Post-execution findings are classified rather than appended silently.
 
 ### Artifact Delivery
 
-If the agent claims a report, ZIP, package, screenshot or evidence artifact exists, it must provide path, size, SHA-256 and contents.
+Material artifacts must be inspectable. Required metadata depends on evidence level:
+
+- E0/E1: path and targeted proof may be enough;
+- E2: path, command result and key content/metadata;
+- E3/E4: manifest, size, SHA-256, provenance and independent validation.
+
+Do not require SHA-256 for every temporary markdown file when it does not affect validity, safety or release reproducibility.
 
 ### QA gates
 
-Use as applicable:
+Use only when applicable:
 
 - VisualQA for UI;
 - ReportQA for generated PDF/HTML/ZIP/CSV;
-- SecurityQA for local data, secrets, exports, MCP, sanitizers;
-- ArtifactAudit for artifact existence and consistency.
+- SecurityQA for local data, secrets, exports and permissions;
+- ArtifactAudit for required deliverables;
+- domain validation for scientific or health-adjacent claims.
 
 ## Shipcheck rule
 
-`/shipcheck` returns either `SHIP` or `NO-SHIP`.
+`/shipcheck` returns `SHIP` or `NO-SHIP` only when the runtime provides a deterministic shipcheck implementation.
 
-It must return `NO-SHIP` if:
+It returns `NO-SHIP` if:
 
-- tests/builds are missing or failing;
-- required artifacts are missing;
-- unresolved requirement deltas remain;
-- report/visual/security gates are required but absent;
-- model prose is the only evidence;
-- product contract no longer matches implemented behavior.
+- required checks fail or are missing;
+- a safety, privacy, data-integrity or release blocker is open;
+- required material artifacts are missing;
+- unresolved blocking requirement drift remains;
+- mandatory gates are absent or stale;
+- Product Contract and implemented behavior disagree;
+- model prose is the only evidence.
+
+Delivery-only defects do not automatically block research progress unless they compromise data integrity, reproducibility at the chosen evidence level, or the current phase contract.

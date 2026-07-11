@@ -1,5 +1,12 @@
 # Changelog
 
+## Companion 1.2.2 - Runtime Handshake and Bounded Repair
+
+- Added runtime-handshake-gated command routing.
+- Added frozen phase contracts, repair budgets, evidence levels and blocker taxonomy.
+- Added independent status/finding lifecycle and machine-readable result authority.
+- Added golden evals derived from real multi-domain project failure patterns.
+
 ## 1.2.3 - Distribution Integrity
 
 - Added explicit `new-project` and `adopt-existing` state profiles.

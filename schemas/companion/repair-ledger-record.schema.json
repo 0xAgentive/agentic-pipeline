@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Repair Ledger Record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "recorded_at_utc",
+    "phase_id",
+    "subsystem",
+    "action",
+    "outcome",
+    "repair_index"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "recorded_at_utc": {
+      "type": "string"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "subsystem": {
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "audit",
+        "fixcritical",
+        "verification",
+        "human_decision"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "passed",
+        "failed",
+        "partial",
+        "blocked",
+        "continued",
+        "accepted_debt",
+        "deferred",
+        "redesign"
+      ]
+    },
+    "repair_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

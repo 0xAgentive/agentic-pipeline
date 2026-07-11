@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "phase_id",
+    "contract_hash",
+    "implementation_status",
+    "verification_status",
+    "artifact_status",
+    "audit_status",
+    "acceptance_status",
+    "scientific_validation_status",
+    "ship_status",
+    "command_results",
+    "changed_files",
+    "artifacts",
+    "blockers",
+    "accepted_risks",
+    "next_allowed_commands"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "phase_id": {
+      "type": "string"
+    },
+    "contract_hash": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "implementation_status": {
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed",
+        "failed",
+        "blocked"
+      ]
+    },
+    "verification_status": {
+      "enum": [
+        "not_run",
+        "passed",
+        "failed",
+        "partial",
+        "blocked"
+      ]
+    },
+    "artifact_status": {
+      "enum": [
+        "not_required",
+        "missing",
+        "partial",
+        "complete",
+        "invalid"
+      ]
+    },
+    "audit_status": {
+      "enum": [
+        "not_required",
+        "pending",
+        "passed",
+        "failed",
+        "blocked"
+      ]
+    },
+    "acceptance_status": {
+      "enum": [
+        "not_evaluated",
+        "accepted",
+        "accepted_with_debt",
+        "rejected",
+        "human_decision_required"
+      ]
+    },
+    "scientific_validation_status": {
+      "enum": [
+        "not_applicable",
+        "unvalidated",
+        "partially_validated",
+        "validated"
+      ]
+    },
+    "ship_status": {
+      "enum": [
+        "not_applicable",
+        "not_evaluated",
+        "no_ship",
+        "ship"
+      ]
+    },
+    "command_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "command_id",
+          "required",
+          "exit_code"
+        ],
+        "properties": {
+          "command_id": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "exit_code": {
+            "type": "integer"
+          },
+          "stdout_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stderr_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "status"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "missing",
+              "present",
+              "validated",
+              "invalid"
+            ]
+          },
+          "size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "accepted_risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_allowed_commands": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^/"
+      }
+    },
+    "generated_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

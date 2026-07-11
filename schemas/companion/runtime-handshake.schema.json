@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Runtime Handshake v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at_utc",
+    "project_root",
+    "workspace_root",
+    "state_root",
+    "artifact_root",
+    "available_commands",
+    "current_phase",
+    "current_status",
+    "next_required_command",
+    "commands_allowed_now",
+    "routing_valid"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "generated_at_utc": {
+      "type": "string"
+    },
+    "pipeline_package_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "runtime_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "git_root": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state_root": {
+      "type": "string"
+    },
+    "artifact_root": {
+      "type": "string"
+    },
+    "command_inventory_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "command_inventory_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "available_commands": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^/"
+      }
+    },
+    "current_phase": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "current_status": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "next_required_command": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "commands_allowed_now": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^/"
+      }
+    },
+    "routing_valid": {
+      "type": "boolean"
+    },
+    "routing_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "git_state": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

@@ -26,6 +26,10 @@ jobs:
         shell: pwsh
         run: ./scripts/windows/Test-RuntimeTruth.ps1 -RepoRoot . -StrictHotPath
 
+      - name: Companion policy and golden evals
+        shell: bash
+        run: node scripts/companion/companion-control.cjs validate-pack --repo-root .
+
       - name: Distribution integrity validator
         shell: pwsh
         run: ./scripts/windows/Test-DistributionIntegrity.ps1 -RepoRoot .

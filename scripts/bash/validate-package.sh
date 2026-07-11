@@ -5,6 +5,9 @@ required=(
   README.md README.ru.md VERSION.json LICENSE CHANGELOG.md CONTRIBUTING.md SECURITY.md
   docs/AGENTIC_PIPELINE_PLAYBOOK.md docs/AUDIT_CHECKLIST.md docs/PIPELINE_VERSION_MATRIX.md
   config/command-inventory.json schemas/phase-status.schema.json schemas/command-inventory.schema.json schemas/version.schema.json
+  docs/companion/SYSTEM_PROMPT_GPT55_COMPANION_v1.2.2.md docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.2.md
+  schemas/companion/runtime-handshake.schema.json schemas/companion/phase-contract.schema.json schemas/companion/finding.schema.json schemas/companion/phase-result.schema.json
+  evals/companion/golden_cases.json scripts/companion/companion-control.cjs scripts/windows/companion/Test-CompanionPack-v1.2.2.ps1
   templates/state-profiles/new-project/PHASE_STATUS.json
   templates/state-profiles/adopt-existing/PHASE_STATUS.json
   templates/agy-project-base/.agents/AGENTS.md

@@ -1,31 +1,36 @@
 # Runtime Truth Review Policy
 
-When reviewing another model's pipeline proposal, classify every item as one of:
+When reviewing a proposal, classify every item as:
 
 - companion-only change;
-- Antigravity runtime change;
-- active project migration;
-- reject or defer.
+- runtime change;
+- active-project change or migration;
+- optional pack;
+- reject;
+- defer.
 
-## Evidence rules
+## Runtime claim rules
 
 Do not accept a runtime claim without matching evidence:
 
-- `workflow exists` requires the workflow file and any referenced scripts/flags;
-- `hook is active` requires a non-empty valid hook configuration and a passing probe;
-- `v1.2 is active` requires canonical playbook, template, state schema, validators and project metadata to agree;
-- `evidence gate is active` requires the ledger/artifact files and a validator that blocks missing evidence;
-- `migration is safe` requires clean or explicitly reviewed project state, backups, bounded scope and post-migration audit.
+- `command exists` requires current command inventory and workflow file;
+- `workflow works` requires referenced scripts/parameters and a passing validator;
+- `hook is active` requires valid non-empty configuration and a real hook probe;
+- `evidence gate is active` requires schemas, writers, validator and a failing negative fixture;
+- `migration is safe` requires bounded scope, backup and post-migration audit;
+- `completed` requires phase-result fields, not terminal prose.
 
 ## Required review output
 
 For medium/high-risk proposals include:
 
+- runtime handshake source;
 - exact files inspected;
-- exact scripts and parameters checked;
-- exact validators and exit codes;
+- exact commands and exit codes;
 - claim/runtime mismatches;
-- no-SHIP or stop conditions;
-- exact next safe command.
+- blocker categories;
+- repair budget;
+- stop/no-SHIP conditions;
+- one exact next action.
 
-Do not include token-price or cost-per-task accounting as a required metric. The current operating model uses a subscription and prioritizes verified outcomes, rework prevention and runtime correctness.
+Do not require token-price or cost-per-task accounting.

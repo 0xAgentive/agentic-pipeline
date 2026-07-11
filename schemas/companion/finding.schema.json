@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Finding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding_id",
+    "title",
+    "category",
+    "severity",
+    "lifecycle_status",
+    "phase_classification"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "enum": [
+        "safety",
+        "security_privacy",
+        "data_integrity",
+        "research_validity",
+        "reproducibility",
+        "delivery",
+        "observability",
+        "cosmetic"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "blocker",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ]
+    },
+    "lifecycle_status": {
+      "enum": [
+        "open_confirmed",
+        "fixed_unverified",
+        "verified_resolved",
+        "deferred",
+        "accepted_risk",
+        "false_positive",
+        "superseded"
+      ]
+    },
+    "phase_classification": {
+      "enum": [
+        "current_phase_blocker",
+        "next_phase_requirement",
+        "deferred_debt",
+        "accepted_risk",
+        "false_positive",
+        "superseded"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "implementation_alignment_status": {
+      "enum": [
+        "unknown",
+        "misaligned",
+        "aligned",
+        "resolved"
+      ]
+    },
+    "empirical_validation_status": {
+      "enum": [
+        "not_applicable",
+        "unknown",
+        "unvalidated",
+        "partially_validated",
+        "validated"
+      ]
+    },
+    "production_use_status": {
+      "enum": [
+        "unknown",
+        "blocked",
+        "conditional",
+        "allowed"
+      ]
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

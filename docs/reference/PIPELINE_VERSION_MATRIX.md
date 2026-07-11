@@ -10,7 +10,7 @@ This file records the public version posture of `agentic-pipeline`.
 | Canonical playbook/runtime | **1.2.0** | `docs/AGENTIC_PIPELINE_PLAYBOOK.md` and the versioned/reference copies remain byte-identical. |
 | Runtime Truth patch | 1.2.1a | Fastpatch parity, schema baseline, evidence placeholders, self-contained hot workflows and runtime-truth validation. |
 | Documentation cleanup | 1.2.2a | Historical patch label for bilingual GitHub landing and docs structure. It is not the runtime version. |
-| ChatGPT Companion | 1.2.1 | Stored separately under `docs/companion/`. |
+| ChatGPT Companion | 1.2.2 | Stored separately under `docs/companion/`. |
 | Product Evidence Runtime | planned | Safe writers, artifact manifests and deterministic shipcheck are not yet fully active. |
 | Runtime compiler | deferred | `runtime-src/` remains a scaffold until a deterministic compiler and drift validator exist. |
 

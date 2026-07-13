@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
   [string]$RepoRoot = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline",
-  [switch]$RunRepositoryValidators
+  [switch]$RunRepositoryValidators,
+  [switch]$PackageMode
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,7 +31,16 @@ if ($RunRepositoryValidators) {
   }
 }
 
-& git -C $Root diff --check
-if ($LASTEXITCODE -ne 0) { throw "git diff --check failed." }
+if ($PackageMode) {
+  Write-Host "git diff --check skipped in package mode because release archives intentionally contain no .git metadata."
+}
+else {
+  if (!(Test-Path -LiteralPath (Join-Path $Root ".git"))) {
+    throw "RepoRoot is not a Git working tree. Use -PackageMode for extracted release-package validation: $Root"
+  }
+
+  & git -C $Root diff --check
+  if ($LASTEXITCODE -ne 0) { throw "git diff --check failed." }
+}
 Write-Host "Companion pack v1.2.2 validation passed."
 exit 0

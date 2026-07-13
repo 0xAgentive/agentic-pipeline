@@ -144,18 +144,74 @@ if ($stubs.Count -gt 0) {
   else { Add-Warning "Hot-path workflow stubs: $($stubs -join ', ')" }
 }
 
-foreach ($rel in @(
-  "docs\companion\06_RUNTIME_TRUTH_REVIEW_POLICY.md",
-  "docs\companion\SYSTEM_PROMPT_GPT55_COMPANION_v1.2.1.md",
-  "docs\companion\02_AGENT_TASK_PACK_CONTRACT_v1.2.1.md"
-)) {
-  if (!(Test-Path -LiteralPath (Join-Path $Root $rel) -PathType Leaf)) { Add-Error "Missing companion runtime-truth file: $rel" }
+$companionPolicyRel = "docs\companion\06_RUNTIME_TRUTH_REVIEW_POLICY.md"
+$companionManifestRel = "docs\companion\VERSION.json"
+$rootManifestRel = "VERSION.json"
+$companionVersion = $null
+
+try {
+  $companionManifestText = Read-Text $companionManifestRel
+  if ([string]::IsNullOrWhiteSpace($companionManifestText)) {
+    throw "Companion VERSION.json is missing or empty"
+  }
+  $companionManifest = $companionManifestText | ConvertFrom-Json
+  $companionVersion = [string]$companionManifest.companion_version
+  if ([string]::IsNullOrWhiteSpace($companionVersion)) {
+    throw "Companion VERSION.json lacks companion_version"
+  }
+
+  $rootManifestText = Read-Text $rootManifestRel
+  if ([string]::IsNullOrWhiteSpace($rootManifestText)) {
+    throw "Root VERSION.json is missing or empty"
+  }
+  $rootManifest = $rootManifestText | ConvertFrom-Json
+  if ([string]$rootManifest.companion_version -ne $companionVersion) {
+    Add-Error "Root and companion version manifests disagree: root=$($rootManifest.companion_version) companion=$companionVersion"
+  }
+}
+catch {
+  Add-Error "Invalid companion version manifest: $($_.Exception.Message)"
 }
 
-$prompt = Read-Text "docs\companion\SYSTEM_PROMPT_GPT55_COMPANION_v1.2.1.md"
-if ($prompt -and $prompt -notmatch 'Runtime Truth Classification') { Add-Error "Companion system prompt lacks Runtime Truth Classification" }
-$task = Read-Text "docs\companion\02_AGENT_TASK_PACK_CONTRACT_v1.2.1.md"
-if ($task -and $task -notmatch 'Runtime Truth Block') { Add-Error "Agent Task Pack contract lacks Runtime Truth Block" }
+if (!(Test-Path -LiteralPath (Join-Path $Root $companionPolicyRel) -PathType Leaf)) {
+  Add-Error "Missing companion runtime-truth file: $companionPolicyRel"
+}
+
+if (![string]::IsNullOrWhiteSpace($companionVersion)) {
+  $companionPromptRel = "docs\companion\SYSTEM_PROMPT_GPT55_COMPANION_v$companionVersion.md"
+  $companionTaskRel = "docs\companion\02_AGENT_TASK_PACK_CONTRACT_v$companionVersion.md"
+  $companionIndexRel = "docs\companion\00_AGENTIC_PIPELINE_INDEX_v$companionVersion.md"
+
+  foreach ($rel in @($companionPromptRel, $companionTaskRel, $companionIndexRel)) {
+    if (!(Test-Path -LiteralPath (Join-Path $Root $rel) -PathType Leaf)) {
+      Add-Error "Missing active companion file for v${companionVersion}: $rel"
+    }
+  }
+
+  $prompt = Read-Text $companionPromptRel
+  if ($prompt) {
+    if ($prompt -notmatch ([regex]::Escape("Companion v$companionVersion"))) {
+      Add-Error "Companion system prompt version marker does not match v$companionVersion"
+    }
+    foreach ($marker in @("Mandatory runtime handshake", "Result authority")) {
+      if ($prompt -notmatch ([regex]::Escape($marker))) {
+        Add-Error "Companion system prompt lacks required marker: $marker"
+      }
+    }
+  }
+
+  $task = Read-Text $companionTaskRel
+  if ($task) {
+    if ($task -notmatch ([regex]::Escape("Agent Task Pack Contract v$companionVersion"))) {
+      Add-Error "Agent Task Pack contract version marker does not match v$companionVersion"
+    }
+    foreach ($marker in @("Runtime Handshake Block", "Result Authority Block")) {
+      if ($task -notmatch ([regex]::Escape($marker))) {
+        Add-Error "Agent Task Pack contract lacks required marker: $marker"
+      }
+    }
+  }
+}
 
 if ($Warnings.Count -gt 0) {
   Write-Host "Runtime truth warnings:"

@@ -114,6 +114,66 @@
         "string",
         "null"
       ]
+    },
+    "routing_mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "inventory_source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "inventory_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "inventory_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "installed_project_runtime_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "available_pipeline_runtime_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "runtime_compatibility": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state_declared_commands_allowed_now": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "resolved_commands_allowed_now": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stale_state": {
+      "type": "boolean"
+    },
+    "stale_reasons": {
+      "type": "array"
     }
   }
 }

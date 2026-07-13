@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { resolveRuntimeRoute } = require('../control-plane/resolve-runtime-route.cjs');
+
 function fail(message, code = 1) {
   console.error(message);
   process.exit(code);
@@ -116,16 +118,51 @@ function route(input) {
   if (input.market_content_hash_match === true && input.provenance_hash_match === false) {
     return { decision: 'accept_content_reject_provenance_identity', command: null };
   }
-  if (input.only_state_handoff && available.has('/landing') && (!allowed.size || allowed.has('/landing'))) {
-    return { decision: 'route', command: '/landing' };
-  }
-  if (input.confirmed_blockers && available.has('/fixcritical') && (!allowed.size || allowed.has('/fixcritical'))) {
-    return { decision: 'route', command: '/fixcritical' };
-  }
-  if (input.evidence_state === 'inconsistent' && available.has('/auditphase') && (!allowed.size || allowed.has('/auditphase'))) {
-    return { decision: 'route', command: '/auditphase' };
-  }
-  return { decision: 'no_executable_route', command: null };
+
+  // Construct facts for resolveRuntimeRoute
+  const facts = {
+    project_inventory: input.project_local_available_commands
+      ? {
+          source: input.inventory_source || 'project_local',
+          commands: input.project_local_available_commands
+        }
+      : (input.available_commands
+          ? {
+              source: input.inventory_source || 'project_local',
+              commands: input.available_commands
+            }
+          : { source: 'missing' }),
+    central_inventory_advisory: {
+      commands: ['/specdoc', '/planonly', '/auditphase', '/probephase', '/nextphase', '/fastpatch', '/visualqa', '/reportqa', '/securityaudit', '/artifactaudit', '/shipcheck', '/landing', '/triage', '/codebase-map', '/parallel-audit', '/phasebatch', '/fixcritical', '/lessons', '/githubprepare', '/githubsync'],
+      runtime_version: '1.2.0'
+    },
+    git_facts: {
+      git_state: input.git_state || 'clean',
+      head_commit: input.head_commit
+    },
+    state_facts: {
+      current_status: input.current_status,
+      commands_allowed_now: input.state_declared_commands_allowed_now || input.commands_allowed_now,
+      stale_state: input.stale_state,
+      evidence_state: input.evidence_state,
+      only_state_handoff: input.only_state_handoff,
+      confirmed_blockers: input.confirmed_blockers
+    },
+    phase_contract_facts: {
+      contract_status: input.contract_status,
+      new_acceptance_criteria: input.new_acceptance_criteria
+    },
+    requested_command: input.requested_command !== undefined ? input.requested_command : null,
+    routing_policy: {
+      allow_triage: false
+    }
+  };
+
+  const res = resolveRuntimeRoute(facts);
+  return {
+    decision: res.decision,
+    command: res.command
+  };
 }
 
 function deepEqual(a, b) {

@@ -196,6 +196,290 @@
         "decision": "route",
         "command": "/fixcritical"
       }
+    },
+    {
+      "id": "dirty_input_allowed_empty_still_derives_landing",
+      "input": {
+        "project_local_available_commands": [
+          "/landing",
+          "/auditphase",
+          "/nextphase"
+        ],
+        "state_declared_commands_allowed_now": [],
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/landing"
+      }
+    },
+    {
+      "id": "dirty_stale_state_allowed_contains_nextphase_ignores_it",
+      "input": {
+        "project_local_available_commands": [
+          "/landing",
+          "/auditphase",
+          "/nextphase"
+        ],
+        "state_declared_commands_allowed_now": [
+          "/nextphase"
+        ],
+        "git_state": "dirty",
+        "stale_state": true
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/landing"
+      }
+    },
+    {
+      "id": "dirty_git_routes_to_landing",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/auditphase",
+          "/nextphase"
+        ],
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/landing"
+      }
+    },
+    {
+      "id": "dirty_git_allows_auditphase_as_secondary",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/auditphase"
+        ],
+        "requested_command": "/auditphase",
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/auditphase"
+      }
+    },
+    {
+      "id": "dirty_git_blocks_nextphase",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/auditphase",
+          "/nextphase"
+        ],
+        "requested_command": "/nextphase",
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "fail_closed",
+        "command": null
+      }
+    },
+    {
+      "id": "dirty_git_blocks_fixcritical",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/auditphase",
+          "/fixcritical"
+        ],
+        "requested_command": "/fixcritical",
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "fail_closed",
+        "command": null
+      }
+    },
+    {
+      "id": "dirty_git_blocks_shipcheck",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/auditphase",
+          "/shipcheck"
+        ],
+        "requested_command": "/shipcheck",
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "fail_closed",
+        "command": null
+      }
+    },
+    {
+      "id": "project_inventory_missing_landing_fails_closed",
+      "input": {
+        "project_local_available_commands": [
+          "/nextphase"
+        ],
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "fail_closed",
+        "command": null
+      }
+    },
+    {
+      "id": "central_inventory_has_landing_project_inventory_does_not_fails_closed",
+      "input": {
+        "inventory_source": "missing",
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "fail_closed",
+        "command": null
+      }
+    },
+    {
+      "id": "project_inventory_source_required_in_enforcing_mode",
+      "input": {
+        "inventory_source": "missing"
+      },
+      "expected": {
+        "decision": "fail_closed",
+        "command": null
+      }
+    },
+    {
+      "id": "stale_state_routes_to_landing",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/auditphase"
+        ],
+        "stale_state": true
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/landing"
+      }
+    },
+    {
+      "id": "missing_next_command_dirty_state_derives_landing",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/auditphase"
+        ],
+        "next_required_command": null,
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/landing"
+      }
+    },
+    {
+      "id": "unknown_command_still_fails",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/auditphase"
+        ],
+        "requested_command": "/unknown_cmd"
+      },
+      "expected": {
+        "decision": "reject_unknown_command",
+        "command": null
+      }
+    },
+    {
+      "id": "empty_command_still_fails",
+      "input": {
+        "available_commands": [
+          "/landing"
+        ],
+        "requested_command": ""
+      },
+      "expected": {
+        "decision": "reject_unknown_command",
+        "command": null
+      }
+    },
+    {
+      "id": "dirty_requested_auditphase_routes_when_resolved_allowed",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/auditphase"
+        ],
+        "requested_command": "/auditphase",
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/auditphase"
+      }
+    },
+    {
+      "id": "dirty_requested_auditphase_not_installed_fails_closed",
+      "input": {
+        "available_commands": [
+          "/landing"
+        ],
+        "requested_command": "/auditphase",
+        "git_state": "dirty"
+      },
+      "expected": {
+        "decision": "reject_unknown_command",
+        "command": null
+      }
+    },
+    {
+      "id": "clean_requested_nextphase_routes_normally",
+      "input": {
+        "available_commands": [
+          "/nextphase"
+        ],
+        "commands_allowed_now": [
+          "/nextphase"
+        ],
+        "requested_command": "/nextphase",
+        "git_state": "clean"
+      },
+      "expected": {
+        "decision": "route",
+        "command": "/nextphase"
+      }
+    },
+    {
+      "id": "clean_requested_command_not_allowed_fails",
+      "input": {
+        "available_commands": [
+          "/nextphase",
+          "/shipcheck"
+        ],
+        "commands_allowed_now": [
+          "/nextphase"
+        ],
+        "requested_command": "/shipcheck",
+        "git_state": "clean"
+      },
+      "expected": {
+        "decision": "fail_closed",
+        "command": null
+      }
+    },
+    {
+      "id": "clean_valid_state_preserves_normal_route",
+      "input": {
+        "available_commands": [
+          "/landing",
+          "/nextphase"
+        ],
+        "commands_allowed_now": [
+          "/nextphase"
+        ],
+        "git_state": "clean"
+      },
+      "expected": {
+        "decision": "no_executable_route",
+        "command": null
+      }
     }
   ]
 }

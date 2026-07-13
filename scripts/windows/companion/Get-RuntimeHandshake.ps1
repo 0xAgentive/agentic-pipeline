@@ -38,14 +38,6 @@ function Invoke-NativeCapture {
   }
 }
 
-function Get-RootCommand {
-  param([string]$Value)
-  if ([string]::IsNullOrWhiteSpace($Value)) { return $null }
-  $Match = [regex]::Match($Value.Trim(), '^/[^\s]+')
-  if ($Match.Success) { return $Match.Value }
-  return $null
-}
-
 $Project = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $StateRoot = Join-Path $Project ".agy"
 $ArtifactRoot = Join-Path $Project ".artifacts"
@@ -57,10 +49,14 @@ if (!(Test-Path -LiteralPath $Project -PathType Container)) {
 
 $GitRoot = $null
 $GitState = $null
+$HeadCommit = $null
 if (Get-Command git -ErrorAction SilentlyContinue) {
   $GitRootResult = Invoke-NativeCapture -FilePath "git" -ArgumentList @("-C", $Project, "rev-parse", "--show-toplevel")
   if ($GitRootResult.Code -eq 0) { $GitRoot = $GitRootResult.Text.Trim() }
   if ($GitRoot) {
+    $HeadResult = Invoke-NativeCapture -FilePath "git" -ArgumentList @("-C", $Project, "rev-parse", "HEAD")
+    if ($HeadResult.Code -eq 0) { $HeadCommit = $HeadResult.Text.Trim() }
+
     $StatusResult = Invoke-NativeCapture -FilePath "git" -ArgumentList @("-C", $Project, "status", "--porcelain=v1", "--untracked-files=all")
     if ($StatusResult.Code -eq 0) {
       $GitState = if ($StatusResult.Lines.Count -eq 0) { "clean" } else { "dirty" }
@@ -77,50 +73,173 @@ if ($PipelineVersion) {
   $RuntimeVersion = $PipelineVersion.runtime_version
 }
 
-$InventoryPath = Join-Path $Project ".agents\COMMAND_INVENTORY.json"
-if (!(Test-Path -LiteralPath $InventoryPath -PathType Leaf)) {
-  $Candidate = Join-Path $PipelineRoot "config\command-inventory.json"
-  if (Test-Path -LiteralPath $Candidate -PathType Leaf) { $InventoryPath = $Candidate }
+# 1. Project-Local Inventory Discovery
+$ProjectInventoryPath = Join-Path $Project ".agents\COMMAND_INVENTORY.json"
+if (!(Test-Path -LiteralPath $ProjectInventoryPath -PathType Leaf)) {
+  $Candidate = Join-Path $Project ".agents\command-inventory.json"
+  if (Test-Path -LiteralPath $Candidate -PathType Leaf) { $ProjectInventoryPath = $Candidate }
 }
 
-$Available = New-Object System.Collections.Generic.List[string]
-$InventoryHash = $null
-if (Test-Path -LiteralPath $InventoryPath -PathType Leaf) {
-  $Inventory = Read-JsonFile -Path $InventoryPath
-  foreach ($Item in @($Inventory.commands)) {
-    if ($Item.command) { [void]$Available.Add([string]$Item.command) }
+$ProjectInventoryCommands = @()
+$ProjectInventoryHash = $null
+$InventorySource = "missing"
+
+if (Test-Path -LiteralPath $ProjectInventoryPath -PathType Leaf) {
+  $InventoryJson = Read-JsonFile -Path $ProjectInventoryPath
+  if ($InventoryJson -and $InventoryJson.commands) {
+    foreach ($Item in @($InventoryJson.commands)) {
+      if ($Item.command) { $ProjectInventoryCommands += [string]$Item.command }
+      elseif (typeof $Item -eq "string") { $ProjectInventoryCommands += [string]$Item }
+    }
+    $ProjectInventoryHash = (Get-FileHash -LiteralPath $ProjectInventoryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $InventorySource = "project_local"
   }
-  $InventoryHash = (Get-FileHash -LiteralPath $InventoryPath -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 elseif (Test-Path -LiteralPath $WorkflowRoot -PathType Container) {
-  foreach ($File in Get-ChildItem -LiteralPath $WorkflowRoot -File -Filter "*.md" | Sort-Object Name) {
-    [void]$Available.Add("/" + [System.IO.Path]::GetFileNameWithoutExtension($File.Name))
+  $WorkflowFiles = Get-ChildItem -LiteralPath $WorkflowRoot -File -Filter "*.md" | Sort-Object Name
+  if ($WorkflowFiles.Count -gt 0) {
+    foreach ($File in $WorkflowFiles) {
+      $ProjectInventoryCommands += "/" + [System.IO.Path]::GetFileNameWithoutExtension($File.Name)
+    }
+    $InventorySource = "project_local"
+    $ProjectInventoryPath = $WorkflowRoot
   }
 }
 
-$PhasePath = Join-Path $StateRoot "PHASE_STATUS.json"
-$Phase = Read-JsonFile -Path $PhasePath
-$CurrentPhase = $null
-$CurrentStatus = $null
-$NextRequired = $null
-$AllowedNow = @()
-if ($Phase) {
-  $CurrentPhase = $Phase.current_phase
-  if ($Phase.status) { $CurrentStatus = $Phase.status }
-  elseif ($Phase.project_status) { $CurrentStatus = $Phase.project_status }
-  $NextRequired = $Phase.next_required_command
-  $AllowedNow = @($Phase.commands_allowed_now)
+# 2. Central Inventory Advisory
+$CentralInventoryPath = Join-Path $PipelineRoot "config\command-inventory.json"
+$CentralInventoryCommands = @()
+if (Test-Path -LiteralPath $CentralInventoryPath -PathType Leaf) {
+  $CentralJson = Read-JsonFile -Path $CentralInventoryPath
+  if ($CentralJson -and $CentralJson.commands) {
+    foreach ($Item in @($CentralJson.commands)) {
+      if ($Item.command) { $CentralInventoryCommands += [string]$Item.command }
+    }
+  }
 }
 
-$RoutingErrors = New-Object System.Collections.Generic.List[string]
-$AvailableArray = [string[]]($Available.ToArray() | Sort-Object -Unique)
-$NextRoot = Get-RootCommand -Value $NextRequired
-if ($NextRoot -and ($AvailableArray -notcontains $NextRoot)) {
-  [void]$RoutingErrors.Add("next_required_command is not present in available_commands: $NextRoot")
+# 3. Read State / Result / Contract Facts
+$PhasePath = Join-Path $StateRoot "PHASE_STATUS.json"
+$Phase = Read-JsonFile -Path $PhasePath
+
+$ContractPath = Join-Path $StateRoot "PHASE_CONTRACT.json"
+$Contract = Read-JsonFile -Path $ContractPath
+
+$ResultPath = Join-Path $StateRoot "PHASE_RESULT.json"
+$Result = Read-JsonFile -Path $ResultPath
+
+$FinalVerificationPath = Join-Path $Project "FINAL_VERIFICATION.json"
+$FinalVerification = Read-JsonFile -Path $FinalVerificationPath
+
+# Construct Facts Object
+$Facts = [ordered]@{
+  project_inventory = [ordered]@{
+    source = $InventorySource
+    inventory_path = $ProjectInventoryPath
+    inventory_sha256 = $ProjectInventoryHash
+    commands = $ProjectInventoryCommands
+    runtime_version = if ($Phase -and $Phase.runtime_version) { $Phase.runtime_version } else { $null }
+  }
+  central_inventory_advisory = [ordered]@{
+    commands = $CentralInventoryCommands
+    runtime_version = $RuntimeVersion
+  }
+  git_facts = [ordered]@{
+    git_state = $GitState
+    head_commit = $HeadCommit
+    git_root = $GitRoot
+  }
+  state_facts = [ordered]@{
+    current_phase = if ($Phase) { $Phase.current_phase } else { $null }
+    current_status = if ($Phase) {
+      if ($null -ne $Phase.current_status) { $Phase.current_status }
+      elseif ($null -ne $Phase.phase_status) { $Phase.phase_status }
+      elseif ($null -ne $Phase.status) { $Phase.status }
+      elseif ($null -ne $Phase.project_status) { $Phase.project_status }
+      else { $null }
+    } else { $null }
+    next_required_command = if ($Phase) { $Phase.next_required_command } else { $null }
+    commands_allowed_now = if ($Phase) { $Phase.commands_allowed_now } else { $null }
+    stale_state = if ($Phase) { $Phase.stale_state } else { $null }
+    evidence_state = if ($Phase) { $Phase.evidence_state } else { $null }
+    command_inventory_sha256 = if ($Phase) { $Phase.command_inventory_sha256 } else { $null }
+  }
+  phase_contract_facts = [ordered]@{
+    contract_hash = if ($Contract) { $Contract.contract_hash } else { $null }
+    contract_status = if ($Contract) { $Contract.status } else { $null }
+  }
+  phase_result_facts = [ordered]@{
+    valid = if ($Result) { $true } else { $false }
+    missing = if ($Result) { $false } else { $true }
+    contract_hash = if ($Result) { $Result.contract_hash } else { $null }
+    release_source_commit = if ($Result) { $Result.release_source_commit } else { $null }
+    source_commit = if ($Result) { $Result.source_commit } else { $null }
+    command_inventory_sha256 = if ($Result) { $Result.command_inventory_sha256 } else { $null }
+  }
+  acceptance_facts = [ordered]@{
+    acceptance_status = if ($Result) { $Result.acceptance_status } elseif ($FinalVerification) { $FinalVerification.acceptance_status } else { $null }
+    audit_status = if ($Result) { $Result.audit_status } elseif ($Phase) { $Phase.audit_status } else { $null }
+    verification_status = if ($Result) { $Result.verification_status } else { $null }
+    ship_status = if ($Result) { $Result.ship_status } else { $null }
+  }
+  requested_command = $null
+  routing_policy = [ordered]@{
+    allow_triage = $false
+    allow_1x_compatibility = $true
+  }
 }
-foreach ($Command in $AllowedNow) {
-  if ($Command -and ($AvailableArray -notcontains [string]$Command)) {
-    [void]$RoutingErrors.Add("commands_allowed_now contains an unknown command: $Command")
+
+# 4. Invoke resolve-runtime-route.cjs
+$ResolverScript = Join-Path $PipelineRoot "scripts\control-plane\resolve-runtime-route.cjs"
+if (!(Test-Path -LiteralPath $ResolverScript -PathType Leaf)) {
+  throw "Authoritative route resolver script not found: $ResolverScript"
+}
+
+$TempFactsPath = Join-Path $env:TEMP ("handshake_facts_" + [Guid]::NewGuid().ToString() + ".json")
+[System.IO.File]::WriteAllText($TempFactsPath, ($Facts | ConvertTo-Json -Depth 10), $Utf8NoBom)
+
+try {
+  $ResolverResult = Invoke-NativeCapture -FilePath "node" -ArgumentList @($ResolverScript, "--facts-file", $TempFactsPath)
+  if ($ResolverResult.Code -ne 0) {
+    throw "Route resolver execution failed: $($ResolverResult.Text)"
+  }
+  $Decision = $ResolverResult.Text | ConvertFrom-Json
+}
+finally {
+  if (Test-Path -LiteralPath $TempFactsPath) { Remove-Item -LiteralPath $TempFactsPath -Force }
+}
+
+# 5. Check Root Mismatch Invariants
+$ExtraErrors = New-Object System.Collections.Generic.List[string]
+$NormProject = $Project.Replace("\", "/").TrimEnd("/").ToLowerInvariant()
+$NormGit = if ($GitRoot) { $GitRoot.Replace("\", "/").TrimEnd("/").ToLowerInvariant() } else { $null }
+$NormState = $StateRoot.Replace("\", "/").TrimEnd("/").ToLowerInvariant()
+
+if ($NormState -ne "$NormProject/.agy") {
+  [void]$ExtraErrors.Add("state_root does not point to the .agy directory of project_root: $StateRoot vs $Project")
+}
+if ($null -eq $NormGit) {
+  [void]$ExtraErrors.Add("git_root is null or project is not inside a Git repository.")
+}
+elseif ($NormProject -ne $NormGit) {
+  [void]$ExtraErrors.Add("project_root and git_root do not point to the same active project: $Project vs $GitRoot")
+}
+
+$AllErrors = @()
+if ($Decision.routing_errors) { $AllErrors += @($Decision.routing_errors) }
+if ($ExtraErrors.Count -gt 0) { $AllErrors += @($ExtraErrors.ToArray()) }
+
+$FinalRoutingValid = [bool]($Decision.routing_valid -and ($ExtraErrors.Count -eq 0))
+
+# Format Stale Reasons
+$StaleReasonsList = @()
+if ($Decision.stale_reasons) {
+  foreach ($SR in $Decision.stale_reasons) {
+    $StaleReasonsList += [ordered]@{
+      code = [string]$SR.code
+      evidence = [string]$SR.evidence
+      severity = [string]$SR.severity
+    }
   }
 }
 
@@ -141,16 +260,27 @@ $Handshake = [ordered]@{
   git_root = $GitRoot
   state_root = $StateRoot
   artifact_root = $ArtifactRoot
-  command_inventory_path = if (Test-Path -LiteralPath $InventoryPath -PathType Leaf) { $InventoryPath } else { $null }
-  command_inventory_sha256 = $InventoryHash
-  available_commands = $AvailableArray
-  current_phase = $CurrentPhase
-  current_status = $CurrentStatus
-  next_required_command = $NextRequired
-  commands_allowed_now = [string[]]$AllowedNow
-  routing_valid = ($RoutingErrors.Count -eq 0)
-  routing_errors = [string[]]$RoutingErrors.ToArray()
+  command_inventory_path = $ProjectInventoryPath
+  command_inventory_sha256 = $ProjectInventoryHash
+  available_commands = [string[]]@($Decision.available_commands)
+  current_phase = if ($Phase) { $Phase.current_phase } else { $null }
+  current_status = [string]$Decision.current_status
+  next_required_command = if ($Decision.next_required_command) { [string]$Decision.next_required_command } else { $null }
+  commands_allowed_now = [string[]]@($Decision.commands_allowed_now)
+  routing_valid = $FinalRoutingValid
+  routing_errors = [string[]]$AllErrors
   git_state = $GitState
+  routing_mode = [string]$Decision.routing_mode
+  inventory_source = [string]$Decision.inventory_source
+  inventory_path = $ProjectInventoryPath
+  inventory_sha256 = $ProjectInventoryHash
+  installed_project_runtime_version = [string]$Decision.installed_project_runtime_version
+  available_pipeline_runtime_version = [string]$Decision.available_pipeline_runtime_version
+  runtime_compatibility = [string]$Decision.runtime_compatibility
+  state_declared_commands_allowed_now = [string[]]@($Decision.state_declared_commands_allowed_now)
+  resolved_commands_allowed_now = [string[]]@($Decision.resolved_commands_allowed_now)
+  stale_state = [bool]$Decision.stale_state
+  stale_reasons = $StaleReasonsList
 }
 
 $Parent = Split-Path -Parent $OutFile
@@ -158,12 +288,14 @@ if ($Parent) { New-Item -ItemType Directory -Force $Parent | Out-Null }
 [System.IO.File]::WriteAllText($OutFile, ($Handshake | ConvertTo-Json -Depth 20), $Utf8NoBom)
 
 Write-Host "Runtime handshake written: $OutFile"
-Write-Host "Available commands: $($AvailableArray.Count)"
-Write-Host "Current phase: $CurrentPhase"
-Write-Host "Next required command: $NextRequired"
-Write-Host "Routing valid: $($Handshake.routing_valid)"
-if ($RoutingErrors.Count -gt 0) {
-  $RoutingErrors.ToArray() | ForEach-Object { Write-Host "- $_" }
+Write-Host "Routing mode: $($Decision.routing_mode)"
+Write-Host "Inventory source: $($Decision.inventory_source)"
+Write-Host "Available commands: $(@($Decision.available_commands).Count)"
+Write-Host "Current status: $($Decision.current_status)"
+Write-Host "Next required command: $($Decision.next_required_command)"
+Write-Host "Routing valid: $FinalRoutingValid"
+if ($AllErrors.Count -gt 0) {
+  $AllErrors | ForEach-Object { Write-Host "- $_" }
   exit 1
 }
 exit 0

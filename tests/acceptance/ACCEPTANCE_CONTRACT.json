@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "contract_id": "agentic-pipeline-runtime-routing-1.2.4",
+  "protected_paths": [
+    ".github/workflows/validate.yml",
+    "tests/acceptance/ACCEPTANCE_CONTRACT.json",
+    "tests/acceptance/README.md",
+    "tests/acceptance/runtime-routing-contract.cjs",
+    "tests/acceptance/Test-RuntimeHandshakeAcceptance.ps1"
+  ],
+  "implementation_forbidden_from_modifying_protected_paths": true,
+  "expected_handshake_schema_version": "1.1.0",
+  "expected_package_version": "1.2.4",
+  "expected_runtime_version": "1.2.1",
+  "expected_companion_version": "1.2.2",
+  "required_inventory_sources": [
+    "project_command_inventory",
+    "project_workflow_directory_compat",
+    "missing",
+    "advisory_only"
+  ],
+  "required_inventory_trust": [
+    "authoritative",
+    "compatibility",
+    "none"
+  ],
+  "required_runtime_compatibility": [
+    "compatible",
+    "migration_required",
+    "unknown"
+  ],
+  "required_routing_modes": [
+    "normal",
+    "recovery",
+    "invalid"
+  ],
+  "acceptance_policy": {
+    "state_declared_routes_are_observations_only": true,
+    "central_inventory_is_advisory_only": true,
+    "shipcheck_is_non_circular": true,
+    "unknown_runtime_identity_is_not_fabricated": true,
+    "product_fixture_must_remain_unchanged": true
+  }
+}

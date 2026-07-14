@@ -63,6 +63,14 @@ jobs:
         shell: pwsh
         run: ./scripts/windows/Test-FastPatchSynthetic.ps1 -RepoRoot .
 
+      - name: Runtime routing acceptance contract
+        shell: bash
+        run: node tests/acceptance/runtime-routing-contract.cjs
+
+      - name: Runtime handshake acceptance contract
+        shell: pwsh
+        run: ./tests/acceptance/Test-RuntimeHandshakeAcceptance.ps1 -RepoRoot . -PowerShellExecutable pwsh
+
       - name: Release package extraction smoke
         shell: pwsh
         run: ./scripts/windows/Build-ReleasePackage.ps1 -RepoRoot . -OutputRoot "$env:RUNNER_TEMP/agentic-pipeline-release" -Force
@@ -78,3 +86,22 @@ jobs:
       - name: Git diff whitespace check
         shell: bash
         run: git diff --check
+
+  validate-windows-unicode:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure fixture Git identity
+        shell: powershell
+        run: |
+          git config --global user.name "Agentic Pipeline CI"
+          git config --global user.email "ci@example.invalid"
+
+      - name: Windows PowerShell 5.1 Unicode acceptance
+        shell: powershell
+        run: |
+          .\tests\acceptance\Test-RuntimeHandshakeAcceptance.ps1 `
+            -RepoRoot . `
+            -PowerShellExecutable "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
+            -UnicodeOnly

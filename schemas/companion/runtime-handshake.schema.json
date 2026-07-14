@@ -157,6 +157,12 @@
         "null"
       ]
     },
+    "state_declared_next_required_command": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "state_declared_commands_allowed_now": {
       "type": "array",
       "items": {

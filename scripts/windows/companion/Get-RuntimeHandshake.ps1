@@ -131,6 +131,52 @@ $Result = Read-JsonFile -Path $ResultPath
 $FinalVerificationPath = Join-Path $Project "FINAL_VERIFICATION.json"
 $FinalVerification = Read-JsonFile -Path $FinalVerificationPath
 
+# Read Findings Index
+$FindingsIndexPath = Join-Path $StateRoot "FINDINGS_INDEX.json"
+$FindingsIndex = Read-JsonFile -Path $FindingsIndexPath
+
+$OpenConfirmedCurrentPhaseBlockers = 0
+$RepairRequiredCurrentPhaseFindings = 0
+$VerificationRequiredCurrentPhaseFindings = 0
+$FixedUnverifiedCurrentPhaseFindings = 0
+$VerifiedResolvedFindings = 0
+$DeferredProductFindings = 0
+$DeferredInfrastructureFindings = 0
+$AcceptedRisks = 0
+
+if ($FindingsIndex -and $FindingsIndex.findings) {
+  foreach ($Finding in $FindingsIndex.findings) {
+    $Classification = $Finding.phase_classification
+    $Status = $Finding.lifecycle_status
+    $Category = $Finding.category
+
+    if ($Status -eq "verified_resolved" -or $Classification -eq "resolved") {
+      $VerifiedResolvedFindings++
+    }
+    elseif ($Status -eq "accepted_risk" -or $Status -eq "deferred") {
+      $AcceptedRisks++
+    }
+    elseif ($Classification -eq "current_phase_blocker") {
+      if ($Status -eq "open_confirmed" -or $Status -eq "repair_required") {
+        $OpenConfirmedCurrentPhaseBlockers++
+        $RepairRequiredCurrentPhaseFindings++
+      }
+      elseif ($Status -eq "fixed_unverified") {
+        $FixedUnverifiedCurrentPhaseFindings++
+        $VerificationRequiredCurrentPhaseFindings++
+      }
+    }
+    elseif ($Classification -eq "next_phase_requirement" -or $Classification -eq "deferred") {
+      if ($Category -eq "delivery" -or $Category -eq "infrastructure" -or $Finding.title -like "*migration*") {
+        $DeferredInfrastructureFindings++
+      }
+      else {
+        $DeferredProductFindings++
+      }
+    }
+  }
+}
+
 # Construct Facts Object
 $Facts = [ordered]@{
   project_inventory = [ordered]@{
@@ -158,11 +204,22 @@ $Facts = [ordered]@{
       elseif ($null -ne $Phase.project_status) { $Phase.project_status }
       else { $null }
     } else { $null }
+    implementation_status = if ($Phase) { $Phase.implementation_status } else { $null }
+    verification_status = if ($Phase) { $Phase.verification_status } else { $null }
+    artifact_status = if ($Phase) { $Phase.artifact_status } else { $null }
+    audit_status = if ($Phase) { $Phase.audit_status } else { $null }
+    acceptance_status = if ($Phase) { $Phase.acceptance_status } else { $null }
+    scientific_validation_status = if ($Phase) { $Phase.scientific_validation_status } else { $null }
+    ship_status = if ($Phase) { $Phase.ship_status } else { $null }
     next_required_command = if ($Phase) { $Phase.next_required_command } else { $null }
     commands_allowed_now = if ($Phase) { $Phase.commands_allowed_now } else { $null }
     stale_state = if ($Phase) { $Phase.stale_state } else { $null }
     evidence_state = if ($Phase) { $Phase.evidence_state } else { $null }
     command_inventory_sha256 = if ($Phase) { $Phase.command_inventory_sha256 } else { $null }
+    
+    state_handoff_required = if ($Phase -and $Phase.state_handoff_required -eq $true) { $true } else { $false }
+    landing_completed = if ($Phase -and $Phase.landing_completed -eq $true) { $true } else { $false }
+    recovery_required = if ($Phase -and $Phase.recovery_required -eq $true) { $true } else { $false }
   }
   phase_contract_facts = [ordered]@{
     contract_hash = if ($Contract) { $Contract.contract_hash } else { $null }
@@ -181,6 +238,27 @@ $Facts = [ordered]@{
     audit_status = if ($Result) { $Result.audit_status } elseif ($Phase) { $Phase.audit_status } else { $null }
     verification_status = if ($Result) { $Result.verification_status } else { $null }
     ship_status = if ($Result) { $Result.ship_status } else { $null }
+    open_confirmed_current_phase_blockers = $OpenConfirmedCurrentPhaseBlockers
+    repair_required_current_phase_findings = $RepairRequiredCurrentPhaseFindings
+    verification_required_current_phase_findings = $VerificationRequiredCurrentPhaseFindings
+    fixed_unverified_current_phase_findings = $FixedUnverifiedCurrentPhaseFindings
+    verified_resolved_findings = $VerifiedResolvedFindings
+    deferred_product_findings = $DeferredProductFindings
+    deferred_infrastructure_findings = $DeferredInfrastructureFindings
+    accepted_risks = $AcceptedRisks
+  }
+  audit_facts = [ordered]@{
+    audit_result_present = if ($Result) { $true } else { $false }
+    audit_result_schema_valid = if ($Result) { $true } else { $false }
+    audit_authoritative = if ($Result -and $Result.audit_authoritative -ne $false) { $true } else { $false }
+    audit_evidence_complete = if ($Result -and $Result.audit_evidence_complete -ne $false) { $true } else { $false }
+    claims_evidence_consistent = if ($Result -and $Result.claims_evidence_consistent -eq $false) { $false } else { $true }
+  }
+  repair_facts = [ordered]@{
+    repair_budget_known = if ($Contract -and $null -ne $Contract.repair_budget) { $true } else { $false }
+    repair_budget_exhausted = if ($Phase -and $Phase.repair_budget_exhausted -eq $true) { $true } else { $false }
+    user_continue_repair_authorized = if ($Phase -and $Phase.user_continue_repair_authorized -eq $true) { $true } else { $false }
+    registered_repair_cycle_count = if ($Phase -and $null -ne $Phase.registered_repair_cycle_count) { $Phase.registered_repair_cycle_count } else { 1 }
   }
   requested_command = $null
   routing_policy = [ordered]@{
@@ -277,6 +355,7 @@ $Handshake = [ordered]@{
   installed_project_runtime_version = [string]$Decision.installed_project_runtime_version
   available_pipeline_runtime_version = [string]$Decision.available_pipeline_runtime_version
   runtime_compatibility = [string]$Decision.runtime_compatibility
+  state_declared_next_required_command = if ($Decision.state_declared_next_required_command) { [string]$Decision.state_declared_next_required_command } else { $null }
   state_declared_commands_allowed_now = [string[]]@($Decision.state_declared_commands_allowed_now)
   resolved_commands_allowed_now = [string[]]@($Decision.resolved_commands_allowed_now)
   stale_state = [bool]$Decision.stale_state

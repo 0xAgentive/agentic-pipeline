@@ -480,6 +480,506 @@
         "decision": "no_executable_route",
         "command": null
       }
+    },
+    {
+      "id": "dirty_state_routes_to_landing",
+      "input": {
+        "git_state": "dirty",
+        "available_commands": [
+          "/landing"
+        ]
+      },
+      "expected": {
+        "routing_mode": "recovery",
+        "resolved_commands_allowed_now": [
+          "/landing"
+        ],
+        "next_required_command": "/landing",
+        "decision": "route",
+        "command": "/landing",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "stale_state_routes_to_landing_precedence",
+      "input": {
+        "git_state": "clean",
+        "stale_state": true,
+        "available_commands": [
+          "/landing"
+        ]
+      },
+      "expected": {
+        "routing_mode": "recovery",
+        "resolved_commands_allowed_now": [
+          "/landing"
+        ],
+        "next_required_command": "/landing",
+        "decision": "route",
+        "command": "/landing",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": [
+          "EXPLICIT_STALE_SIGNAL"
+        ]
+      }
+    },
+    {
+      "id": "clean_explicit_state_handoff_routes_to_landing",
+      "input": {
+        "git_state": "clean",
+        "state_handoff_required": true,
+        "available_commands": [
+          "/landing",
+          "/fixcritical"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/fixcritical",
+          "/landing"
+        ],
+        "next_required_command": "/landing",
+        "decision": "route",
+        "command": "/landing",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "clean_completed_landing_does_not_repeat_landing",
+      "input": {
+        "git_state": "clean",
+        "state_handoff_required": true,
+        "landing_completed": true,
+        "available_commands": [
+          "/landing",
+          "/auditphase"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/auditphase"
+        ],
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "clean_acceptance_blocked_repair_required_routes_fixcritical",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "acceptance_status": "blocked",
+        "ship_status": "no_ship",
+        "open_confirmed_current_phase_blockers": 1,
+        "available_commands": [
+          "/fixcritical"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/fixcritical"
+        ],
+        "next_required_command": "/fixcritical",
+        "decision": "route",
+        "command": "/fixcritical",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "clean_acceptance_blocked_state_declares_landing_routes_fixcritical",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "acceptance_status": "blocked",
+        "ship_status": "no_ship",
+        "open_confirmed_current_phase_blockers": 1,
+        "state_declared_next_required_command": "/landing",
+        "available_commands": [
+          "/landing",
+          "/fixcritical"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/fixcritical"
+        ],
+        "next_required_command": "/fixcritical",
+        "decision": "route",
+        "command": "/fixcritical",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "fixed_unverified_verification_only_does_not_route_fixcritical",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "acceptance_status": "blocked",
+        "ship_status": "no_ship",
+        "open_confirmed_current_phase_blockers": 0,
+        "fixed_unverified_current_phase_findings": 1,
+        "available_commands": [
+          "/landing",
+          "/fixcritical",
+          "/auditphase"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/auditphase",
+          "/fixcritical"
+        ],
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "incomplete_audit_routes_auditphase",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "audit_evidence_complete": false,
+        "available_commands": [
+          "/auditphase"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/auditphase"
+        ],
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "contradictory_claims_and_evidence_routes_auditphase",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "claims_evidence_consistent": false,
+        "available_commands": [
+          "/auditphase"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/auditphase"
+        ],
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "awaiting_audit_routes_auditphase",
+      "input": {
+        "git_state": "clean",
+        "current_status": "awaiting_audit",
+        "available_commands": [
+          "/auditphase"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/auditphase"
+        ],
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "repair_budget_exhausted_requires_human_decision",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "acceptance_status": "blocked",
+        "ship_status": "no_ship",
+        "open_confirmed_current_phase_blockers": 1,
+        "repair_budget_exhausted": true,
+        "user_continue_repair_authorized": false,
+        "available_commands": [
+          "/fixcritical"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [],
+        "next_required_command": null,
+        "decision": "human_decision_required",
+        "command": null,
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "repair_budget_exhausted_with_user_override_routes_fixcritical",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "acceptance_status": "blocked",
+        "ship_status": "no_ship",
+        "open_confirmed_current_phase_blockers": 1,
+        "repair_budget_exhausted": true,
+        "user_continue_repair_authorized": true,
+        "available_commands": [
+          "/fixcritical"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/fixcritical"
+        ],
+        "next_required_command": "/fixcritical",
+        "decision": "route",
+        "command": "/fixcritical",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "ready_to_ship_without_complete_evidence_blocks_shipcheck",
+      "input": {
+        "git_state": "clean",
+        "current_status": "release_candidate_ready",
+        "acceptance_status": "blocked",
+        "ship_status": "ship",
+        "available_commands": [
+          "/shipcheck"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [],
+        "next_required_command": null,
+        "decision": "fail_closed",
+        "command": null,
+        "routing_valid": false,
+        "routing_errors": [
+          "Release claim made but required verification, audit, or acceptance evidence is incomplete."
+        ],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "ready_to_ship_with_complete_evidence_routes_shipcheck",
+      "input": {
+        "git_state": "clean",
+        "current_status": "release_candidate_ready",
+        "acceptance_status": "accepted",
+        "audit_status": "passed",
+        "verification_status": "passed",
+        "ship_status": "ship",
+        "available_commands": [
+          "/shipcheck"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/shipcheck"
+        ],
+        "next_required_command": "/shipcheck",
+        "decision": "route",
+        "command": "/shipcheck",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "resolved_findings_do_not_trigger_repair",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "acceptance_status": "blocked",
+        "ship_status": "no_ship",
+        "open_confirmed_current_phase_blockers": 0,
+        "fixed_unverified_current_phase_findings": 0,
+        "verified_resolved_findings": 1,
+        "available_commands": [
+          "/fixcritical",
+          "/auditphase"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/auditphase",
+          "/fixcritical"
+        ],
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "deferred_infrastructure_findings_do_not_trigger_repair",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "acceptance_status": "blocked",
+        "ship_status": "no_ship",
+        "open_confirmed_current_phase_blockers": 0,
+        "fixed_unverified_current_phase_findings": 0,
+        "deferred_infrastructure_findings": 1,
+        "available_commands": [
+          "/fixcritical",
+          "/auditphase"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/auditphase",
+          "/fixcritical"
+        ],
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "project_inventory_missing_fixcritical_fails_closed",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "acceptance_status": "blocked",
+        "ship_status": "no_ship",
+        "open_confirmed_current_phase_blockers": 1,
+        "available_commands": [
+          "/landing"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [],
+        "next_required_command": null,
+        "decision": "no_executable_route",
+        "command": null,
+        "routing_valid": false,
+        "routing_errors": [
+          "Repair required but /fixcritical is not installed."
+        ],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "clean_unknown_state_routes_audit_or_fails_closed",
+      "input": {
+        "git_state": "clean",
+        "current_status": "unknown",
+        "available_commands": [
+          "/auditphase"
+        ]
+      },
+      "expected": {
+        "routing_mode": "recovery",
+        "resolved_commands_allowed_now": [
+          "/auditphase"
+        ],
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "state_declared_next_command_is_observation_only",
+      "input": {
+        "git_state": "clean",
+        "current_status": "acceptance_blocked",
+        "acceptance_status": "blocked",
+        "ship_status": "no_ship",
+        "open_confirmed_current_phase_blockers": 1,
+        "state_declared_next_required_command": "/landing",
+        "available_commands": [
+          "/landing",
+          "/fixcritical"
+        ]
+      },
+      "expected": {
+        "routing_mode": "normal",
+        "resolved_commands_allowed_now": [
+          "/fixcritical"
+        ],
+        "next_required_command": "/fixcritical",
+        "decision": "route",
+        "command": "/fixcritical",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "dirty_state_overrides_state_declared_fixcritical",
+      "input": {
+        "git_state": "dirty",
+        "current_status": "acceptance_blocked",
+        "next_required_command": "/fixcritical",
+        "available_commands": [
+          "/landing",
+          "/fixcritical"
+        ]
+      },
+      "expected": {
+        "routing_mode": "recovery",
+        "resolved_commands_allowed_now": [
+          "/landing"
+        ],
+        "next_required_command": "/landing",
+        "decision": "route",
+        "command": "/landing",
+        "routing_valid": true,
+        "routing_errors": [],
+        "reason_codes": []
+      }
     }
   ]
 }

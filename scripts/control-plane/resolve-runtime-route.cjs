@@ -25,6 +25,8 @@ function resolveRuntimeRoute(input) {
   const phaseContractFacts = facts.phase_contract_facts || {};
   const phaseResultFacts = facts.phase_result_facts || {};
   const acceptanceFacts = facts.acceptance_facts || {};
+  const auditFacts = facts.audit_facts || {};
+  const repairFacts = facts.repair_facts || {};
   const routingPolicy = facts.routing_policy || {};
   const requestedCommand = facts.requested_command !== undefined ? facts.requested_command : null;
 
@@ -123,21 +125,7 @@ function resolveRuntimeRoute(input) {
     });
   }
 
-  // Signal 5: Conflict between status and acceptance dimensions
   const rawStatus = stateFacts.current_status || stateFacts.phase_status || stateFacts.status || stateFacts.project_status;
-  if (rawStatus === 'release_candidate_ready' || rawStatus === 'passed_release_acceptance') {
-    if (acceptanceFacts.acceptance_status === 'blocked' ||
-        acceptanceFacts.audit_status === 'failed' ||
-        acceptanceFacts.verification_status === 'invalidated' ||
-        acceptanceFacts.ship_status === 'NO_SHIP') {
-      isStale = true;
-      staleReasons.push({
-        code: 'ACCEPTANCE_CONFLICT',
-        evidence: `Status '${rawStatus}' conflicts with acceptance status (acceptance=${acceptanceFacts.acceptance_status}, ship=${acceptanceFacts.ship_status})`,
-        severity: 'error'
-      });
-    }
-  }
 
   // Signal 6: Tracked source modified after result commit
   if (gitFacts.source_changed_since_result === true) {
@@ -171,7 +159,7 @@ function resolveRuntimeRoute(input) {
 
   // Status normalization
   let currentStatus = rawStatus && VALID_STATUS_VOCABULARY.has(rawStatus) ? rawStatus : (rawStatus ? 'unknown' : null);
-  if (!currentStatus && stateFacts.current_phase) {
+  if (!currentStatus && (stateFacts.current_phase || isDirty || isStale)) {
     currentStatus = 'unknown';
   }
 
@@ -220,13 +208,137 @@ function resolveRuntimeRoute(input) {
   } else {
     routingMode = 'normal';
 
-    if (stateDeclaredAllowed.length > 0) {
-      resolvedAllowed = stateDeclaredAllowed.filter(cmd => projectLocalCommands.has(cmd));
-    } else {
-      resolvedAllowed = Array.from(projectLocalCommands);
+    const stateHandoffRequired = stateFacts.state_handoff_required === true || stateFacts.only_state_handoff === true;
+    const landingCompleted = stateFacts.landing_completed === true;
+
+    const budgetExhausted = repairFacts.repair_budget_exhausted === true;
+    const userOverride = repairFacts.user_continue_repair_authorized === true;
+
+    const isAccepted = acceptanceFacts.acceptance_status === 'accepted' || acceptanceFacts.acceptance_status === 'passed';
+    const isAuditPassed = acceptanceFacts.audit_status === 'passed';
+    const isVerificationPassed = acceptanceFacts.verification_status === 'passed';
+    const isShip = acceptanceFacts.ship_status && acceptanceFacts.ship_status.toLowerCase() === 'ship';
+    const releaseReady = isAccepted && isAuditPassed && isVerificationPassed && isShip;
+
+    if (stateHandoffRequired && !landingCompleted) {
+      if (projectLocalCommands.has('/landing')) {
+        nextRequiredCommand = '/landing';
+      } else {
+        nextRequiredCommand = null;
+        errors.push("Handoff required but /landing is not installed in project-local inventory.");
+      }
+    }
+    else if (stateHandoffRequired && landingCompleted) {
+      if (projectLocalCommands.has('/auditphase')) {
+        nextRequiredCommand = '/auditphase';
+      } else {
+        nextRequiredCommand = null;
+        errors.push("Handoff completed but /auditphase is not installed.");
+      }
+    }
+    else if (currentStatus === 'awaiting_audit') {
+      if (projectLocalCommands.has('/auditphase')) {
+        nextRequiredCommand = '/auditphase';
+      } else {
+        nextRequiredCommand = null;
+        errors.push("Status is awaiting_audit but /auditphase is not installed.");
+      }
+    }
+    else if (auditFacts.audit_result_present === false ||
+             auditFacts.audit_result_schema_valid === false ||
+             auditFacts.audit_evidence_complete === false ||
+             auditFacts.claims_evidence_consistent === false ||
+             stateFacts.evidence_state === 'inconsistent') {
+      if (projectLocalCommands.has('/auditphase')) {
+        nextRequiredCommand = '/auditphase';
+      } else {
+        nextRequiredCommand = null;
+        errors.push("Audit evidence is incomplete or inconsistent but /auditphase is not installed.");
+      }
+    }
+    else if (currentStatus === 'acceptance_blocked' || stateFacts.confirmed_blockers === true) {
+      const hasBlockers = (acceptanceFacts.open_confirmed_current_phase_blockers && acceptanceFacts.open_confirmed_current_phase_blockers > 0) ||
+                          (acceptanceFacts.repair_required_current_phase_findings && acceptanceFacts.repair_required_current_phase_findings > 0) ||
+                          stateFacts.confirmed_blockers === true;
+      const hasFixedUnverified = (acceptanceFacts.fixed_unverified_current_phase_findings && acceptanceFacts.fixed_unverified_current_phase_findings > 0) ||
+                                 (acceptanceFacts.verification_required_current_phase_findings && acceptanceFacts.verification_required_current_phase_findings > 0);
+
+      if (hasBlockers) {
+        if (budgetExhausted && !userOverride) {
+          nextRequiredCommand = null;
+        } else {
+          if (projectLocalCommands.has('/fixcritical')) {
+            nextRequiredCommand = '/fixcritical';
+          } else {
+            nextRequiredCommand = null;
+            errors.push("Repair required but /fixcritical is not installed.");
+          }
+        }
+      }
+      else if (hasFixedUnverified) {
+        if (projectLocalCommands.has('/auditphase')) {
+          nextRequiredCommand = '/auditphase';
+        } else {
+          nextRequiredCommand = null;
+          errors.push("Verification required but /auditphase is not installed.");
+        }
+      }
+      else {
+        if (projectLocalCommands.has('/auditphase')) {
+          nextRequiredCommand = '/auditphase';
+        } else {
+          nextRequiredCommand = null;
+          errors.push("No active blockers but /auditphase is not installed.");
+        }
+      }
+    }
+    else if (currentStatus === 'release_candidate_ready' || currentStatus === 'passed_release_acceptance') {
+      if (releaseReady) {
+        if (projectLocalCommands.has('/shipcheck')) {
+          nextRequiredCommand = '/shipcheck';
+        } else {
+          nextRequiredCommand = null;
+          errors.push("Ready to ship but /shipcheck is not installed.");
+        }
+      } else {
+        nextRequiredCommand = null;
+        errors.push("Release claim made but required verification, audit, or acceptance evidence is incomplete.");
+      }
+    }
+    else {
+      nextRequiredCommand = null;
     }
 
-    nextRequiredCommand = stateFacts.next_required_command || null;
+
+
+    const blockedCommands = new Set();
+    if (budgetExhausted && !userOverride) {
+      blockedCommands.add('/fixcritical');
+      blockedCommands.add('/nextphase');
+      blockedCommands.add('/fastpatch');
+    }
+    if ((currentStatus === 'release_candidate_ready' || currentStatus === 'passed_release_acceptance') && !releaseReady) {
+      blockedCommands.add('/shipcheck');
+    }
+
+    let allowedList = [];
+    if (stateDeclaredAllowed.length > 0) {
+      allowedList = stateDeclaredAllowed.filter(cmd => projectLocalCommands.has(cmd));
+    } else {
+      allowedList = Array.from(projectLocalCommands);
+    }
+
+    // Apply filters
+    allowedList = allowedList.filter(cmd => {
+      if (blockedCommands.has(cmd)) return false;
+      if (cmd === '/landing' && (!stateHandoffRequired || landingCompleted)) return false;
+      return true;
+    });
+
+    if (nextRequiredCommand && !allowedList.includes(nextRequiredCommand) && projectLocalCommands.has(nextRequiredCommand) && !blockedCommands.has(nextRequiredCommand)) {
+      allowedList.push(nextRequiredCommand);
+    }
+    resolvedAllowed = allowedList.sort();
   }
 
   // 5. Evaluate Requested Command (if provided)
@@ -243,8 +355,15 @@ function resolveRuntimeRoute(input) {
       decisionCommand = null;
       errors.push(`Requested command '${requestedCommand}' is not installed in project-local inventory.`);
     } else {
-      // Installed in project-local inventory
-      if (routingMode === 'recovery') {
+      const budgetExhausted = repairFacts.repair_budget_exhausted === true;
+      const userOverride = repairFacts.user_continue_repair_authorized === true;
+      const isImpl = ['/fixcritical', '/nextphase', '/fastpatch'].includes(requestedCommand);
+
+      if (isImpl && budgetExhausted && !userOverride) {
+        decision = 'human_decision_required';
+        decisionCommand = null;
+        errors.push('Implementation command blocked because repair budget is exhausted.');
+      } else if (routingMode === 'recovery') {
         const isImplementation = ['/nextphase', '/fastpatch', '/fixcritical', '/shipcheck', '/githubprepare', '/githubsync'].includes(requestedCommand);
         if (isImplementation || !resolvedAllowed.includes(requestedCommand)) {
           decision = 'fail_closed';
@@ -278,15 +397,24 @@ function resolveRuntimeRoute(input) {
         decisionCommand = null;
       }
     } else if (routingMode === 'normal') {
-      if (stateFacts.only_state_handoff && projectLocalCommands.has('/landing') && (resolvedAllowed.length === 0 || resolvedAllowed.includes('/landing'))) {
-        decision = 'route';
-        decisionCommand = '/landing';
-      } else if (stateFacts.confirmed_blockers && projectLocalCommands.has('/fixcritical') && (resolvedAllowed.length === 0 || resolvedAllowed.includes('/fixcritical'))) {
-        decision = 'route';
-        decisionCommand = '/fixcritical';
-      } else if (stateFacts.evidence_state === 'inconsistent' && projectLocalCommands.has('/auditphase') && (resolvedAllowed.length === 0 || resolvedAllowed.includes('/auditphase'))) {
-        decision = 'route';
-        decisionCommand = '/auditphase';
+      const budgetExhausted = repairFacts.repair_budget_exhausted === true;
+      const userOverride = repairFacts.user_continue_repair_authorized === true;
+      const hasBlockers = (acceptanceFacts.open_confirmed_current_phase_blockers && acceptanceFacts.open_confirmed_current_phase_blockers > 0) ||
+                          (acceptanceFacts.repair_required_current_phase_findings && acceptanceFacts.repair_required_current_phase_findings > 0) ||
+                          stateFacts.confirmed_blockers === true;
+      const isReleaseClaim = currentStatus === 'release_candidate_ready' || currentStatus === 'passed_release_acceptance';
+      const isAccepted = acceptanceFacts.acceptance_status === 'accepted' || acceptanceFacts.acceptance_status === 'passed';
+      const isAuditPassed = acceptanceFacts.audit_status === 'passed';
+      const isVerificationPassed = acceptanceFacts.verification_status === 'passed';
+      const isShip = acceptanceFacts.ship_status && acceptanceFacts.ship_status.toLowerCase() === 'ship';
+      const releaseReady = isAccepted && isAuditPassed && isVerificationPassed && isShip;
+
+      if (isReleaseClaim && !releaseReady) {
+        decision = 'fail_closed';
+        decisionCommand = null;
+      } else if (hasBlockers && budgetExhausted && !userOverride) {
+        decision = 'human_decision_required';
+        decisionCommand = null;
       } else if (nextRequiredCommand && resolvedAllowed.includes(nextRequiredCommand)) {
         decision = 'route';
         decisionCommand = nextRequiredCommand;
@@ -327,6 +455,7 @@ function resolveRuntimeRoute(input) {
     available_pipeline_runtime_version: availablePipelineVersion,
     runtime_compatibility: runtimeCompatibility,
     available_commands: availableCommands,
+    state_declared_next_required_command: stateFacts.next_required_command || null,
     state_declared_commands_allowed_now: stateDeclaredAllowed,
     resolved_commands_allowed_now: resolvedAllowed,
     commands_allowed_now: resolvedAllowed,

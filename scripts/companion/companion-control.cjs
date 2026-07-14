@@ -74,49 +74,67 @@ function rootCommand(value) {
   return match ? match[0] : null;
 }
 
+function makeResult(input, partial) {
+  let resolved = partial.resolved_commands_allowed_now || input.available_commands || [];
+  if (input.repair_budget_exhausted && !input.user_continue_repair_authorized) {
+    const blocked = new Set(['/fixcritical', '/nextphase', '/fastpatch']);
+    resolved = resolved.filter(cmd => !blocked.has(cmd));
+  }
+  return {
+    decision: partial.decision,
+    command: partial.command,
+    routing_mode: partial.routing_mode || 'normal',
+    resolved_commands_allowed_now: resolved,
+    next_required_command: partial.next_required_command || null,
+    routing_valid: partial.routing_valid !== undefined ? partial.routing_valid : true,
+    routing_errors: partial.routing_errors || [],
+    reason_codes: partial.reason_codes || []
+  };
+}
+
 function route(input) {
   const available = new Set(input.available_commands || []);
   const allowed = new Set(input.commands_allowed_now || []);
   const requested = input.requested_command || null;
 
   if (requested && !available.has(requested)) {
-    return { decision: 'reject_unknown_command', command: null };
+    return makeResult(input, { decision: 'reject_unknown_command', command: null, routing_valid: false, routing_errors: [`Requested command '${requested}' is not installed in project-local inventory.`] });
   }
-  if (input.repair_budget_exhausted) {
-    return { decision: 'human_decision_required', command: null };
+  if (input.repair_budget_exhausted && !input.user_continue_repair_authorized) {
+    return makeResult(input, { decision: 'human_decision_required', command: null });
   }
   if (input.required_child_exit_codes && input.required_child_exit_codes.some((code) => Number(code) !== 0)) {
-    return { decision: 'fail_closed', command: null };
+    return makeResult(input, { decision: 'fail_closed', command: null, routing_valid: false });
   }
   if (input.production_outputs_changed_by_tests) {
-    return { decision: 'block_test_isolation', command: null };
+    return makeResult(input, { decision: 'block_test_isolation', command: null, routing_valid: false });
   }
   if (input.zip_hash_embedded_inside_zip) {
-    return { decision: 'reject_self_reference', command: null };
+    return makeResult(input, { decision: 'reject_self_reference', command: null, routing_valid: false });
   }
   if (input.contract_status === 'started' && input.new_acceptance_criteria) {
-    return { decision: 'classify_new_requirement', command: null };
+    return makeResult(input, { decision: 'classify_new_requirement', command: null });
   }
   if (input.risk_track === 'research' && input.finding_category === 'delivery' && input.affects_validity === false) {
-    return { decision: 'defer_non_blocking_debt', command: null };
+    return makeResult(input, { decision: 'defer_non_blocking_debt', command: null });
   }
   if (input.artifact_metadata_stale && input.product_behavior_valid) {
-    return { decision: 'invalidate_artifact_claim_only', command: available.has('/auditphase') ? '/auditphase' : null };
+    return makeResult(input, { decision: 'invalidate_artifact_claim_only', command: available.has('/auditphase') ? '/auditphase' : null });
   }
   if (input.phase_result_present === false && input.completion_prose_present) {
-    return { decision: 'report_unverified', command: null };
+    return makeResult(input, { decision: 'report_unverified', command: null });
   }
   if (input.exact_version_contract === false && input.imports_pass && input.tests_pass) {
-    return { decision: 'accept_environment_deviation', command: null };
+    return makeResult(input, { decision: 'accept_environment_deviation', command: null });
   }
   if (input.finding_lifecycle_status === 'verified_resolved') {
-    return { decision: 'exclude_from_open_count', command: null };
+    return makeResult(input, { decision: 'exclude_from_open_count', command: null });
   }
   if (input.implementation_alignment_status === 'resolved' && input.empirical_validation_status === 'unvalidated') {
-    return { decision: 'keep_production_use_conditional', command: null };
+    return makeResult(input, { decision: 'keep_production_use_conditional', command: null });
   }
   if (input.market_content_hash_match === true && input.provenance_hash_match === false) {
-    return { decision: 'accept_content_reject_provenance_identity', command: null };
+    return makeResult(input, { decision: 'accept_content_reject_provenance_identity', command: null });
   }
 
   // Construct facts for resolveRuntimeRoute
@@ -146,11 +164,49 @@ function route(input) {
       stale_state: input.stale_state,
       evidence_state: input.evidence_state,
       only_state_handoff: input.only_state_handoff,
-      confirmed_blockers: input.confirmed_blockers
+      confirmed_blockers: input.confirmed_blockers,
+      next_required_command: input.state_declared_next_required_command || input.next_required_command,
+      state_handoff_required: input.state_handoff_required,
+      landing_completed: input.landing_completed,
+      recovery_required: input.recovery_required
     },
     phase_contract_facts: {
       contract_status: input.contract_status,
       new_acceptance_criteria: input.new_acceptance_criteria
+    },
+    phase_result_facts: {
+      valid: input.phase_result_present !== false,
+      missing: input.phase_result_present === false,
+      contract_hash: input.contract_hash,
+      release_source_commit: input.release_source_commit,
+      source_commit: input.source_commit
+    },
+    acceptance_facts: {
+      acceptance_status: input.acceptance_status,
+      audit_status: input.audit_status,
+      verification_status: input.verification_status,
+      ship_status: input.ship_status,
+      open_confirmed_current_phase_blockers: input.open_confirmed_current_phase_blockers !== undefined ? input.open_confirmed_current_phase_blockers : (input.open_current_phase_blockers !== undefined ? input.open_current_phase_blockers : 0),
+      repair_required_current_phase_findings: input.repair_required_current_phase_findings !== undefined ? input.repair_required_current_phase_findings : 0,
+      verification_required_current_phase_findings: input.verification_required_current_phase_findings !== undefined ? input.verification_required_current_phase_findings : 0,
+      fixed_unverified_current_phase_findings: input.fixed_unverified_current_phase_findings !== undefined ? input.fixed_unverified_current_phase_findings : 0,
+      verified_resolved_findings: input.verified_resolved_findings !== undefined ? input.verified_resolved_findings : 0,
+      deferred_product_findings: input.deferred_product_findings !== undefined ? input.deferred_product_findings : 0,
+      deferred_infrastructure_findings: input.deferred_infrastructure_findings !== undefined ? input.deferred_infrastructure_findings : 0,
+      accepted_risks: input.accepted_risks !== undefined ? input.accepted_risks : 0
+    },
+    audit_facts: {
+      audit_result_present: input.audit_result_present !== undefined ? input.audit_result_present : true,
+      audit_result_schema_valid: input.audit_result_schema_valid !== undefined ? input.audit_result_schema_valid : true,
+      audit_authoritative: input.audit_authoritative !== undefined ? input.audit_authoritative : true,
+      audit_evidence_complete: input.audit_evidence_complete !== undefined ? input.audit_evidence_complete : true,
+      claims_evidence_consistent: input.claims_evidence_consistent !== undefined ? input.claims_evidence_consistent : true
+    },
+    repair_facts: {
+      repair_budget_known: input.repair_budget_known !== undefined ? input.repair_budget_known : true,
+      repair_budget_exhausted: input.repair_budget_exhausted !== undefined ? input.repair_budget_exhausted : false,
+      user_continue_repair_authorized: input.user_continue_repair_authorized !== undefined ? input.user_continue_repair_authorized : false,
+      registered_repair_cycle_count: input.registered_repair_cycle_count !== undefined ? input.registered_repair_cycle_count : 1
     },
     requested_command: input.requested_command !== undefined ? input.requested_command : null,
     routing_policy: {
@@ -161,7 +217,13 @@ function route(input) {
   const res = resolveRuntimeRoute(facts);
   return {
     decision: res.decision,
-    command: res.command
+    command: res.command,
+    routing_mode: res.routing_mode,
+    resolved_commands_allowed_now: res.resolved_commands_allowed_now,
+    next_required_command: res.next_required_command,
+    routing_valid: res.routing_valid,
+    routing_errors: res.routing_errors,
+    reason_codes: res.stale_reasons ? res.stale_reasons.map(r => r.code) : []
   };
 }
 
@@ -259,7 +321,11 @@ function validatePack(repoRoot) {
       if (!item.id || !item.input || !item.expected) errors.push('Malformed golden eval case');
       if (ids.has(item.id)) errors.push(`Duplicate golden eval id: ${item.id}`);
       ids.add(item.id);
-      const actual = route(item.input);
+      const fullRes = route(item.input);
+      const actual = {};
+      for (const key of Object.keys(item.expected)) {
+        actual[key] = fullRes[key];
+      }
       if (!deepEqual(actual, item.expected)) {
         errors.push(`Golden eval failed: ${item.id}; expected=${JSON.stringify(item.expected)} actual=${JSON.stringify(actual)}`);
       }

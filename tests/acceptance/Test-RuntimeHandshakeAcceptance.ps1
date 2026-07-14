@@ -7,6 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$ExpectedWorkflowCompositeHash = "c9036e5d356c5b24845542431613e0287804084d242b40c5d9218fd56ccfece0"
 
 function Write-Utf8 {
   param([string]$Path, [string]$Text)
@@ -32,14 +33,23 @@ function Invoke-Capture {
   }
 }
 
+function Invoke-GitLines {
+  param([string]$Root, [string[]]$Arguments)
+  $Result = Invoke-Capture -FilePath "git" -Arguments (@("-C", $Root) + $Arguments)
+  if ($Result.Code -ne 0) {
+    throw "git failed: $Root $($Arguments -join ' ')"
+  }
+  return [string[]]@($Result.Text -split "`r?`n" | Where-Object { $_ -ne "" })
+}
+
 function Get-Fingerprint {
   param([string]$Root)
   [ordered]@{
-    head = (& git -C $Root rev-parse HEAD).Trim()
-    status = [string[]]@(& git -C $Root status --porcelain=v1 --untracked-files=all)
-    staged = [string[]]@(& git -C $Root diff --cached --name-only)
-    unstaged = [string[]]@(& git -C $Root diff --name-only)
-    untracked = [string[]]@(& git -C $Root ls-files --others --exclude-standard)
+    head = ((Invoke-GitLines -Root $Root -Arguments @("rev-parse", "HEAD")) -join "").Trim()
+    status = [string[]](Invoke-GitLines -Root $Root -Arguments @("status", "--porcelain=v1", "--untracked-files=all"))
+    staged = [string[]](Invoke-GitLines -Root $Root -Arguments @("diff", "--cached", "--name-only"))
+    unstaged = [string[]](Invoke-GitLines -Root $Root -Arguments @("diff", "--name-only"))
+    untracked = [string[]](Invoke-GitLines -Root $Root -Arguments @("ls-files", "--others", "--exclude-standard"))
   }
 }
 
@@ -56,27 +66,31 @@ function Test-FingerprintEqual {
 
 function Get-WorkflowCompositeHash {
   param([string]$WorkflowRoot)
-  $Files = @(
+
+  $ByName = @{}
+  [string[]]$Names = @(
     Get-ChildItem -LiteralPath $WorkflowRoot -File -Filter "*.md" |
       ForEach-Object {
-        [pscustomobject]@{
-          Normalized = $_.Name.ToLowerInvariant()
-          FullName = $_.FullName
+        $Normalized = $_.Name.ToLowerInvariant()
+        if ($ByName.ContainsKey($Normalized)) {
+          throw "Duplicate normalized workflow filename: $Normalized"
         }
+        $ByName[$Normalized] = $_.FullName
+        $Normalized
       }
   )
-  [System.Array]::Sort($Files, [System.Collections.Generic.Comparer[object]]::Create({
-    param($A, $B)
-    return [System.StringComparer]::Ordinal.Compare($A.Normalized, $B.Normalized)
-  }))
+
+  [System.Array]::Sort($Names, [System.StringComparer]::Ordinal)
+
   $Builder = New-Object System.Text.StringBuilder
-  foreach ($File in $Files) {
-    $Hash = (Get-FileHash -LiteralPath $File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-    [void]$Builder.Append($File.Normalized)
+  foreach ($Name in $Names) {
+    $Hash = (Get-FileHash -LiteralPath $ByName[$Name] -Algorithm SHA256).Hash.ToLowerInvariant()
+    [void]$Builder.Append($Name)
     [void]$Builder.Append("`t")
     [void]$Builder.Append($Hash)
     [void]$Builder.Append("`n")
   }
+
   $Bytes = [System.Text.Encoding]::UTF8.GetBytes($Builder.ToString())
   $Sha = [System.Security.Cryptography.SHA256]::Create()
   try {
@@ -91,7 +105,7 @@ function New-Fixture {
   param(
     [string]$Parent,
     [string]$Name,
-    [ValidateSet("workflow", "inventory", "malformed")][string]$InventoryMode
+    [ValidateSet("workflow", "inventory", "malformed", "empty", "duplicate-command", "invalid-command", "workflow-duplicate")][string]$InventoryMode
   )
 
   $Root = Join-Path $Parent $Name
@@ -101,7 +115,10 @@ function New-Fixture {
   Write-Utf8 -Path (Join-Path $Root ".agents\workflows\landing.md") -Text "# Landing`n"
   Write-Utf8 -Path (Join-Path $Root ".agents\workflows\auditphase.md") -Text "# Audit`n"
 
-  if ($InventoryMode -eq "inventory") {
+  if ($InventoryMode -eq "workflow-duplicate") {
+    Write-Utf8 -Path (Join-Path $Root ".agents\workflows\Landing.md") -Text "# Duplicate`n"
+  }
+  elseif ($InventoryMode -eq "inventory") {
     Write-Utf8 -Path (Join-Path $Root ".agents\COMMAND_INVENTORY.json") -Text @"
 {
   "schema_version": "1.0.0",
@@ -114,6 +131,15 @@ function New-Fixture {
   }
   elseif ($InventoryMode -eq "malformed") {
     Write-Utf8 -Path (Join-Path $Root ".agents\COMMAND_INVENTORY.json") -Text "{ invalid-json"
+  }
+  elseif ($InventoryMode -eq "empty") {
+    Write-Utf8 -Path (Join-Path $Root ".agents\COMMAND_INVENTORY.json") -Text '{ "schema_version": "1.0.0", "commands": [] }'
+  }
+  elseif ($InventoryMode -eq "duplicate-command") {
+    Write-Utf8 -Path (Join-Path $Root ".agents\COMMAND_INVENTORY.json") -Text '{ "schema_version": "1.0.0", "commands": ["/landing", "/landing"] }'
+  }
+  elseif ($InventoryMode -eq "invalid-command") {
+    Write-Utf8 -Path (Join-Path $Root ".agents\COMMAND_INVENTORY.json") -Text '{ "schema_version": "1.0.0", "commands": ["landing"] }'
   }
 
   Write-Utf8 -Path (Join-Path $Root ".agy\INSTALLATION_MANIFEST.json") -Text @"
@@ -135,21 +161,20 @@ function New-Fixture {
 {
   "schema_version": "1.0.0",
   "current_phase": "P1",
-  "current_status": "release_candidate_ready",
-  "next_required_command": "/shipcheck",
-  "commands_allowed_now": ["/shipcheck"]
+  "current_status": "awaiting_audit",
+  "next_required_command": "/landing",
+  "commands_allowed_now": ["/landing"]
 }
 "@
 
   Write-Utf8 -Path (Join-Path $Root "README.md") -Text "# Fixture`n"
 
-  & git -C $Root init --quiet
-  if ($LASTEXITCODE -ne 0) { throw "git init failed: $Root" }
-  & git -C $Root config user.name "Acceptance Fixture"
-  & git -C $Root config user.email "fixture@example.invalid"
-  & git -C $Root add .
-  & git -C $Root commit -m "fixture" --quiet
-  if ($LASTEXITCODE -ne 0) { throw "fixture commit failed: $Root" }
+  $Init = Invoke-Capture -FilePath "git" -Arguments @("-C", $Root, "init", "--quiet")
+  if ($Init.Code -ne 0) { throw "git init failed: $Root" }
+  if ((Invoke-Capture -FilePath "git" -Arguments @("-C", $Root, "config", "user.name", "Acceptance Fixture")).Code -ne 0) { throw "git config failed" }
+  if ((Invoke-Capture -FilePath "git" -Arguments @("-C", $Root, "config", "user.email", "fixture@example.invalid")).Code -ne 0) { throw "git config failed" }
+  if ((Invoke-Capture -FilePath "git" -Arguments @("-C", $Root, "add", ".")).Code -ne 0) { throw "git add failed" }
+  if ((Invoke-Capture -FilePath "git" -Arguments @("-C", $Root, "commit", "-m", "fixture", "--quiet")).Code -ne 0) { throw "fixture commit failed" }
 
   Write-Utf8 -Path (Join-Path $Root "DIRTY.txt") -Text "dirty`n"
   return $Root
@@ -158,12 +183,13 @@ function New-Fixture {
 $ResolvedRepo = (Resolve-Path -LiteralPath $RepoRoot).Path
 $HandshakeScript = Join-Path $ResolvedRepo "scripts\windows\companion\Get-RuntimeHandshake.ps1"
 $CompanionControl = Join-Path $ResolvedRepo "scripts\companion\companion-control.cjs"
+$IndependentSchema = Join-Path $ResolvedRepo "tests\acceptance\handshake-schema-contract.cjs"
+$HandshakeSchema = Join-Path $ResolvedRepo "schemas\companion\runtime-handshake.schema.json"
 
-if (!(Test-Path -LiteralPath $HandshakeScript -PathType Leaf)) {
-  throw "Handshake script missing: $HandshakeScript"
-}
-if (!(Test-Path -LiteralPath $CompanionControl -PathType Leaf)) {
-  throw "Companion control missing: $CompanionControl"
+foreach ($Required in @($HandshakeScript, $CompanionControl, $IndependentSchema, $HandshakeSchema)) {
+  if (!(Test-Path -LiteralPath $Required -PathType Leaf)) {
+    throw "Required file missing: $Required"
+  }
 }
 
 if ([string]::IsNullOrWhiteSpace($PowerShellExecutable)) {
@@ -212,7 +238,8 @@ function Invoke-Handshake {
 }
 
 try {
-  $UnicodeName = if ($IsWindows -or $env:OS -eq "Windows_NT") {
+  $RunningOnWindows = $env:OS -eq "Windows_NT"
+  $UnicodeName = if ($RunningOnWindows) {
     "Проверка-маршрута-" + [Guid]::NewGuid().ToString("N")
   } else {
     "unicode-проект-" + [Guid]::NewGuid().ToString("N")
@@ -225,31 +252,44 @@ try {
 
   Assert-True -Condition ($WorkflowResult.ExitCode -eq 0) -Message "Workflow compatibility handshake must exit 0. Output=$($WorkflowResult.Text)"
   Assert-True -Condition ($null -ne $WorkflowResult.Handshake) -Message "Workflow compatibility handshake JSON missing."
-  Assert-True -Condition ($WorkflowResult.Handshake.schema_version -eq "1.1.0") -Message "Handshake schema_version must be 1.1.0."
-  Assert-True -Condition ($WorkflowResult.Handshake.inventory_source -eq "project_workflow_directory_compat") -Message "Workflow inventory_source mismatch."
-  Assert-True -Condition ($WorkflowResult.Handshake.inventory_trust -eq "compatibility") -Message "Workflow inventory_trust mismatch."
 
-  $ExpectedWorkflowHash = Get-WorkflowCompositeHash -WorkflowRoot (Join-Path $WorkflowFixture ".agents\workflows")
-  Assert-True -Condition ($WorkflowResult.Handshake.inventory_sha256 -eq $ExpectedWorkflowHash) -Message "Workflow composite hash mismatch."
-  Assert-True -Condition (Test-FingerprintEqual -Before $Before -After $After) -Message "Handshake mutated the external product fixture."
-  Assert-True -Condition (
-    [System.StringComparer]::OrdinalIgnoreCase.Equals(
-      [System.IO.Path]::GetFullPath([string]$WorkflowResult.Handshake.project_root),
-      [System.IO.Path]::GetFullPath([string]$WorkflowResult.Handshake.git_root)
-    )
-  ) -Message "Non-ASCII project_root/git_root mismatch."
+  if ($null -ne $WorkflowResult.Handshake) {
+    Assert-True -Condition ($WorkflowResult.Handshake.schema_version -eq "1.1.0") -Message "Handshake schema_version must be 1.1.0."
+    Assert-True -Condition ($WorkflowResult.Handshake.inventory_source -eq "project_workflow_directory_compat") -Message "Workflow inventory_source mismatch."
+    Assert-True -Condition ($WorkflowResult.Handshake.inventory_trust -eq "compatibility") -Message "Workflow inventory_trust mismatch."
 
-  Assert-True -Condition ($WorkflowResult.Handshake.installed_project_package_version -eq "1.2.4") -Message "Installed package identity mismatch."
-  Assert-True -Condition ($WorkflowResult.Handshake.installed_project_runtime_version -eq "1.2.1") -Message "Installed runtime identity mismatch."
-  Assert-True -Condition ($WorkflowResult.Handshake.runtime_compatibility -eq "compatible") -Message "Runtime compatibility should be compatible."
+    $ComputedWorkflowHash = Get-WorkflowCompositeHash -WorkflowRoot (Join-Path $WorkflowFixture ".agents\workflows")
+    Assert-True -Condition ($ComputedWorkflowHash -eq $ExpectedWorkflowCompositeHash) -Message "Protected fixture composite hash changed."
+    Assert-True -Condition ($WorkflowResult.Handshake.inventory_sha256 -eq $ExpectedWorkflowCompositeHash) -Message "Workflow composite hash mismatch."
 
-  $SchemaResult = Invoke-Capture -FilePath "node" -Arguments @(
+    Assert-True -Condition (Test-FingerprintEqual -Before $Before -After $After) -Message "Handshake mutated the external product fixture."
+    Assert-True -Condition (
+      [System.StringComparer]::OrdinalIgnoreCase.Equals(
+        [System.IO.Path]::GetFullPath([string]$WorkflowResult.Handshake.project_root),
+        [System.IO.Path]::GetFullPath([string]$WorkflowResult.Handshake.git_root)
+      )
+    ) -Message "Non-ASCII project_root/git_root mismatch."
+
+    Assert-True -Condition ($WorkflowResult.Handshake.installed_project_package_version -eq "1.2.4") -Message "Installed package identity mismatch."
+    Assert-True -Condition ($WorkflowResult.Handshake.installed_project_runtime_version -eq "1.2.1") -Message "Installed runtime identity mismatch."
+    Assert-True -Condition ($WorkflowResult.Handshake.runtime_compatibility -eq "compatible") -Message "Runtime compatibility should be compatible."
+  }
+
+  $IndependentResult = Invoke-Capture -FilePath "node" -Arguments @(
+    $IndependentSchema,
+    "validate",
+    "--schema", $HandshakeSchema,
+    "--file", $WorkflowResult.OutFile
+  )
+  Assert-True -Condition ($IndependentResult.Code -eq 0) -Message "Independent schema validation failed. Output=$($IndependentResult.Text)"
+
+  $ProductionSchemaResult = Invoke-Capture -FilePath "node" -Arguments @(
     $CompanionControl,
     "validate-handshake",
     "--repo-root", $ResolvedRepo,
     "--file", $WorkflowResult.OutFile
   )
-  Assert-True -Condition ($SchemaResult.Code -eq 0) -Message "Generated handshake must pass schema validation. Output=$($SchemaResult.Text)"
+  Assert-True -Condition ($ProductionSchemaResult.Code -eq 0) -Message "Production schema validation failed. Output=$($ProductionSchemaResult.Text)"
 
   if (!$UnicodeOnly) {
     $InventoryFixture = New-Fixture -Parent $TempRoot -Name ("inventory-" + [Guid]::NewGuid().ToString("N")) -InventoryMode "inventory"
@@ -258,24 +298,34 @@ try {
     $ExpectedInventoryHash = (Get-FileHash -LiteralPath $InventoryPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
     Assert-True -Condition ($InventoryResult.ExitCode -eq 0) -Message "Authoritative inventory handshake must exit 0."
-    Assert-True -Condition ($InventoryResult.Handshake.inventory_source -eq "project_command_inventory") -Message "Authoritative inventory_source mismatch."
-    Assert-True -Condition ($InventoryResult.Handshake.inventory_trust -eq "authoritative") -Message "Authoritative inventory_trust mismatch."
-    Assert-True -Condition ($InventoryResult.Handshake.inventory_sha256 -eq $ExpectedInventoryHash) -Message "Authoritative inventory exact-byte hash mismatch."
-
-    $MalformedFixture = New-Fixture -Parent $TempRoot -Name ("malformed-" + [Guid]::NewGuid().ToString("N")) -InventoryMode "malformed"
-    $MalformedResult = Invoke-Handshake -FixtureRoot $MalformedFixture
-    Assert-True -Condition ($MalformedResult.ExitCode -ne 0) -Message "Malformed authoritative inventory must fail closed."
-    if ($null -ne $MalformedResult.Handshake) {
-      Assert-True -Condition ($MalformedResult.Handshake.inventory_source -ne "project_workflow_directory_compat") -Message "Malformed authoritative inventory must not fall back to workflows."
-      Assert-True -Condition ($MalformedResult.Handshake.routing_valid -eq $false) -Message "Malformed authoritative inventory must set routing_valid=false."
+    if ($null -ne $InventoryResult.Handshake) {
+      Assert-True -Condition ($InventoryResult.Handshake.inventory_source -eq "project_command_inventory") -Message "Authoritative inventory_source mismatch."
+      Assert-True -Condition ($InventoryResult.Handshake.inventory_trust -eq "authoritative") -Message "Authoritative inventory_trust mismatch."
+      Assert-True -Condition ($InventoryResult.Handshake.inventory_sha256 -eq $ExpectedInventoryHash) -Message "Authoritative inventory exact-byte hash mismatch."
     }
 
-    $SchemaSelfTest = Invoke-Capture -FilePath "node" -Arguments @(
+    foreach ($Mode in @("malformed", "empty", "duplicate-command", "invalid-command")) {
+      $InvalidFixture = New-Fixture -Parent $TempRoot -Name ("invalid-" + $Mode + "-" + [Guid]::NewGuid().ToString("N")) -InventoryMode $Mode
+      $InvalidResult = Invoke-Handshake -FixtureRoot $InvalidFixture
+      Assert-True -Condition ($InvalidResult.ExitCode -ne 0) -Message "Invalid authoritative inventory mode '$Mode' must fail closed."
+      if ($null -ne $InvalidResult.Handshake) {
+        Assert-True -Condition ($InvalidResult.Handshake.inventory_source -ne "project_workflow_directory_compat") -Message "Invalid authoritative inventory '$Mode' must not fall back."
+        Assert-True -Condition ($InvalidResult.Handshake.routing_valid -eq $false) -Message "Invalid authoritative inventory '$Mode' must set routing_valid=false."
+      }
+    }
+
+    if (!$RunningOnWindows) {
+      $DuplicateWorkflowFixture = New-Fixture -Parent $TempRoot -Name ("workflow-duplicate-" + [Guid]::NewGuid().ToString("N")) -InventoryMode "workflow-duplicate"
+      $DuplicateWorkflowResult = Invoke-Handshake -FixtureRoot $DuplicateWorkflowFixture
+      Assert-True -Condition ($DuplicateWorkflowResult.ExitCode -ne 0) -Message "Duplicate normalized workflow filenames must fail closed."
+    }
+
+    $ProductionSchemaSelfTest = Invoke-Capture -FilePath "node" -Arguments @(
       $CompanionControl,
       "test-schema-validator",
       "--repo-root", $ResolvedRepo
     )
-    Assert-True -Condition ($SchemaSelfTest.Code -eq 0) -Message "Schema validator self-test failed. Output=$($SchemaSelfTest.Text)"
+    Assert-True -Condition ($ProductionSchemaSelfTest.Code -eq 0) -Message "Production schema validator self-test failed. Output=$($ProductionSchemaSelfTest.Text)"
   }
 }
 finally {

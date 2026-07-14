@@ -1,18 +1,28 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "contract_id": "agentic-pipeline-runtime-routing-1.2.4",
   "protected_paths": [
     ".github/workflows/validate.yml",
     "tests/acceptance/ACCEPTANCE_CONTRACT.json",
     "tests/acceptance/README.md",
+    "tests/acceptance/golden-cases-baseline.json",
+    "tests/acceptance/handshake-schema-contract.cjs",
     "tests/acceptance/runtime-routing-contract.cjs",
+    "tests/acceptance/Test-InstallationManifestAcceptance.ps1",
     "tests/acceptance/Test-RuntimeHandshakeAcceptance.ps1"
   ],
   "implementation_forbidden_from_modifying_protected_paths": true,
   "expected_handshake_schema_version": "1.1.0",
   "expected_package_version": "1.2.4",
   "expected_runtime_version": "1.2.1",
+  "expected_playbook_version": "1.2.0",
   "expected_companion_version": "1.2.2",
+  "expected_workflow_composite_sha256": "c9036e5d356c5b24845542431613e0287804084d242b40c5d9218fd56ccfece0",
+  "resolver_input_contract": {
+    "command_inventory": "project_inventory",
+    "installation_identity": "installation_facts",
+    "central_inventory": "central_inventory_advisory_only"
+  },
   "required_inventory_sources": [
     "project_command_inventory",
     "project_workflow_directory_compat",
@@ -39,6 +49,9 @@
     "central_inventory_is_advisory_only": true,
     "shipcheck_is_non_circular": true,
     "unknown_runtime_identity_is_not_fabricated": true,
+    "installation_manifest_is_produced_and_consumed": true,
+    "schema_is_checked_by_independent_protected_validator": true,
+    "existing_golden_case_ids_cannot_be_deleted": true,
     "product_fixture_must_remain_unchanged": true
   }
 }

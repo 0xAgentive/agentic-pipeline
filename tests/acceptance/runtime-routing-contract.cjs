@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const { resolveRuntimeRoute } = require(
   path.resolve(__dirname, '../../scripts/control-plane/resolve-runtime-route.cjs')
@@ -8,6 +9,16 @@ const { resolveRuntimeRoute } = require(
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    const output = {};
+    for (const key of Object.keys(value).sort()) output[key] = canonical(value[key]);
+    return output;
+  }
+  return value;
 }
 
 function baseFacts() {
@@ -25,10 +36,14 @@ function baseFacts() {
         '/specdoc',
         '/planonly',
         '/nextphase'
-      ],
-      package_version: '1.2.4',
-      runtime_version: '1.2.1',
-      source_commit: 'fixture'
+      ]
+    },
+    installation_facts: {
+      installation_manifest_path: '.agy/INSTALLATION_MANIFEST.json',
+      installation_manifest_sha256: 'b'.repeat(64),
+      installed_project_package_version: '1.2.4',
+      installed_project_runtime_version: '1.2.1',
+      installed_project_source_commit: 'fixture'
     },
     central_inventory_advisory: {
       package_version: '1.2.4',
@@ -123,6 +138,16 @@ const cases = [
     expected: { routing_decision: 'fail_closed', command: null }
   },
   {
+    id: 'dirty_git_blocks_nextphase',
+    mutate(f) { f.git_facts.git_state = 'dirty'; f.requested_command = '/nextphase P8.0'; },
+    expected: { routing_decision: 'fail_closed', command: null }
+  },
+  {
+    id: 'dirty_git_blocks_shipcheck',
+    mutate(f) { f.git_facts.git_state = 'dirty'; f.requested_command = '/shipcheck release'; },
+    expected: { routing_decision: 'fail_closed', command: null }
+  },
+  {
     id: 'awaiting_audit_is_objective',
     mutate(f) {
       f.state_facts.current_status = 'awaiting_audit';
@@ -214,7 +239,7 @@ const cases = [
     reason: 'IMPLEMENTATION_READY'
   },
   {
-    id: 'implementation_in_progress_with_result_routes_audit',
+    id: 'implementation_in_progress_with_valid_result_routes_audit',
     mutate(f) { f.state_facts.current_status = 'implementation_in_progress'; },
     expected: {
       next_required_command: '/auditphase',
@@ -222,12 +247,28 @@ const cases = [
     }
   },
   {
+    id: 'implementation_in_progress_without_result_fails_closed',
+    mutate(f) {
+      f.state_facts.current_status = 'implementation_in_progress';
+      f.phase_result_facts.present = false;
+      f.phase_result_facts.structurally_valid = false;
+      f.phase_result_facts.valid = false;
+      f.phase_result_facts.missing = true;
+    },
+    expected: {
+      routing_decision: 'fail_closed',
+      next_required_command: null
+    },
+    reason: 'PHASE_RESULT_AUTHORITY_UNPROVEN'
+  },
+  {
     id: 'recovery_required_status',
     mutate(f) { f.state_facts.current_status = 'recovery_required'; },
     expected: {
       routing_mode: 'recovery',
       next_required_command: '/landing'
-    }
+    },
+    reason: 'OBJECTIVE_STALE_STATE'
   },
   {
     id: 'shipcheck_is_reachable_before_ship',
@@ -266,20 +307,20 @@ const cases = [
   },
   {
     id: 'runtime_mismatch_requires_migration',
-    mutate(f) { f.project_inventory.runtime_version = '1.1.0'; },
+    mutate(f) { f.installation_facts.installed_project_runtime_version = '1.1.0'; },
     expected: { runtime_compatibility: 'migration_required' },
     reason: 'RUNTIME_MIGRATION_REQUIRED'
   },
   {
     id: 'runtime_unknown_remains_unknown',
-    mutate(f) { f.project_inventory.runtime_version = 'unknown'; },
+    mutate(f) { f.installation_facts.installed_project_runtime_version = 'unknown'; },
     expected: { runtime_compatibility: 'unknown' },
     reason: 'RUNTIME_IDENTITY_UNKNOWN'
   },
   {
     id: 'explicit_compatibility_matrix',
     mutate(f) {
-      f.project_inventory.runtime_version = '1.2.0';
+      f.installation_facts.installed_project_runtime_version = '1.2.0';
       f.routing_policy.explicit_compatibility_matrix = { '1.2.0': '1.2.1' };
     },
     expected: { runtime_compatibility: 'compatible' }
@@ -296,6 +337,18 @@ const cases = [
     }
   },
   {
+    id: 'whitespace_request_is_rejected',
+    mutate(f) {
+      f.state_facts.current_status = 'implementation_ready';
+      f.requested_command = '   ';
+    },
+    expected: {
+      routing_decision: 'reject_unknown_command',
+      command: null,
+      routing_valid: false
+    }
+  },
+  {
     id: 'non_slash_request_is_rejected',
     mutate(f) {
       f.state_facts.current_status = 'implementation_ready';
@@ -309,10 +362,38 @@ const cases = [
   }
 ];
 
+function loadGoldenBaseline() {
+  const baselinePath = path.join(__dirname, 'golden-cases-baseline.json');
+  const currentPath = path.resolve(__dirname, '../../evals/companion/golden_cases.json');
+  return {
+    baseline: JSON.parse(fs.readFileSync(baselinePath, 'utf8')),
+    current: JSON.parse(fs.readFileSync(currentPath, 'utf8'))
+  };
+}
+
+function validateGoldenBaseline() {
+  const { baseline, current } = loadGoldenBaseline();
+  const currentIds = new Set((current.cases || []).map((item) => item.id));
+  const errors = [];
+
+  if (!Array.isArray(baseline.case_ids) || !Number.isInteger(baseline.case_count)) {
+    errors.push('Malformed golden-cases baseline');
+  } else {
+    for (const id of baseline.case_ids) {
+      if (!currentIds.has(id)) errors.push(`Original golden case deleted: ${id}`);
+    }
+    if ((current.cases || []).length < baseline.case_count) {
+      errors.push(`Golden case count decreased: baseline=${baseline.case_count} current=${(current.cases || []).length}`);
+    }
+  }
+
+  return errors;
+}
+
 function selfCheck() {
   const ids = new Set();
   const errors = [];
-  if (cases.length < 20) errors.push(`Expected at least 20 cases, found ${cases.length}`);
+  if (cases.length < 24) errors.push(`Expected at least 24 cases, found ${cases.length}`);
   for (const item of cases) {
     if (!item.id || typeof item.mutate !== 'function' || !item.expected) {
       errors.push(`Malformed case: ${JSON.stringify(item)}`);
@@ -320,6 +401,8 @@ function selfCheck() {
     if (ids.has(item.id)) errors.push(`Duplicate case id: ${item.id}`);
     ids.add(item.id);
   }
+  errors.push(...validateGoldenBaseline());
+
   if (errors.length) {
     for (const error of errors) console.error(`SELF-CHECK FAIL: ${error}`);
     process.exit(1);
@@ -328,7 +411,7 @@ function selfCheck() {
 }
 
 function run() {
-  const failures = [];
+  const failures = validateGoldenBaseline();
   for (const item of cases) {
     const facts = clone(baseFacts());
     item.mutate(facts);

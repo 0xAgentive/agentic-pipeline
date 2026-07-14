@@ -51,8 +51,21 @@ $GitRoot = $null
 $GitState = $null
 $HeadCommit = $null
 if (Get-Command git -ErrorAction SilentlyContinue) {
-  $GitRootResult = Invoke-NativeCapture -FilePath "git" -ArgumentList @("-C", $Project, "rev-parse", "--show-toplevel")
-  if ($GitRootResult.Code -eq 0) { $GitRoot = $GitRootResult.Text.Trim() }
+  # Use --show-cdup instead of --show-toplevel.
+  # --show-cdup returns only an ASCII relative path, avoiding Windows PowerShell 5.1
+  # mojibake when the absolute repository path contains non-ASCII characters.
+  $GitRootResult = Invoke-NativeCapture -FilePath "git" -ArgumentList @("-C", $Project, "rev-parse", "--show-cdup")
+  if ($GitRootResult.Code -eq 0) {
+    $GitCdup = $GitRootResult.Text.Trim()
+    $GitRootCandidate = if ([string]::IsNullOrWhiteSpace($GitCdup)) {
+      $Project
+    }
+    else {
+      [System.IO.Path]::GetFullPath((Join-Path $Project $GitCdup))
+    }
+
+    $GitRoot = (Resolve-Path -LiteralPath $GitRootCandidate).Path
+  }
   if ($GitRoot) {
     $HeadResult = Invoke-NativeCapture -FilePath "git" -ArgumentList @("-C", $Project, "rev-parse", "HEAD")
     if ($HeadResult.Code -eq 0) { $HeadCommit = $HeadResult.Text.Trim() }
@@ -216,7 +229,7 @@ $Facts = [ordered]@{
     stale_state = if ($Phase) { $Phase.stale_state } else { $null }
     evidence_state = if ($Phase) { $Phase.evidence_state } else { $null }
     command_inventory_sha256 = if ($Phase) { $Phase.command_inventory_sha256 } else { $null }
-    
+
     state_handoff_required = if ($Phase -and $Phase.state_handoff_required -eq $true) { $true } else { $false }
     landing_completed = if ($Phase -and $Phase.landing_completed -eq $true) { $true } else { $false }
     recovery_required = if ($Phase -and $Phase.recovery_required -eq $true) { $true } else { $false }

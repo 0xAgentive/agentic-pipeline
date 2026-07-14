@@ -27,3 +27,16 @@ The workflow-directory fixture has a literal expected composite SHA-256:
 `c9036e5d356c5b24845542431613e0287804084d242b40c5d9218fd56ccfece0`
 
 This avoids testing an implementation only against another copy of the same algorithm.
+
+## Final acceptance-lock corrections
+
+The Phase A.2 lock closes the remaining two self-validation gaps:
+
+- `evals/companion/golden_cases.json` is byte-frozen for Phase B using its recorded SHA-256, not only its case IDs.
+- The protected schema judge asserts that the production handshake schema itself contains the mandatory fields, enums and strict object contracts. A weak implementation-owned schema is rejected before any generated handshake is validated.
+
+Installer acceptance also requires a single cross-platform manifest writer:
+
+`scripts/control-plane/write-installation-manifest.cjs`
+
+Both Windows and Bash installers must invoke that helper. The helper must read `VERSION.json`; installer scripts must not embed the release version literals.

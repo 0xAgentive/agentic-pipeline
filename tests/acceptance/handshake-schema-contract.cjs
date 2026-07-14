@@ -21,6 +21,170 @@ const SUPPORTED_SCHEMA_KEYS = new Set([
   'minItems'
 ]);
 
+const REQUIRED_HANDSHAKE_FIELDS = [
+  'schema_version',
+  'generated_at_utc',
+  'pipeline_package_version',
+  'runtime_version',
+  'project_root',
+  'workspace_root',
+  'git_root',
+  'git_head',
+  'state_root',
+  'artifact_root',
+  'command_inventory_path',
+  'command_inventory_sha256',
+  'available_commands',
+  'current_phase',
+  'current_status',
+  'next_required_command',
+  'commands_allowed_now',
+  'routing_valid',
+  'routing_errors',
+  'git_state',
+  'routing_mode',
+  'inventory_source',
+  'inventory_trust',
+  'inventory_path',
+  'inventory_sha256',
+  'inventory_command_count',
+  'installation_manifest_path',
+  'installation_manifest_sha256',
+  'installed_project_package_version',
+  'installed_project_runtime_version',
+  'installed_project_source_commit',
+  'available_pipeline_package_version',
+  'available_pipeline_runtime_version',
+  'runtime_compatibility',
+  'state_declared_next_required_command',
+  'state_declared_commands_allowed_now',
+  'resolved_commands_allowed_now',
+  'stale_state',
+  'stale_reasons',
+  'routing_decision',
+  'routing_reason_codes',
+  'phase_result_present',
+  'phase_result_structurally_valid',
+  'phase_result_contract_hash_valid',
+  'audit_result_present',
+  'audit_result_structurally_valid',
+  'audit_authoritative',
+  'audit_evidence_complete',
+  'claims_evidence_consistent'
+];
+
+function sameMembers(actual, expected) {
+  if (!Array.isArray(actual) || !Array.isArray(expected)) return false;
+  return JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort());
+}
+
+function requireProperty(schema, name) {
+  if (!schema.properties || !schema.properties[name]) {
+    throw new Error(`Handshake schema is missing properties.${name}`);
+  }
+  return schema.properties[name];
+}
+
+function assertEnum(schema, name, expected) {
+  const property = requireProperty(schema, name);
+  if (!sameMembers(property.enum, expected)) {
+    throw new Error(
+      `Handshake schema enum mismatch for ${name}: ` +
+      `expected=${JSON.stringify(expected)} actual=${JSON.stringify(property.enum)}`
+    );
+  }
+}
+
+function assertCommandArray(schema, name) {
+  const property = requireProperty(schema, name);
+  if (property.type !== 'array' ||
+      !property.items ||
+      property.items.type !== 'string' ||
+      typeof property.items.pattern !== 'string' ||
+      !property.items.pattern.startsWith('^/')) {
+    throw new Error(`Handshake schema command-array contract is weak for ${name}`);
+  }
+}
+
+function assertHandshakeSchemaContract(schema) {
+  assertSupportedSchema(schema);
+
+  if (schema.type !== 'object') {
+    throw new Error('Handshake schema root type must be object');
+  }
+  if (schema.additionalProperties !== false) {
+    throw new Error('Handshake schema root must set additionalProperties=false');
+  }
+
+  const missingRequired = REQUIRED_HANDSHAKE_FIELDS.filter(
+    (name) => !Array.isArray(schema.required) || !schema.required.includes(name)
+  );
+  if (missingRequired.length) {
+    throw new Error(`Handshake schema required fields missing: ${missingRequired.join(', ')}`);
+  }
+
+  const version = requireProperty(schema, 'schema_version');
+  if (version.const !== '1.1.0') {
+    throw new Error(`Handshake schema_version const must be 1.1.0, got ${JSON.stringify(version.const)}`);
+  }
+
+  assertEnum(schema, 'routing_mode', ['normal', 'recovery', 'invalid']);
+  assertEnum(schema, 'inventory_source', [
+    'project_command_inventory',
+    'project_workflow_directory_compat',
+    'missing',
+    'advisory_only'
+  ]);
+  assertEnum(schema, 'inventory_trust', ['authoritative', 'compatibility', 'none']);
+  assertEnum(schema, 'runtime_compatibility', ['compatible', 'migration_required', 'unknown']);
+
+  for (const name of [
+    'available_commands',
+    'commands_allowed_now',
+    'state_declared_commands_allowed_now',
+    'resolved_commands_allowed_now'
+  ]) {
+    assertCommandArray(schema, name);
+  }
+
+  const reasonCodes = requireProperty(schema, 'routing_reason_codes');
+  if (reasonCodes.type !== 'array' ||
+      !reasonCodes.items ||
+      reasonCodes.items.type !== 'string' ||
+      reasonCodes.items.pattern !== '^[A-Z0-9_]+$') {
+    throw new Error('routing_reason_codes must be an array of uppercase reason-code strings');
+  }
+
+  const staleReasons = requireProperty(schema, 'stale_reasons');
+  if (staleReasons.type !== 'array' || !staleReasons.items) {
+    throw new Error('stale_reasons must be an array');
+  }
+  const staleItem = staleReasons.items;
+  if (staleItem.type !== 'object' ||
+      staleItem.additionalProperties !== false ||
+      !sameMembers(staleItem.required, ['code', 'evidence', 'severity'])) {
+    throw new Error('stale_reasons item contract is incomplete');
+  }
+  if (!staleItem.properties ||
+      !staleItem.properties.code ||
+      !staleItem.properties.evidence ||
+      !staleItem.properties.severity) {
+    throw new Error('stale_reasons item properties are incomplete');
+  }
+
+  for (const name of ['inventory_sha256', 'installation_manifest_sha256']) {
+    const property = requireProperty(schema, name);
+    if (!Array.isArray(property.type) ||
+        !property.type.includes('string') ||
+        !property.type.includes('null') ||
+        property.pattern !== '^[a-f0-9]{64}$') {
+      throw new Error(`${name} must be null or a lowercase SHA-256 string`);
+    }
+  }
+
+  return true;
+}
+
 function fail(message) {
   console.error(message);
   process.exit(1);
@@ -160,7 +324,7 @@ function validateValue(schema, value, location = '$') {
 }
 
 function validateDocument(schema, document) {
-  assertSupportedSchema(schema);
+  assertHandshakeSchemaContract(schema);
   return validateValue(schema, document);
 }
 
@@ -190,7 +354,8 @@ function selfCheck() {
 
   const failures = [];
   for (const item of checks) {
-    const errors = validateDocument(schema, item.value);
+    assertSupportedSchema(schema);
+    const errors = validateValue(schema, item.value);
     const passed = errors.length === 0;
     if (passed !== item.shouldPass) {
       failures.push(`${item.id}: expected pass=${item.shouldPass}, errors=${JSON.stringify(errors)}`);
@@ -205,12 +370,28 @@ function selfCheck() {
   }
   if (!unsupportedRejected) failures.push('unsupported schema keyword was not rejected');
 
+  const weakHandshakeSchema = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['schema_version'],
+    properties: {
+      schema_version: { const: '1.1.0' }
+    }
+  };
+  let weakSchemaRejected = false;
+  try {
+    assertHandshakeSchemaContract(weakHandshakeSchema);
+  } catch {
+    weakSchemaRejected = true;
+  }
+  if (!weakSchemaRejected) failures.push('weak handshake schema contract was not rejected');
+
   if (failures.length) {
     for (const item of failures) console.error(`SELF-CHECK FAIL: ${item}`);
     process.exit(1);
   }
 
-  console.log(`Independent schema contract self-check passed. Checks: ${checks.length + 1}`);
+  console.log(`Independent schema contract self-check passed. Checks: ${checks.length + 2}`);
 }
 
 function parseArgs(argv) {
@@ -277,6 +458,7 @@ if (require.main === module) main();
 
 module.exports = {
   assertSupportedSchema,
+  assertHandshakeSchemaContract,
   validateDocument,
   validateValue
 };

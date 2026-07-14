@@ -67,8 +67,9 @@ $ResolvedRepo = (Resolve-Path -LiteralPath $RepoRoot).Path
 $VersionPath = Join-Path $ResolvedRepo "VERSION.json"
 $WindowsInstaller = Join-Path $ResolvedRepo "scripts\windows\Initialize-AgenticProject.ps1"
 $BashInstaller = Join-Path $ResolvedRepo "scripts\bash\adopt-pipeline.sh"
+$ManifestWriter = Join-Path $ResolvedRepo "scripts\control-plane\write-installation-manifest.cjs"
 
-foreach ($Required in @($VersionPath, $WindowsInstaller, $BashInstaller)) {
+foreach ($Required in @($VersionPath, $WindowsInstaller, $BashInstaller, $ManifestWriter)) {
   if (!(Test-Path -LiteralPath $Required -PathType Leaf)) {
     throw "Required file missing: $Required"
   }
@@ -78,6 +79,33 @@ $Version = Read-Json -Path $VersionPath
 Assert-Equal -Actual $Version.package_version -Expected "1.2.4" -Message "Acceptance requires package 1.2.4 candidate."
 Assert-Equal -Actual $Version.runtime_version -Expected "1.2.1" -Message "Acceptance requires runtime 1.2.1."
 Assert-Equal -Actual $Version.companion_version -Expected "1.2.2" -Message "Companion version changed unexpectedly."
+
+$WindowsInstallerText = [System.IO.File]::ReadAllText($WindowsInstaller, [System.Text.Encoding]::UTF8)
+$BashInstallerText = [System.IO.File]::ReadAllText($BashInstaller, [System.Text.Encoding]::UTF8)
+$ManifestWriterText = [System.IO.File]::ReadAllText($ManifestWriter, [System.Text.Encoding]::UTF8)
+
+foreach ($InstallerContract in @(
+  @{ Name = "Windows installer"; Text = $WindowsInstallerText },
+  @{ Name = "Bash installer"; Text = $BashInstallerText }
+)) {
+  if (!$InstallerContract.Text.Contains("write-installation-manifest.cjs")) {
+    throw "$($InstallerContract.Name) must invoke the shared manifest writer."
+  }
+  foreach ($ForbiddenLiteral in @('"1.2.4"', '"1.2.1"')) {
+    if ($InstallerContract.Text.Contains($ForbiddenLiteral)) {
+      throw "$($InstallerContract.Name) hardcodes release version literal $ForbiddenLiteral."
+    }
+  }
+}
+
+if (!$ManifestWriterText.Contains("VERSION.json")) {
+  throw "Shared manifest writer must read VERSION.json."
+}
+foreach ($ForbiddenLiteral in @('"1.2.4"', '"1.2.1"')) {
+  if ($ManifestWriterText.Contains($ForbiddenLiteral)) {
+    throw "Shared manifest writer hardcodes release version literal $ForbiddenLiteral."
+  }
+}
 
 $RepoHeadResult = Invoke-Capture -FilePath "git" -Arguments @("-C", $ResolvedRepo, "rev-parse", "HEAD")
 if ($RepoHeadResult.Code -ne 0) { throw "Cannot resolve repository HEAD." }

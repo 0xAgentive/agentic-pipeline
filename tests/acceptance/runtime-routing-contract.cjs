@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { resolveRuntimeRoute } = require(
   path.resolve(__dirname, '../../scripts/control-plane/resolve-runtime-route.cjs')
 );
@@ -373,17 +374,31 @@ function loadGoldenBaseline() {
 
 function validateGoldenBaseline() {
   const { baseline, current } = loadGoldenBaseline();
+  const currentPath = path.resolve(__dirname, '../../evals/companion/golden_cases.json');
+  const currentBytes = fs.readFileSync(currentPath);
+  const currentSha256 = crypto.createHash('sha256').update(currentBytes).digest('hex');
   const currentIds = new Set((current.cases || []).map((item) => item.id));
   const errors = [];
 
-  if (!Array.isArray(baseline.case_ids) || !Number.isInteger(baseline.case_count)) {
+  if (!Array.isArray(baseline.case_ids) ||
+      !Number.isInteger(baseline.case_count) ||
+      typeof baseline.source_sha256 !== 'string') {
     errors.push('Malformed golden-cases baseline');
   } else {
+    if (currentSha256 !== baseline.source_sha256) {
+      errors.push(
+        `Production golden cases changed during protected Phase B: ` +
+        `baseline=${baseline.source_sha256} current=${currentSha256}`
+      );
+    }
     for (const id of baseline.case_ids) {
       if (!currentIds.has(id)) errors.push(`Original golden case deleted: ${id}`);
     }
-    if ((current.cases || []).length < baseline.case_count) {
-      errors.push(`Golden case count decreased: baseline=${baseline.case_count} current=${(current.cases || []).length}`);
+    if ((current.cases || []).length !== baseline.case_count) {
+      errors.push(
+        `Golden case count changed during protected Phase B: ` +
+        `baseline=${baseline.case_count} current=${(current.cases || []).length}`
+      );
     }
   }
 

@@ -68,7 +68,11 @@ function Invoke-Validator {
   Invoke-Native -FilePath $HostExe -ArgumentList (@('-NoProfile','-ExecutionPolicy','Bypass','-File',$Script) + $ArgumentList) -LogPath $LogPath
 }
 
-if (!(Test-Path -LiteralPath (Join-Path $Root '.git') -PathType Container)) {
+$WorkTreeResult = Invoke-NativeCapture `
+  -FilePath 'git' `
+  -ArgumentList @('-C',$Root,'rev-parse','--is-inside-work-tree')
+
+if ($WorkTreeResult.Code -ne 0 -or $WorkTreeResult.Text.Trim() -ne 'true') {
   throw "Release packages must be built from a Git working tree: $Root"
 }
 

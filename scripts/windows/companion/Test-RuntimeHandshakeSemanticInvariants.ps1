@@ -24,24 +24,24 @@ function Run-HandshakeTest {
     [hashtable]$PhaseStatus,
     [string]$CustomProjectRoot = $TempDir
   )
-  
+
   $PhaseJsonPath = Join-Path $CustomProjectRoot ".agy\PHASE_STATUS.json"
   if ($null -ne $PhaseStatus) {
     [System.IO.File]::WriteAllText($PhaseJsonPath, ($PhaseStatus | ConvertTo-Json -Depth 10), [System.Text.Encoding]::UTF8)
   }
-  
+
   $OutJson = Join-Path $env:TEMP "handshake_test_out.json"
   if (Test-Path $OutJson) { Remove-Item $OutJson }
-  
+
   $Proc = Start-Process powershell -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $HandshakeScript, "-ProjectRoot", $CustomProjectRoot, "-PipelineRoot", $PipelineRoot, "-OutFile", $OutJson -PassThru -Wait -NoNewWindow
-  
+
   $ExitCode = $Proc.ExitCode
   $Handshake = $null
   if (Test-Path $OutJson) {
     $Handshake = Get-Content -Raw $OutJson | ConvertFrom-Json
     Remove-Item $OutJson
   }
-  
+
   return [pscustomobject]@{
     ExitCode = $ExitCode
     Handshake = $Handshake

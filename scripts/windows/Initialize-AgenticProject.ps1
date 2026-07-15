@@ -19,6 +19,7 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 $TemplateRoot = Join-Path $RepoRoot "templates\agy-project-base"
 $ProfileName = if ($Mode -eq "New") { "new-project" } else { "adopt-existing" }
 $ProfileRoot = Join-Path $RepoRoot ("templates\state-profiles\" + $ProfileName)
+$ManifestWriter = Join-Path $RepoRoot "scripts\control-plane\write-installation-manifest.cjs"
 
 if (!$PSBoundParameters.ContainsKey("ConflictPolicy") -and $Mode -eq "Adopt") {
   $ConflictPolicy = "Keep"
@@ -28,6 +29,12 @@ foreach ($Path in @($RepoRoot,$TemplateRoot,$ProfileRoot)) {
   if (!(Test-Path -LiteralPath $Path -PathType Container)) {
     throw "Required directory not found: $Path"
   }
+}
+if (!(Test-Path -LiteralPath $ManifestWriter -PathType Leaf)) {
+  throw "Shared installation manifest writer not found: $ManifestWriter"
+}
+if (!(Get-Command node -ErrorAction SilentlyContinue)) {
+  throw "Node.js is required to write the installation manifest."
 }
 
 $TargetFull = [System.IO.Path]::GetFullPath($TargetRoot)
@@ -44,9 +51,13 @@ if ($Mode -eq "Adopt" -and !(Test-Path -LiteralPath $TargetFull -PathType Contai
   throw "Adopt target does not exist: $TargetFull"
 }
 
-if ($Mode -eq "Adopt" -and (Test-Path -LiteralPath (Join-Path $TargetFull ".git")) -and !$AllowDirty) {
+if ($Mode -eq "Adopt" -and
+    (Test-Path -LiteralPath (Join-Path $TargetFull ".git")) -and
+    !$AllowDirty) {
   $Status = @(& git -C $TargetFull status --porcelain=v1 --untracked-files=all 2>&1)
-  if ($LASTEXITCODE -ne 0) { throw "git status failed for adoption target" }
+  if ($LASTEXITCODE -ne 0) {
+    throw "git status failed for adoption target"
+  }
   if ($Status.Count -gt 0) {
     Write-Host "Adoption target is not clean:"
     $Status | ForEach-Object { Write-Host $_ }
@@ -62,7 +73,9 @@ $BackedUp = New-Object System.Collections.Generic.List[string]
 function Write-Utf8NoBom {
   param([string]$Path,[string]$Text)
   $Parent = Split-Path -Parent $Path
-  if ($Parent) { New-Item -ItemType Directory -Force $Parent | Out-Null }
+  if ($Parent) {
+    New-Item -ItemType Directory -Force $Parent | Out-Null
+  }
   [System.IO.File]::WriteAllText($Path,$Text,$Utf8NoBom)
 }
 
@@ -70,8 +83,13 @@ function Copy-One {
   param([string]$Source,[string]$Destination,[string]$RelativePath)
 
   if (Test-Path -LiteralPath $Destination -PathType Leaf) {
-    if ($ConflictPolicy -eq "Fail") { throw "Conflict: $RelativePath" }
-    if ($ConflictPolicy -eq "Keep") { [void]$Skipped.Add($RelativePath); return }
+    if ($ConflictPolicy -eq "Fail") {
+      throw "Conflict: $RelativePath"
+    }
+    if ($ConflictPolicy -eq "Keep") {
+      [void]$Skipped.Add($RelativePath)
+      return
+    }
 
     $Backup = Join-Path $BackupRoot $RelativePath
     New-Item -ItemType Directory -Force (Split-Path -Parent $Backup) | Out-Null
@@ -84,7 +102,8 @@ function Copy-One {
   [void]$Copied.Add($RelativePath)
 }
 
-$TemplateFiles = Get-ChildItem -LiteralPath $TemplateRoot -Recurse -Force -File | Sort-Object FullName
+$TemplateFiles = Get-ChildItem -LiteralPath $TemplateRoot -Recurse -Force -File |
+  Sort-Object FullName
 
 Write-Host "Mode: $Mode"
 Write-Host "Target: $TargetFull"
@@ -103,35 +122,56 @@ New-Item -ItemType Directory -Force $TargetFull | Out-Null
 foreach ($File in $TemplateFiles) {
   $Relative = $File.FullName.Substring($TemplateRoot.Length).TrimStart("\","/")
 
-  if ($Relative -in @(".agy\PHASE_STATUS.json",".agy\AGENT_STATE.md",".agy\RECOVERY_PROMPT.md")) {
+  if ($Relative -in @(
+    ".agy\PHASE_STATUS.json",
+    ".agy\AGENT_STATE.md",
+    ".agy\RECOVERY_PROMPT.md"
+  )) {
     continue
   }
 
-  Copy-One -Source $File.FullName -Destination (Join-Path $TargetFull $Relative) -RelativePath $Relative
+  Copy-One `
+    -Source $File.FullName `
+    -Destination (Join-Path $TargetFull $Relative) `
+    -RelativePath $Relative
 }
 
 $ExistingPhase = Join-Path $TargetFull ".agy\PHASE_STATUS.json"
-$ShouldApplyProfile = ($Mode -eq "New") -or !(Test-Path -LiteralPath $ExistingPhase -PathType Leaf)
+$ShouldApplyProfile = (
+  $Mode -eq "New" -or
+  !(Test-Path -LiteralPath $ExistingPhase -PathType Leaf)
+)
 
 if ($ShouldApplyProfile) {
-  foreach ($Name in @("PHASE_STATUS.json","AGENT_STATE.md","RECOVERY_PROMPT.md")) {
+  foreach ($Name in @(
+    "PHASE_STATUS.json",
+    "AGENT_STATE.md",
+    "RECOVERY_PROMPT.md"
+  )) {
     $Source = Join-Path $ProfileRoot $Name
     $Destination = Join-Path $TargetFull (".agy\" + $Name)
-    $Text = [System.IO.File]::ReadAllText($Source,[System.Text.Encoding]::UTF8).Replace("<ProjectName>",$ProjectName)
+    $Text = [System.IO.File]::ReadAllText(
+      $Source,
+      [System.Text.Encoding]::UTF8
+    ).Replace("<ProjectName>",$ProjectName)
+
     Write-Utf8NoBom -Path $Destination -Text $Text
     [void]$Copied.Add(".agy\" + $Name)
   }
-} else {
+}
+else {
   Write-Host "Existing .agy state preserved. The adoption profile was not forced over current state."
 }
 
 $Commit = "unknown"
-if (Test-Path -LiteralPath (Join-Path $RepoRoot ".git") -PathType Container) {
-  try { $Commit = (& git -C $RepoRoot rev-parse HEAD).Trim() } catch {}
+if (Test-Path -LiteralPath (Join-Path $RepoRoot ".git")) {
+  $CommitOutput = @(& git -C $RepoRoot rev-parse HEAD 2>&1)
+  if ($LASTEXITCODE -eq 0) {
+    $Commit = ($CommitOutput -join "`n").Trim()
+  }
 }
 
-$Manifest = [ordered]@{
-  schema_version = "1.0.0"
+$ManifestMetadata = [ordered]@{
   installed_at_utc = (Get-Date).ToUniversalTime().ToString("o")
   mode = $Mode.ToLowerInvariant()
   state_profile = $ProfileName
@@ -145,8 +185,33 @@ $Manifest = [ordered]@{
   next_command = if ($Mode -eq "New") { "/specdoc" } else { "/landing" }
 }
 
-Write-Utf8NoBom -Path (Join-Path $TargetFull ".agy\INSTALLATION_MANIFEST.json") -Text ($Manifest | ConvertTo-Json -Depth 10)
+$MetadataPath = Join-Path ([System.IO.Path]::GetTempPath()) (
+  "agentic-install-metadata-" + [Guid]::NewGuid().ToString("N") + ".json"
+)
+$ManifestPath = Join-Path $TargetFull ".agy\INSTALLATION_MANIFEST.json"
+
+Write-Utf8NoBom `
+  -Path $MetadataPath `
+  -Text ($ManifestMetadata | ConvertTo-Json -Depth 20)
+
+try {
+  $WriterOutput = @(
+    & node `
+      $ManifestWriter `
+      --repo-root $RepoRoot `
+      --output $ManifestPath `
+      --metadata-file $MetadataPath 2>&1
+  )
+  $WriterCode = $LASTEXITCODE
+
+  if ($WriterCode -ne 0) {
+    throw "Installation manifest writer failed with exit code $WriterCode.`n$($WriterOutput -join "`n")"
+  }
+}
+finally {
+  Remove-Item -LiteralPath $MetadataPath -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host "Installation complete."
 Write-Host "Copied: $($Copied.Count); skipped: $($Skipped.Count); backed up: $($BackedUp.Count)"
-Write-Host "Next command: $($Manifest.next_command)"
+Write-Host "Next command: $($ManifestMetadata.next_command)"

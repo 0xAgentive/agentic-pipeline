@@ -4,8 +4,9 @@
 
 Agentic Pipeline помогает не допускать дрейфа состояния, перескакивания фаз и неподтверждённых заявлений о готовности.
 
-**Текущий пакет:** `1.2.3 Distribution Integrity`
-**Канонический playbook/runtime:** `1.2.0`
+**Текущий пакет:** `1.2.4 Governance & Routing Stabilization`
+**Канонический playbook:** `1.2.0`
+**Runtime:** `1.2.1`
 **ChatGPT Companion:** `1.2.2`
 
 ---

@@ -15,6 +15,10 @@ Version 1.2.2 adds:
 
 The companion is not the executor. Workspace evidence wins over chat claims. A companion update does not migrate an active project.
 
+## Compatibility posture
+
+The companion remains version `1.2.2`. Package release `1.2.4` uses runtime `1.2.1` and handshake schema `1.1.0`. The companion must consume the current handshake and must not infer installed runtime identity or migration completion from package availability.
+
 ## Active files
 
 - [00_AGENTIC_PIPELINE_INDEX_v1.2.2.md](00_AGENTIC_PIPELINE_INDEX_v1.2.2.md)

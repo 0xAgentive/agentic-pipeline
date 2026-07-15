@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.4 - Governance & Routing Stabilization
+
+- Added a frozen, implementation-independent acceptance contract executed on Linux and Windows PowerShell 5.1.
+- Made project-local command inventory authoritative and central inventory advisory-only.
+- Added deterministic inventory provenance, trust classification and SHA-256 identity.
+- Added installation-manifest package/runtime/source identity and explicit `compatible`, `migration_required` and `unknown` compatibility states.
+- Reworked objective routing so state-declared routes are observations, slash-command arguments normalize before authorization, and unsafe or unproven states fail closed.
+- Made `/shipcheck` non-circular and represented an existing SHIP decision as a terminal state.
+- Upgraded the runtime handshake to schema `1.1.0` with structured staleness and routing reason codes.
+- Added Unicode-safe Git-root resolution and cross-platform temporary paths for installation and handshake generation.
+- Kept H10 product migration and product slash-command execution outside the framework release candidate.
 ## Companion 1.2.2 - Runtime Handshake and Bounded Repair
 
 - Added runtime-handshake-gated command routing.

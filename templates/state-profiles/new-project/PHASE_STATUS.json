@@ -1,7 +1,7 @@
 {
   "schema_version": "1.2.0",
   "project_name": "<ProjectName>",
-  "framework_version": "1.2.0",
+  "framework_version": "1.2.1",
   "state_profile": "new-project",
   "current_phase": "specification_required",
   "next_required_command": "/specdoc",

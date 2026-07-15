@@ -39,6 +39,7 @@ Invoke-Test -Name 'command inventory' -Path (Join-Path $Root 'scripts\windows\Te
 Invoke-Test -Name 'template hygiene' -Path (Join-Path $Root 'scripts\windows\Test-TemplateHygiene.ps1') -ArgumentList @('-RepoRoot',$Root)
 Invoke-Test -Name 'project leakage' -Path (Join-Path $Root 'scripts\windows\Test-ProjectLeakage.ps1') -ArgumentList @('-RepoRoot',$Root)
 Invoke-Test -Name 'fresh install' -Path (Join-Path $Root 'scripts\windows\Test-FreshInstall.ps1') -ArgumentList @('-RepoRoot',$Root)
+Invoke-Test -Name 'cross-platform runtime edges' -Path (Join-Path $Root 'scripts\windows\Test-CrossPlatformRuntimeEdges.ps1') -ArgumentList @('-RepoRoot',$Root)
 
 foreach ($Required in @('VERSION.json','scripts\windows\Build-ReleasePackage.ps1','config\command-inventory.json')) {
   if (!(Test-Path -LiteralPath (Join-Path $Root $Required))) { throw "Distribution file missing: $Required" }

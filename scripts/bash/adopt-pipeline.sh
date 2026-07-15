@@ -27,7 +27,7 @@ command -v node >/dev/null 2>&1 || {
   exit 1
 }
 
-if [[ -d "$TARGET/.git" ]] &&
+if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1 &&
    [[ -n "$(git -C "$TARGET" status --porcelain=v1 --untracked-files=all)" ]]; then
   echo "Refusing to adopt into a dirty Git worktree: $TARGET" >&2
   exit 1

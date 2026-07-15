@@ -723,7 +723,7 @@ if ($WriteToProject) {
   $OutFile = Join-Path $StateRoot "RUNTIME_HANDSHAKE.json"
 }
 elseif ([string]::IsNullOrWhiteSpace($OutFile)) {
-  $OutFile = Join-Path $env:TEMP ("runtime-handshake-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".json")
+  $OutFile = Join-Path ([System.IO.Path]::GetTempPath()) ("runtime-handshake-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".json")
 }
 
 $Handshake = [ordered]@{

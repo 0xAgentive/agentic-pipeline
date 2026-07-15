@@ -651,7 +651,7 @@ if (!(Test-Path -LiteralPath $ResolverScript -PathType Leaf)) {
   throw "Authoritative route resolver script not found: $ResolverScript"
 }
 
-$TempFactsPath = Join-Path $env:TEMP ("handshake-facts-" + [Guid]::NewGuid().ToString("N") + ".json")
+$TempFactsPath = Join-Path ([System.IO.Path]::GetTempPath()) ("handshake-facts-" + [Guid]::NewGuid().ToString("N") + ".json")
 [System.IO.File]::WriteAllText(
   $TempFactsPath,
   ($Facts | ConvertTo-Json -Depth 20),

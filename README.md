@@ -2,8 +2,10 @@
 
 A lightweight, disciplined, and deterministic framework for coordinating AI agent workflows in local development environments. It prevents AI agents from drifting, skipping phases, or making unverified claims.
 
-**Current package release:** `1.2.3 Distribution Integrity`
-**Canonical playbook/runtime:** `1.2.0`
+**Current stable package:** `1.2.3 Distribution Integrity`
+**Current package candidate:** `1.2.4 Governance & Routing Stabilization`
+**Canonical playbook:** `1.2.0`
+**Candidate runtime:** `1.2.1`
 **ChatGPT Companion:** `1.2.2`
 
 ---

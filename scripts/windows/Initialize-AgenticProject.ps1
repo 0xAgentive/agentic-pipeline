@@ -185,7 +185,7 @@ $ManifestMetadata = [ordered]@{
   next_command = if ($Mode -eq "New") { "/specdoc" } else { "/landing" }
 }
 
-$MetadataPath = Join-Path $env:TEMP (
+$MetadataPath = Join-Path ([System.IO.Path]::GetTempPath()) (
   "agentic-install-metadata-" + [Guid]::NewGuid().ToString("N") + ".json"
 )
 $ManifestPath = Join-Path $TargetFull ".agy\INSTALLATION_MANIFEST.json"

@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.4 (candidate) - Governance & Routing Stabilization
+## 1.2.4 - Governance & Routing Stabilization
 
 - Added a frozen, implementation-independent acceptance contract executed on Linux and Windows PowerShell 5.1.
 - Made project-local command inventory authoritative and central inventory advisory-only.

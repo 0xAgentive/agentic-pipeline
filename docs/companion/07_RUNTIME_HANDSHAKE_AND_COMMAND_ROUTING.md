@@ -4,7 +4,7 @@ The companion must not route execution from memory. It routes only from a curren
 
 ## Runtime posture
 
-- Package candidate: `1.2.4`
+- Package release: `1.2.4`
 - Runtime: `1.2.1`
 - Handshake schema: `1.1.0`
 - Companion: `1.2.2`

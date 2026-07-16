@@ -17,6 +17,7 @@ param(
   [int]$MaxAuditFixCyclesPerSubsystem = 1,
   [int]$MaxTotalRepairsPerPhase = 2,
   [string]$PipelineRoot = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline",
+  [Parameter(Mandatory=$false)][ValidateRange(1, 2147483647)][int]$ContractVersion = 0,
   [switch]$Apply,
   [switch]$Replace
 )
@@ -35,8 +36,48 @@ if (!(Test-Path -LiteralPath $NodeCore -PathType Leaf)) {
 if (!(Get-Command node -ErrorAction SilentlyContinue)) {
   throw "Node.js is required to canonicalize the phase contract."
 }
-if ((Test-Path -LiteralPath $ContractPath -PathType Leaf) -and !$Replace) {
-  throw "Phase contract already exists. Use -Replace only after explicit review: $ContractPath"
+
+$CurrentVersion = 0
+if (Test-Path -LiteralPath $ContractPath -PathType Leaf) {
+  if (!$Replace) {
+    throw "Phase contract already exists. Use -Replace only after explicit review: $ContractPath"
+  }
+  
+  # Read current contract
+  $CurrentContract = Get-Content -Raw -LiteralPath $ContractPath | ConvertFrom-Json
+  $CurrentVersion = $CurrentContract.contract_version
+  
+  if (!$PSBoundParameters.ContainsKey('ContractVersion')) {
+    throw "Contract version must be explicitly provided via -ContractVersion when replacing an existing contract."
+  }
+  if ($ContractVersion -le $CurrentVersion) {
+    throw "Proposed contract version ($ContractVersion) must be greater than current contract version ($CurrentVersion)."
+  }
+
+  # Inherit parameters that are NOT explicitly bound
+  if (!$PSBoundParameters.ContainsKey('Goal')) { $Goal = $CurrentContract.goal }
+  if (!$PSBoundParameters.ContainsKey('RiskTrack')) { $RiskTrack = $CurrentContract.risk_track }
+  if (!$PSBoundParameters.ContainsKey('EvidenceLevel')) { $EvidenceLevel = $CurrentContract.evidence_level }
+  if (!$PSBoundParameters.ContainsKey('NonGoals') -and $null -ne $CurrentContract.non_goals) { $NonGoals = [string[]]$CurrentContract.non_goals }
+  if (!$PSBoundParameters.ContainsKey('AllowedPaths') -and $null -ne $CurrentContract.allowed_paths) { $AllowedPaths = [string[]]$CurrentContract.allowed_paths }
+  if (!$PSBoundParameters.ContainsKey('ForbiddenPaths') -and $null -ne $CurrentContract.forbidden_paths) { $ForbiddenPaths = [string[]]$CurrentContract.forbidden_paths }
+  if (!$PSBoundParameters.ContainsKey('RequiredOutputs') -and $null -ne $CurrentContract.required_outputs) { $RequiredOutputs = [string[]]$CurrentContract.required_outputs }
+  if (!$PSBoundParameters.ContainsKey('RequiredChecks') -and $null -ne $CurrentContract.required_checks) { $RequiredChecks = [string[]]$CurrentContract.required_checks }
+  if (!$PSBoundParameters.ContainsKey('AcceptanceCriteria') -and $null -ne $CurrentContract.acceptance_criteria) { $AcceptanceCriteria = [string[]]$CurrentContract.acceptance_criteria }
+  if (!$PSBoundParameters.ContainsKey('BlockingConditions') -and $null -ne $CurrentContract.blocking_conditions) { $BlockingConditions = [string[]]$CurrentContract.blocking_conditions }
+  if (!$PSBoundParameters.ContainsKey('NonBlockingDebtCategories') -and $null -ne $CurrentContract.non_blocking_debt_categories) { $NonBlockingDebtCategories = [string[]]$CurrentContract.non_blocking_debt_categories }
+  if (!$PSBoundParameters.ContainsKey('NextAllowedCommands') -and $null -ne $CurrentContract.next_allowed_commands) { $NextAllowedCommands = [string[]]$CurrentContract.next_allowed_commands }
+  if (!$PSBoundParameters.ContainsKey('MaxAuditFixCyclesPerSubsystem') -and $null -ne $CurrentContract.repair_budget -and $null -ne $CurrentContract.repair_budget.max_audit_fix_cycles_per_subsystem) { $MaxAuditFixCyclesPerSubsystem = [int]$CurrentContract.repair_budget.max_audit_fix_cycles_per_subsystem }
+  if (!$PSBoundParameters.ContainsKey('MaxTotalRepairsPerPhase') -and $null -ne $CurrentContract.repair_budget -and $null -ne $CurrentContract.repair_budget.max_total_repairs_per_phase) { $MaxTotalRepairsPerPhase = [int]$CurrentContract.repair_budget.max_total_repairs_per_phase }
+} else {
+  if ($Replace) {
+    throw "Cannot replace contract because no contract exists at: $ContractPath"
+  }
+}
+
+$ProposedVersion = 1
+if ($PSBoundParameters.ContainsKey('ContractVersion')) {
+  $ProposedVersion = $ContractVersion
 }
 
 $InventoryPath = Join-Path $Project ".agents\COMMAND_INVENTORY.json"
@@ -56,7 +97,7 @@ if (Test-Path -LiteralPath $InventoryPath -PathType Leaf) {
 
 $Contract = [ordered]@{
   schema_version = "1.0.0"
-  contract_version = 1
+  contract_version = $ProposedVersion
   phase_id = $PhaseId
   goal = $Goal
   non_goals = [string[]]$NonGoals
@@ -86,6 +127,17 @@ New-Item -ItemType Directory -Force $TempRoot | Out-Null
 try {
   $TempContract = Join-Path $TempRoot "PHASE_CONTRACT.json"
   [System.IO.File]::WriteAllText($TempContract, ($Contract | ConvertTo-Json -Depth 20), $Utf8NoBom)
+  
+  # Validate against schema first before applying/hash
+  $SchemaPath = Join-Path $PipelineRoot "schemas\companion\phase-contract.schema.json"
+  if (!(Test-Path -LiteralPath $SchemaPath -PathType Leaf)) {
+    throw "Phase contract schema not found: $SchemaPath"
+  }
+  $SchemaOutput = @(& node $NodeCore validate-json --schema $SchemaPath --file $TempContract 2>&1)
+  if ($LASTEXITCODE -ne 0) {
+    throw "Proposed contract failed schema validation: $($SchemaOutput -join ' ')"
+  }
+
   $HashOutput = @(& node $NodeCore canonical-hash --file $TempContract 2>&1)
   if ($LASTEXITCODE -ne 0) {
     throw "Contract canonical hash failed: $($HashOutput -join ' ')"
@@ -94,6 +146,10 @@ try {
 
   Write-Host "Phase contract preview:"
   Write-Host "  Phase: $PhaseId"
+  if ($Replace -and $CurrentVersion -gt 0) {
+    Write-Host "  Current version: $CurrentVersion"
+  }
+  Write-Host "  Proposed version: $($Contract.contract_version)"
   Write-Host "  Risk track: $RiskTrack"
   Write-Host "  Evidence level: $EvidenceLevel"
   Write-Host "  Contract hash: $($Contract.contract_hash)"
@@ -105,8 +161,11 @@ try {
   }
 
   New-Item -ItemType Directory -Force $AgyRoot | Out-Null
+  
+  # Backup existing files if any
+  $BackupRoot = $null
   if (Test-Path -LiteralPath $ContractPath -PathType Leaf) {
-    $BackupRoot = Join-Path $AgyRoot ("phase-contract-backups\" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+    $BackupRoot = Join-Path $AgyRoot ("phase-contract-backups\" + (Get-Date -Format "yyyyMMdd-HHmmss") + "_supersede_v" + $CurrentVersion + "_to_v" + $ProposedVersion)
     New-Item -ItemType Directory -Force $BackupRoot | Out-Null
     Copy-Item -LiteralPath $ContractPath -Destination (Join-Path $BackupRoot "PHASE_CONTRACT.json") -Force
     if (Test-Path -LiteralPath $LockPath -PathType Leaf) {
@@ -114,17 +173,51 @@ try {
     }
   }
 
-  [System.IO.File]::WriteAllText($ContractPath, ($Contract | ConvertTo-Json -Depth 20), $Utf8NoBom)
-  $Lock = [ordered]@{
-    schema_version = "1.0.0"
-    phase_id = $PhaseId
-    contract_hash = $Contract.contract_hash
-    frozen_at_utc = $Contract.frozen_at_utc
-  }
-  [System.IO.File]::WriteAllText($LockPath, ($Lock | ConvertTo-Json -Depth 10), $Utf8NoBom)
+  $OriginalContractBytes = if (Test-Path -LiteralPath $ContractPath -PathType Leaf) { [System.IO.File]::ReadAllBytes($ContractPath) } else { $null }
+  $OriginalLockBytes = if (Test-Path -LiteralPath $LockPath -PathType Leaf) { [System.IO.File]::ReadAllBytes($LockPath) } else { $null }
 
-  & node $NodeCore validate-contract --project-root $Project
-  if ($LASTEXITCODE -ne 0) { throw "Phase contract validation failed after write." }
+  try {
+    [System.IO.File]::WriteAllText($ContractPath, ($Contract | ConvertTo-Json -Depth 20), $Utf8NoBom)
+    $Lock = [ordered]@{
+      schema_version = "1.0.0"
+      phase_id = $PhaseId
+      contract_hash = $Contract.contract_hash
+      frozen_at_utc = $Contract.frozen_at_utc
+    }
+    [System.IO.File]::WriteAllText($LockPath, ($Lock | ConvertTo-Json -Depth 10), $Utf8NoBom)
+
+    & node $NodeCore validate-contract --project-root $Project
+    if ($LASTEXITCODE -ne 0) {
+      throw "Phase contract validation failed after write."
+    }
+    
+    # Make backups immutable (read-only)
+    if ($null -ne $BackupRoot) {
+      Set-ItemProperty -Path (Join-Path $BackupRoot "PHASE_CONTRACT.json") -Name IsReadOnly -Value $true -ErrorAction SilentlyContinue
+      if (Test-Path -LiteralPath (Join-Path $BackupRoot "PHASE_CONTRACT.lock.json")) {
+        Set-ItemProperty -Path (Join-Path $BackupRoot "PHASE_CONTRACT.lock.json") -Name IsReadOnly -Value $true -ErrorAction SilentlyContinue
+      }
+    }
+  }
+  catch {
+    Write-Warning "Post-write validation failed: $_. Restoring prior contract and lock files."
+    if ($null -ne $OriginalContractBytes) {
+      [System.IO.File]::WriteAllBytes($ContractPath, $OriginalContractBytes)
+    } else {
+      Remove-Item -LiteralPath $ContractPath -Force -ErrorAction SilentlyContinue
+    }
+    
+    if ($null -ne $OriginalLockBytes) {
+      [System.IO.File]::WriteAllBytes($LockPath, $OriginalLockBytes)
+    } else {
+      Remove-Item -LiteralPath $LockPath -Force -ErrorAction SilentlyContinue
+    }
+    
+    if ($null -ne $BackupRoot -and (Test-Path -LiteralPath $BackupRoot)) {
+      Remove-Item -LiteralPath $BackupRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    throw
+  }
 
   Write-Host "Frozen phase contract written: $ContractPath"
   exit 0

@@ -36,7 +36,11 @@ function parseArgs(argv) {
 }
 
 function readText(filePath) {
-  return fs.readFileSync(filePath, 'utf8');
+  let content = fs.readFileSync(filePath, 'utf8');
+  if (content.charCodeAt(0) === 0xFEFF) {
+    content = content.slice(1);
+  }
+  return content;
 }
 
 function readJson(filePath) {
@@ -84,7 +88,8 @@ const SUPPORTED_SCHEMA_KEYS = new Set([
   'pattern',
   'items',
   'minLength',
-  'minItems'
+  'minItems',
+  'minimum'
 ]);
 
 function assertSupportedSchema(schema, location = '$') {
@@ -145,6 +150,12 @@ function validateValue(schema, value, location = '$') {
       errors.push(`${location}: schema enum must be an array`);
     } else if (!schema.enum.some((candidate) => deepEqual(candidate, value))) {
       errors.push(`${location}: value ${JSON.stringify(value)} is not in enum`);
+    }
+  }
+
+  if (typeof value === 'number') {
+    if (schema.minimum !== undefined && value < schema.minimum) {
+      errors.push(`${location}: numeric value is less than minimum ${schema.minimum}`);
     }
   }
 
@@ -597,29 +608,49 @@ function validateContract(projectRoot) {
   const lockPath = path.join(projectRoot, '.agy', 'PHASE_CONTRACT.lock.json');
   if (!fs.existsSync(contractPath)) return { ok: false, errors: ['Missing .agy/PHASE_CONTRACT.json'] };
 
-  const contract = readJson(contractPath);
-  for (const key of [
-    'phase_id',
-    'goal',
-    'risk_track',
-    'evidence_level',
-    'status',
-    'repair_budget',
-    'next_allowed_commands',
-    'contract_hash'
-  ]) {
-    if (contract[key] === undefined) errors.push(`Phase contract missing ${key}`);
+  let contract;
+  try {
+    contract = readJson(contractPath);
+  } catch (err) {
+    return { ok: false, errors: [`Failed to parse PHASE_CONTRACT.json: ${err.message}`] };
   }
 
+  // 1. load the canonical schema
+  const schemaPath = path.join(__dirname, '..', '..', 'schemas', 'companion', 'phase-contract.schema.json');
+  if (!fs.existsSync(schemaPath)) {
+    return { ok: false, errors: [`Schema file not found: ${schemaPath}`] };
+  }
+
+  // 2. Validate against schema
+  try {
+    const schema = readJson(schemaPath);
+    const schemaErrors = validateDocument(schema, contract);
+    if (schemaErrors.length > 0) {
+      errors.push(...schemaErrors);
+    }
+  } catch (err) {
+    errors.push(`JSON Schema validation failed: ${err.message}`);
+  }
+
+  // 3. Only after schema validation performs hash and lock checks:
   const actual = canonicalHash(contract);
-  if (contract.contract_hash !== actual) {
-    errors.push(`Phase contract hash mismatch: expected=${contract.contract_hash} actual=${actual}`);
+
+  if (contract.contract_hash !== undefined) {
+    if (contract.contract_hash !== actual) {
+      errors.push(`Phase contract hash mismatch: expected=${contract.contract_hash} actual=${actual}`);
+    }
+  } else {
+    errors.push("Phase contract missing contract_hash");
   }
 
   if (fs.existsSync(lockPath)) {
-    const lock = readJson(lockPath);
-    if (lock.contract_hash !== contract.contract_hash) {
-      errors.push('Phase contract lock hash differs from contract');
+    try {
+      const lock = readJson(lockPath);
+      if (lock.contract_hash !== contract.contract_hash) {
+        errors.push('Phase contract lock hash differs from contract');
+      }
+    } catch (err) {
+      errors.push(`Failed to parse PHASE_CONTRACT.lock.json: ${err.message}`);
     }
   } else if (contract.status !== 'draft') {
     errors.push('Frozen/started/closed phase contract has no lock file');
@@ -788,7 +819,7 @@ function main() {
       for (const error of result.errors) console.error(`FAIL: ${error}`);
       process.exit(1);
     }
-    console.log(`Phase contract validation passed. Hash: ${result.contract_hash}`);
+    console.log(`Phase contract validation passed. Schema validated, canonical hash verified, lock consistency verified. Hash: ${result.contract_hash}`);
     return;
   }
 

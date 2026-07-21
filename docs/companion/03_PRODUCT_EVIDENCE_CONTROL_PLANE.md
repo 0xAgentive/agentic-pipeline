@@ -1,55 +1,46 @@
 # Product Evidence Control Plane
 
-The control plane prevents false readiness. It must be proportionate to risk; it must not turn every local experiment into archival release engineering.
+The control plane prevents false readiness while remaining proportional to the current assurance mode. It must not turn ordinary product iteration into release engineering.
 
-A project is not ready because an agent says it is ready. Readiness exists only when the current product goal, phase contract, implementation, checks, artifacts and required gates agree.
+## Active contracts
 
-## Core contracts
+### Work Item
 
-### Product Contract
+The owner-approved goal, assurance mode, acceptance outcomes and non-goals. `SHIP` closes this work item; only `ARCHIVE` closes the project.
 
-What is being built now, for whom, and what counts as done.
+### Execution Scope
 
-### Requirement Drift
+Antigravity creates the exact local path scope after read-only discovery. The Companion does not guess paths without live source authority.
 
-A substantial goal change updates contract, plan and checks before implementation continues.
+### Run Result
 
-### Phase Contract
+The compact machine result for implementation, verification, audit, blockers, warnings and the next workflow. Latest successful deterministic results supersede stale prose.
 
-The current phase has frozen acceptance criteria and a contract hash. Post-execution findings are classified rather than appended silently.
+### Assurance profiles
 
-### Artifact Delivery
+- FLOW: `WORK_ITEM.json` and `RUN_RESULT.json`; targeted verification; no independent audit by default.
+- GUARDED: run result plus one protected audit and actual product artifacts.
+- RELEASE: provenance, manifests, hashes, package extraction and release audit as required.
 
-Material artifacts must be inspectable. Required metadata depends on evidence level:
+Hashes remain internal unless release identity, unresolved corruption or exact candidate disambiguation requires them.
 
-- E0/E1: path and targeted proof may be enough;
-- E2: path, command result and key content/metadata;
-- E3/E4: manifest, size, SHA-256, provenance and independent validation.
+## Finding materiality
 
-Do not require SHA-256 for every temporary markdown file when it does not affect validity, safety or release reproducibility.
+- product blocker: actual user behavior/data is wrong; repair through `/fixcritical`;
+- verification blocker: behavior may be correct but is not proven; route to `/auditphase`;
+- release blocker: product work may complete but publication stays closed;
+- service warning: deterministic metadata reconciliation; never owner-mediated;
+- cosmetic: does not block the current work item.
 
-### QA gates
+## QA gates
 
-Use only when applicable:
+Use only when the current risk requires them:
 
-- VisualQA for UI;
-- ReportQA for generated PDF/HTML/ZIP/CSV;
-- SecurityQA for local data, secrets, exports and permissions;
-- ArtifactAudit for required deliverables;
-- domain validation for scientific or health-adjacent claims.
+- visual/report checks for user-visible outputs;
+- privacy/security checks for sensitive exports;
+- protected verifier for GUARDED and RELEASE;
+- scientific validation only for scientific claims.
 
-## Shipcheck rule
+## Release rule
 
-`/shipcheck` returns `SHIP` or `NO-SHIP` only when the runtime provides a deterministic shipcheck implementation.
-
-It returns `NO-SHIP` if:
-
-- required checks fail or are missing;
-- a safety, privacy, data-integrity or release blocker is open;
-- required material artifacts are missing;
-- unresolved blocking requirement drift remains;
-- mandatory gates are absent or stale;
-- Product Contract and implemented behavior disagree;
-- model prose is the only evidence.
-
-Delivery-only defects do not automatically block research progress unless they compromise data integrity, reproducibility at the chosen evidence level, or the current phase contract.
+`/shipcheck`, `/githubprepare` and `/githubsync` remain closed outside RELEASE readiness. Degraded product execution may continue bounded FLOW/GUARDED work, but never authorizes publication, migration or destructive operations.

@@ -34,9 +34,23 @@ if ((Hash "docs\AGENTIC_PIPELINE_PLAYBOOK.md") -ne (Hash "docs\maintainers\AGENT
   Add-Error "Canonical playbook does not match versioned v1.2.0 playbook"
 }
 
+$rootVersionText = Read-Text "VERSION.json"
+$ExpectedRuntimeVersion = $null
+try {
+  if ([string]::IsNullOrWhiteSpace($rootVersionText)) { throw "VERSION.json missing" }
+  $ExpectedRuntimeVersion = [string](($rootVersionText | ConvertFrom-Json).runtime_version)
+  if ([string]::IsNullOrWhiteSpace($ExpectedRuntimeVersion)) { throw "runtime_version missing" }
+}
+catch {
+  Add-Error "Cannot resolve runtime_version from VERSION.json: $($_.Exception.Message)"
+}
+
 $templateAgents = Read-Text "templates\agy-project-base\.agents\AGENTS.md"
-if (!$templateAgents -or $templateAgents -notmatch 'Framework Runtime Version:\s*`?1\.2\.0`?') {
-  Add-Error "Template .agents/AGENTS.md lacks v1.2.0 runtime marker"
+if ($ExpectedRuntimeVersion) {
+  $RuntimeMarker = 'Framework Runtime Version:\s*`?' + [regex]::Escape($ExpectedRuntimeVersion) + '`?'
+  if (!$templateAgents -or $templateAgents -notmatch $RuntimeMarker) {
+    Add-Error "Template .agents/AGENTS.md lacks runtime marker $ExpectedRuntimeVersion"
+  }
 }
 
 $rootGate = "scripts\Test-FastPatchAllowed.ps1"
@@ -193,7 +207,7 @@ if (![string]::IsNullOrWhiteSpace($companionVersion)) {
     if ($prompt -notmatch ([regex]::Escape("Companion v$companionVersion"))) {
       Add-Error "Companion system prompt version marker does not match v$companionVersion"
     }
-    foreach ($marker in @("Mandatory runtime handshake", "Result authority")) {
+    foreach ($marker in @("Work-item model", "Blocker materiality", "A current handshake remains the preferred source")) {
       if ($prompt -notmatch ([regex]::Escape($marker))) {
         Add-Error "Companion system prompt lacks required marker: $marker"
       }
@@ -202,10 +216,14 @@ if (![string]::IsNullOrWhiteSpace($companionVersion)) {
 
   $task = Read-Text $companionTaskRel
   if ($task) {
-    if ($task -notmatch ([regex]::Escape("Agent Task Pack Contract v$companionVersion"))) {
-      Add-Error "Agent Task Pack contract version marker does not match v$companionVersion"
+    $TaskContractTitleMatches = (
+      $task -match ([regex]::Escape("Companion Work Brief Contract v$companionVersion")) -or
+      $task -match ([regex]::Escape("Agent Task Pack Contract v$companionVersion"))
+    )
+    if (-not $TaskContractTitleMatches) {
+      Add-Error "Companion work-brief/task-pack contract version marker does not match v$companionVersion"
     }
-    foreach ($marker in @("Runtime Handshake Block", "Result Authority Block")) {
+    foreach ($marker in @("Executor discovery", "Completion", "owner_interaction_policy")) {
       if ($task -notmatch ([regex]::Escape($marker))) {
         Add-Error "Agent Task Pack contract lacks required marker: $marker"
       }

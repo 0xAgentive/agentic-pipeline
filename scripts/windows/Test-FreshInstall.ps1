@@ -59,7 +59,12 @@ try {
 
   foreach ($Rel in @(
     '.agents\AGENTS.md','.agents\COMMAND_INVENTORY.json','.agents\workflows\specdoc.md',
-    '.agy\PHASE_STATUS.json','.agy\INSTALLATION_MANIFEST.json','scripts\Test-FastPatchAllowed.ps1',
+    '.agy\PHASE_STATUS.json','.agy\FLOW_POLICY.json','.agy\INSTALLATION_MANIFEST.json',
+    'scripts\Test-FastPatchAllowed.ps1',
+    'scripts\windows\companion\New-WorkItem.ps1',
+    'scripts\windows\companion\Set-WorkItemStatus.ps1',
+    'scripts\windows\companion\Write-ExecutionScope.ps1',
+    'scripts\windows\companion\Publish-RunResult.ps1',
     'README_PIPELINE.en.md','README_PIPELINE.ru.md','docs\START_HERE.en.md','docs\START_HERE.ru.md'
   )) {
     if (!(Test-Path -LiteralPath (Join-Path $ProjectRoot $Rel))) { throw "Fresh install missing: $Rel" }

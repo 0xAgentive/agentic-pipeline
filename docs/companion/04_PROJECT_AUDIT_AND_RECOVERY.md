@@ -1,49 +1,42 @@
 # Project Audit and Corrective Routing
 
-Use this when the user shows logs, screenshots, failed CI, inconsistent state or another model's completion claim.
+Use this when logs, artifacts, CI or another model's completion claim require reconciliation.
 
 ## Audit checklist
 
-1. What exactly was claimed?
-2. Which claims are implementation claims, evidence claims, scientific claims or release claims?
-3. What machine-readable evidence exists?
-4. What files changed and what checks actually ran?
-5. Does current state match `.agy/PHASE_STATUS.json` and the frozen phase contract?
-6. Is the reported slash command present in current runtime inventory?
-7. Are findings new blockers, next-phase requirements, deferred debt or false positives?
-8. Has the repair budget been exhausted?
-9. What is the one safe next action?
+1. What product outcome was claimed?
+2. Which claims are product, verification, scientific or release claims?
+3. Which machine result is current for this `work_item_id`?
+4. What changed and what deterministic checks actually ran?
+5. Are blockers product, verification, release, service warning or cosmetic?
+6. Is the requested workflow present in project-local inventory?
+7. Does external drift invalidate the execution lease?
+8. Is current-scope repair still producing measurable progress?
+9. What is the one current workflow or hard stop?
 
-## Command routing
+## Routing
 
-- `/auditphase`: read-only reconciliation of state, claims, evidence and blockers;
-- `/fixcritical`: repair only blockers already confirmed by an audit/gate;
-- `/landing`: restore state/handoff only; no implementation;
-- `/nextphase`: implement one approved phase with a frozen contract;
-- `/probephase`: bounded uncertainty reduction before architecture or implementation;
-- `/fastpatch`: only when the deterministic fastpatch gate allows it.
+- `/nextphase`: execute the owner-approved work item after local scope discovery;
+- `/fixcritical`: repair current-scope product blockers automatically;
+- `/auditphase`: read-only verification or protected GUARDED audit;
+- `/fastpatch`: low-risk FLOW only after the deterministic gate;
+- `/landing`: legacy recovery/state handoff;
+- `/shipcheck`: RELEASE only.
 
-There is no default `/recovery` command. Do not emit it unless the current runtime inventory explicitly contains it.
+There is no default `/recovery` command.
+
+## Automatic repair
+
+Continue without owner approval while the blocker remains inside scope and each iteration changes the failing check or relevant diff. Stop once for outside-scope need, unavailable capability, destructive/publication action, framework migration, material-risk acceptance or repeated no-progress failure.
 
 ## Corrective output
 
-Produce:
+Return:
 
-- current verified state;
-- claim/evidence matrix;
-- completed / partial / missing / blocked;
-- invalidated or unsupported claims;
-- blocker taxonomy;
-- repair-budget status;
-- corrected state recommendation;
-- exactly one next action.
+- current product status;
+- material blockers only;
+- current workflow/result;
+- owner action only for a hard stop;
+- up to five artifact names and absolute paths.
 
-## Do not
-
-- accept stale `SHIP` or `completed` prose;
-- invent a workflow;
-- add new acceptance criteria retroactively without classification;
-- start another repair loop after the budget is exhausted;
-- block low-risk research for delivery polish that does not affect validity;
-- equate implementation alignment with empirical/scientific validation;
-- recommend project migration while active feature work is in progress.
+Do not create a new brief for the same current-scope repair.

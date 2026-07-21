@@ -95,6 +95,21 @@
     },
     "notes": {
       "type": "string"
+    },
+    "materiality": {
+      "enum": [
+        "product_blocker",
+        "verification_blocker",
+        "release_blocker",
+        "service_warning",
+        "cosmetic"
+      ]
+    },
+    "auto_repairable": {
+      "type": "boolean"
+    },
+    "owner_decision_required": {
+      "type": "boolean"
     }
   }
 }

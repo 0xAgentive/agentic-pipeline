@@ -271,9 +271,9 @@ function testSchemaValidator() {
 
 function activeCompanionFiles(repoRoot) {
   return [
-    'docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.2.md',
+    'docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.3.md',
     'docs/companion/01_CONTEXT_SPLIT_POLICY.md',
-    'docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.2.md',
+    'docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.3.md',
     'docs/companion/03_PRODUCT_EVIDENCE_CONTROL_PLANE.md',
     'docs/companion/04_PROJECT_AUDIT_AND_RECOVERY.md',
     'docs/companion/05_DOMAIN_SPECIFIC_LESSONS_OPTIONAL.md',
@@ -285,8 +285,8 @@ function activeCompanionFiles(repoRoot) {
     'docs/companion/11_PROMPT_COMPILER_AND_RESULT_AUTHORITY.md',
     'docs/companion/12_GOLDEN_EVALS.md',
     'docs/companion/13_LOCAL_CONTROL_TOOLS.md',
-    'docs/companion/SYSTEM_PROMPT_GPT55_COMPANION_v1.2.2.md',
-    'docs/companion/README_INSTALL_RU_v1.2.2.md',
+    'docs/companion/SYSTEM_PROMPT_GPT55_COMPANION_v1.2.3.md',
+    'docs/companion/README_INSTALL_RU_v1.2.3.md',
     'docs/companion/README.md',
     'docs/companion/VERSION.json'
   ].map((relative) => path.join(repoRoot, relative));
@@ -338,7 +338,7 @@ function route(input) {
       routing_errors: [`Requested command '${requested}' is not installed in project-local inventory.`]
     });
   }
-  if (input.repair_budget_exhausted && !input.user_continue_repair_authorized) {
+  if (input.repair_budget_exhausted && !input.user_continue_repair_authorized && !input.work_item_id) {
     return makeLegacyResult(input, { decision: 'human_decision_required', command: null });
   }
   if (input.required_child_exit_codes &&
@@ -441,7 +441,9 @@ function route(input) {
     },
     git_facts: {
       git_state: gitState,
-      head_commit: input.head_commit
+      head_commit: input.head_commit,
+      branch_name: input.branch_name,
+      source_changed_since_result: input.source_changed_since_result
     },
     state_facts: {
       current_status: input.current_status,
@@ -455,6 +457,8 @@ function route(input) {
       next_required_command: input.state_declared_next_required_command || input.next_required_command
     },
     phase_contract_facts: {
+      present: input.phase_contract_present !== false,
+      structurally_valid: input.phase_contract_structurally_valid !== false,
       contract_status: input.contract_status,
       contract_hash: input.contract_hash
     },
@@ -483,7 +487,11 @@ function route(input) {
       verified_resolved_findings: input.verified_resolved_findings || 0,
       deferred_product_findings: input.deferred_product_findings || 0,
       deferred_infrastructure_findings: input.deferred_infrastructure_findings || 0,
-      accepted_risks: input.accepted_risks || 0
+      accepted_risks: input.accepted_risks || 0,
+      product_blockers: input.product_blockers || 0,
+      verification_blockers: input.verification_blockers || 0,
+      release_blockers: input.release_blockers || 0,
+      service_warnings: input.service_warnings || 0
     },
     audit_facts: {
       audit_result_present: input.audit_result_present !== undefined ? input.audit_result_present : true,
@@ -499,7 +507,51 @@ function route(input) {
       repair_budget_known: true,
       repair_budget_exhausted: input.repair_budget_exhausted === true,
       user_continue_repair_authorized: input.user_continue_repair_authorized === true,
-      registered_repair_cycle_count: input.registered_repair_cycle_count || 0
+      registered_repair_cycle_count: input.registered_repair_cycle_count || 0,
+      hard_stop: input.hard_stop === true,
+      no_progress: input.no_progress === true,
+      same_failure_count: input.same_failure_count || 0,
+      progress_observed: input.progress_observed !== false
+    },
+    work_item_facts: {
+      present: Boolean(input.work_item_id),
+      structurally_valid: input.work_item_structurally_valid !== false,
+      work_item_id: input.work_item_id || null,
+      goal_epoch: input.goal_epoch || null,
+      status: input.work_item_status || null,
+      owner_approved: input.owner_approved === true,
+      assurance_mode: input.assurance_mode || null,
+      preferred_command: input.preferred_command || null,
+      scope_status: input.execution_scope_status || 'unresolved',
+      external_drift: input.external_drift === true,
+      hard_stop: input.hard_stop === true,
+      flow_restoration_enabled: input.flow_restoration_enabled === true
+    },
+    run_result_facts: {
+      present: input.run_result_present === true,
+      structurally_valid: input.run_result_structurally_valid !== false,
+      work_item_id: input.run_result_work_item_id || input.work_item_id || null,
+      implementation_status: input.implementation_status || null,
+      verification_status: input.verification_status || null,
+      audit_status: input.audit_status || null,
+      acceptance_status: input.acceptance_status || null,
+      product_blockers: input.product_blockers || 0,
+      verification_blockers: input.verification_blockers || 0,
+      release_blockers: input.release_blockers || 0,
+      service_warnings: input.service_warnings || 0,
+      no_progress: input.no_progress === true,
+      hard_stop: input.hard_stop === true
+    },
+    execution_scope_facts: {
+      status: input.execution_scope_status || 'unresolved',
+      structurally_valid: input.execution_scope_structurally_valid !== false,
+      external_drift: input.external_drift === true
+    },
+    flow_policy: {
+      enabled: input.flow_restoration_enabled === true,
+      enforcement_mode: input.enforcement_mode || 'enforcing',
+      default_assurance_mode: input.assurance_mode || 'flow',
+      same_failure_limit: input.same_failure_limit || 3
     },
     routing_policy: {
       explicit_compatibility_matrix: {}
@@ -691,6 +743,77 @@ function validateResult(projectRoot) {
   return { ok: errors.length === 0, errors };
 }
 
+function validateWorkItemPolicy(document) {
+  const errors = [];
+  if ((document.acceptance || []).length > 10) errors.push('Work item acceptance limit exceeded (10).');
+  if ((document.non_goals || []).length > 8) errors.push('Work item non_goals limit exceeded (8).');
+  if (typeof document.goal === 'string' && document.goal.length > 4000) errors.push('Work item goal is too long.');
+  const humanText = JSON.stringify({
+    goal: document.goal || '',
+    acceptance: document.acceptance || [],
+    non_goals: document.non_goals || []
+  });
+  if (document.assurance_mode !== 'release' && /\b(?:sha-?256|[a-f0-9]{64})\b/i.test(humanText)) {
+    errors.push('Daily work item must not require owner-facing hash identity.');
+  }
+  return errors;
+}
+
+function validateRunResultPolicy(document) {
+  const errors = [];
+  const evidenceCount = Array.isArray(document.evidence_artifacts) ? document.evidence_artifacts.length : 0;
+  if (document.assurance_mode === 'flow' && evidenceCount > 2) {
+    errors.push('FLOW evidence budget exceeded (2).');
+  }
+  if (document.assurance_mode === 'guarded' && evidenceCount > 3) {
+    errors.push('GUARDED evidence budget exceeded (3).');
+  }
+  const failedRequired = (document.tests || []).filter((item) => item.required && Number(item.exit_code) !== 0);
+  if (failedRequired.length && document.verification_status === 'passed') {
+    errors.push('Run result reports verification passed while a required test failed.');
+  }
+  if ((document.product_blockers || []).length && document.acceptance_status === 'accepted') {
+    errors.push('Run result reports accepted while product blockers remain.');
+  }
+  if ((document.verification_blockers || []).length && document.acceptance_status === 'accepted') {
+    errors.push('Run result reports accepted while verification blockers remain.');
+  }
+  return errors;
+}
+
+function validateExecutionScopePolicy(document) {
+  const errors = [];
+  const seen = new Set();
+  for (const value of document.allowed_paths || []) {
+    if (typeof value !== 'string') continue;
+    const normalized = value.replace(/\\/g, '/');
+    if (normalized.includes('**') || /(^|\/)\.\.(\/|$)/.test(normalized)) {
+      errors.push(`Execution scope contains a broad or traversal path: ${value}`);
+    }
+    if (seen.has(normalized)) errors.push(`Execution scope contains duplicate path: ${value}`);
+    seen.add(normalized);
+  }
+  if (document.status === 'exact' && seen.size === 0) errors.push('Exact execution scope is empty.');
+  return errors;
+}
+
+function runFlowRestorationCases(repoRoot) {
+  const casesPath = path.join(repoRoot, 'evals', 'companion', 'flow_restoration_cases.json');
+  if (!fs.existsSync(casesPath)) return { ok: false, errors: ['Missing flow restoration eval cases.'], count: 0 };
+  const suite = readJson(casesPath);
+  const errors = [];
+  const cases = Array.isArray(suite.cases) ? suite.cases : [];
+  for (const item of cases) {
+    const result = resolveRuntimeRoute(item.input || {});
+    const actual = {};
+    for (const key of Object.keys(item.expected || {})) actual[key] = result[key];
+    if (!deepEqual(actual, item.expected || {})) {
+      errors.push(`Flow restoration eval failed: ${item.id}; expected=${JSON.stringify(item.expected)} actual=${JSON.stringify(actual)}`);
+    }
+  }
+  return { ok: errors.length === 0, errors, count: cases.length };
+}
+
 function validatePack(repoRoot) {
   const errors = [];
   const warnings = [];
@@ -707,7 +830,11 @@ function validatePack(repoRoot) {
     'phase-contract.schema.json',
     'finding.schema.json',
     'phase-result.schema.json',
-    'repair-ledger-record.schema.json'
+    'repair-ledger-record.schema.json',
+    'work-item.schema.json',
+    'execution-scope.schema.json',
+    'run-result.schema.json',
+    'flow-policy.schema.json'
   ]) {
     const filePath = path.join(schemaDir, name);
     if (!fs.existsSync(filePath)) {
@@ -724,8 +851,8 @@ function validatePack(repoRoot) {
   const companionVersionPath = path.join(repoRoot, 'docs', 'companion', 'VERSION.json');
   if (fs.existsSync(companionVersionPath)) {
     const version = readJson(companionVersionPath);
-    if (version.companion_version !== '1.2.2') {
-      errors.push('Companion VERSION.json does not declare 1.2.2');
+    if (version.companion_version !== '1.2.3') {
+      errors.push('Companion VERSION.json does not declare 1.2.3');
     }
   }
 
@@ -753,6 +880,10 @@ function validatePack(repoRoot) {
       }
     }
   }
+
+  const flowCases = runFlowRestorationCases(repoRoot);
+  if (!flowCases.ok) errors.push(...flowCases.errors);
+  if (flowCases.count < 10) errors.push('Flow restoration eval suite must contain at least 10 cases.');
 
   const commandInventoryPath = path.join(repoRoot, 'config', 'command-inventory.json');
   if (fs.existsSync(commandInventoryPath)) {
@@ -783,7 +914,7 @@ function main() {
   if (!command) {
     fail(
       'Usage: companion-control.cjs <validate-pack|evals|route|canonical-hash|' +
-      'validate-contract|validate-result|validate-handshake|validate-json|test-schema-validator>'
+      'validate-contract|validate-result|validate-work-item|validate-run-result|validate-execution-scope|validate-flow-policy|validate-handshake|validate-json|test-schema-validator|test-flow-restoration>'
     );
   }
 
@@ -834,6 +965,31 @@ function main() {
     return;
   }
 
+  const namedSchemas = {
+    'validate-work-item': 'work-item.schema.json',
+    'validate-run-result': 'run-result.schema.json',
+    'validate-execution-scope': 'execution-scope.schema.json',
+    'validate-flow-policy': 'flow-policy.schema.json'
+  };
+
+  if (Object.prototype.hasOwnProperty.call(namedSchemas, command)) {
+    const repoRoot = path.resolve(args['repo-root'] || '.');
+    const filePath = path.resolve(args.file || '');
+    if (!args.file) fail('--file is required');
+    const schemaPath = path.join(repoRoot, 'schemas', 'companion', namedSchemas[command]);
+    const result = validateJsonFile(schemaPath, filePath);
+    const document = result.errors.length === 0 ? readJson(filePath) : null;
+    if (document && command === 'validate-work-item') result.errors.push(...validateWorkItemPolicy(document));
+    if (document && command === 'validate-run-result') result.errors.push(...validateRunResultPolicy(document));
+    if (document && command === 'validate-execution-scope') result.errors.push(...validateExecutionScopePolicy(document));
+    if (result.errors.length) {
+      for (const error of result.errors) console.error(`FAIL: ${error}`);
+      process.exit(1);
+    }
+    console.log(`${command} passed: ${filePath}`);
+    return;
+  }
+
   if (command === 'validate-handshake') {
     const repoRoot = path.resolve(args['repo-root'] || '.');
     const filePath = path.resolve(args.file || '');
@@ -859,6 +1015,17 @@ function main() {
       for (const error of result.errors) console.error(`FAIL: ${error}`);
     }
     if (result.errors.length) process.exit(1);
+    return;
+  }
+
+  if (command === 'test-flow-restoration') {
+    const repoRoot = path.resolve(args['repo-root'] || '.');
+    const result = runFlowRestorationCases(repoRoot);
+    if (!result.ok) {
+      for (const error of result.errors) console.error(`FAIL: ${error}`);
+      process.exit(1);
+    }
+    console.log(`Flow restoration routing tests passed. Cases: ${result.count}`);
     return;
   }
 

@@ -1,12 +1,18 @@
-# Verification Gates
+# Verification Gates — Materiality
 
-Verification requires deterministic evidence appropriate to the change:
+Classify findings as:
 
-- parser/build/lint/test exit codes;
-- reviewed git diff;
-- semantic/domain tests for critical logic;
-- screenshots and console summary for UI;
-- manifest/checksum and cross-format consistency for reports/exports;
-- security/privacy checks for sensitive data and external actions.
+- `product_blocker`: product behavior, safety, privacy or data integrity is wrong;
+- `verification_blocker`: the claim cannot yet be proven;
+- `release_blocker`: product work may finish but publication is closed;
+- `service_warning`: internal metadata can be reconciled automatically;
+- `cosmetic`: does not affect the current work item.
 
-Missing required evidence blocks completion and shipcheck. Model-written summaries are only pointers to evidence.
+Rules:
+
+- product blockers route to repair;
+- verification blockers route to audit;
+- release blockers block RELEASE only;
+- service warnings never require owner intervention and never create a new task pack;
+- stale prose, test-count wording, evidence-sidecar drift and optional reports are service warnings when an authoritative current result exists;
+- actual artifact inconsistency, unsafe wording, privacy failure and data corruption remain product blockers.

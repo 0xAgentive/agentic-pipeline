@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Flow Restoration Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "enabled",
+    "enforcement_mode",
+    "default_assurance_mode",
+    "owner_interaction_policy",
+    "same_failure_limit"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "enforcement_mode": {
+      "enum": [
+        "shadow",
+        "enforcing"
+      ]
+    },
+    "default_assurance_mode": {
+      "enum": [
+        "flow",
+        "guarded",
+        "release"
+      ]
+    },
+    "owner_interaction_policy": {
+      "const": "hard_stop_only"
+    },
+    "same_failure_limit": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "allow_degraded_product_execution": {
+      "type": "boolean"
+    },
+    "compatible_installed_runtime_versions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

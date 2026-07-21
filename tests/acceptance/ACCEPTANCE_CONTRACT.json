@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.2.0",
-  "contract_id": "agentic-pipeline-runtime-routing-1.2.4",
+  "schema_version": "1.3.0",
+  "contract_id": "agentic-pipeline-runtime-routing-1.2.5",
   "protected_paths": [
     ".github/workflows/validate.yml",
     "tests/acceptance/ACCEPTANCE_CONTRACT.json",
@@ -13,10 +13,10 @@
   ],
   "implementation_forbidden_from_modifying_protected_paths": true,
   "expected_handshake_schema_version": "1.1.0",
-  "expected_package_version": "1.2.4",
-  "expected_runtime_version": "1.2.1",
+  "expected_package_version": "1.2.5",
+  "expected_runtime_version": "1.2.2",
   "expected_playbook_version": "1.2.0",
-  "expected_companion_version": "1.2.2",
+  "expected_companion_version": "1.2.3",
   "expected_workflow_composite_sha256": "c9036e5d356c5b24845542431613e0287804084d242b40c5d9218fd56ccfece0",
   "resolver_input_contract": {
     "command_inventory": "project_inventory",
@@ -41,6 +41,10 @@
   ],
   "required_routing_modes": [
     "normal",
+    "flow",
+    "guarded",
+    "release",
+    "degraded_product_execution",
     "recovery",
     "invalid"
   ],
@@ -54,7 +58,10 @@
     "existing_golden_case_ids_cannot_be_deleted": true,
     "product_fixture_must_remain_unchanged": true,
     "production_golden_file_byte_frozen_during_phase_b": true,
-    "production_handshake_schema_must_match_required_contract": true
+    "production_handshake_schema_must_match_required_contract": true,
+    "work_item_terminality_is_project_safe": true,
+    "shadow_routes_do_not_authorize_writes": true,
+    "service_warnings_do_not_block_product_execution": true
   },
   "installer_contract": {
     "single_manifest_writer_required": true,
@@ -113,6 +120,27 @@
     "audit_result_structurally_valid",
     "audit_authoritative",
     "audit_evidence_complete",
-    "claims_evidence_consistent"
+    "claims_evidence_consistent",
+    "flow_restoration_enabled",
+    "enforcement_mode",
+    "work_item_present",
+    "work_item_structurally_valid",
+    "work_item_id",
+    "goal_epoch",
+    "work_item_status",
+    "assurance_mode",
+    "execution_scope_status",
+    "product_execution_allowed",
+    "release_actions_allowed",
+    "governance_health",
+    "owner_interaction_required",
+    "product_blocker_count",
+    "verification_blocker_count",
+    "release_blocker_count",
+    "service_warning_count",
+    "run_result_present",
+    "run_result_structurally_valid",
+    "shadow_candidate_command",
+    "shadow_candidate_commands_allowed"
   ]
 }

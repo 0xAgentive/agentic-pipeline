@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.5 candidate - Flow Restoration & Scoped Assurance
+
+- Added work-item-scoped terminality and owner-approved work items.
+- Added FLOW, GUARDED and RELEASE assurance modes.
+- Added executor-discovered exact execution scope and compact run results.
+- Added blocker materiality: product, verification, release, service warning and cosmetic.
+- Added autonomous current-scope repair with hard-stop/no-progress escalation.
+- Added degraded product execution that closes release/publication while permitting bounded product work.
+- Added shadow routing and H10 production-derived canary contracts.
+- Added Companion 1.2.3 compact semantic brief and evidence-tolerance policies.
+
 ## 1.2.4 - Governance & Routing Stabilization
 
 - Added a frozen, implementation-independent acceptance contract executed on Linux and Windows PowerShell 5.1.

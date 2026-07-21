@@ -1,36 +1,32 @@
 # Runtime Truth Review Policy
 
-When reviewing a proposal, classify every item as:
+Classify every proposal as Companion policy, runtime behavior, project-local adoption, optional pack, reject or defer.
 
-- companion-only change;
-- runtime change;
-- active-project change or migration;
-- optional pack;
-- reject;
-- defer.
+## Runtime claims
 
-## Runtime claim rules
+- command exists: current project inventory and workflow file;
+- route is authorized: current handshake or additive Flow Restoration shadow/enforcing result;
+- workflow works: referenced scripts plus positive and negative validation;
+- hook is active: configuration plus real same-surface behavior probe;
+- product result is accepted: current `RUN_RESULT.json` or release result, not prose;
+- project migration is safe: bounded framework-owned scope, backup and post-migration canary.
 
-Do not accept a runtime claim without matching evidence:
+## Compatibility
 
-- `command exists` requires current command inventory and workflow file;
-- `workflow works` requires referenced scripts/parameters and a passing validator;
-- `hook is active` requires valid non-empty configuration and a real hook probe;
-- `evidence gate is active` requires schemas, writers, validator and a failing negative fixture;
-- `migration is safe` requires bounded scope, backup and post-migration audit;
-- `completed` requires phase-result fields, not terminal prose.
+Flow Restoration is additive to the existing runtime handshake. Shadow mode reports candidate behavior but authorizes no write. Enforcing mode is enabled only after canary evidence.
+
+A schema-invalid legacy phase contract may degrade governance and close release actions without blocking an owner-approved FLOW/GUARDED work item when the execution lease is otherwise valid.
 
 ## Required review output
 
-For medium/high-risk proposals include:
+For medium/high-risk changes include:
 
-- runtime handshake source;
-- exact files inspected;
-- exact commands and exit codes;
-- claim/runtime mismatches;
-- blocker categories;
-- repair budget;
-- stop/no-SHIP conditions;
-- one exact next action.
+- exact runtime/source version inspected;
+- current work item and assurance mode;
+- commands and exit codes;
+- material blocker classification;
+- shadow/enforcing status;
+- hard-stop conditions;
+- one next action.
 
-Do not require token-price or cost-per-task accounting.
+Do not make the owner reconcile hashes, repair counts or stale summary totals.

@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Run Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_item_id",
+    "assurance_mode",
+    "branch",
+    "head",
+    "git_state",
+    "implementation_status",
+    "verification_status",
+    "audit_status",
+    "acceptance_status",
+    "product_blockers",
+    "verification_blockers",
+    "release_blockers",
+    "service_warnings",
+    "changed_files",
+    "tests",
+    "next_workflow",
+    "generated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "work_item_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "assurance_mode": {
+      "enum": [
+        "flow",
+        "guarded",
+        "release"
+      ]
+    },
+    "branch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "git_state": {
+      "enum": [
+        "clean",
+        "dirty",
+        "unknown"
+      ]
+    },
+    "implementation_status": {
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed",
+        "partial",
+        "failed",
+        "blocked"
+      ]
+    },
+    "verification_status": {
+      "enum": [
+        "not_run",
+        "passed",
+        "failed",
+        "partial",
+        "blocked"
+      ]
+    },
+    "audit_status": {
+      "enum": [
+        "not_required",
+        "pending",
+        "passed",
+        "failed",
+        "blocked"
+      ]
+    },
+    "acceptance_status": {
+      "enum": [
+        "not_evaluated",
+        "accepted",
+        "blocked"
+      ]
+    },
+    "product_blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_.-]+$"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "auto_repairable": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "verification_blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_.-]+$"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "auto_repairable": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "release_blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_.-]+$"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "auto_repairable": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "service_warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_.-]+$"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "auto_repairable": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_id",
+          "required",
+          "exit_code"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "exit_code": {
+            "type": "integer"
+          },
+          "started_at_utc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at_utc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supersedes_run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "next_workflow": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "/nextphase",
+        "/fixcritical",
+        "/auditphase",
+        "/fastpatch",
+        "/shipcheck",
+        null
+      ]
+    },
+    "no_progress": {
+      "type": "boolean"
+    },
+    "hard_stop": {
+      "type": "boolean"
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "product_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "enabled": true,
+  "enforcement_mode": "shadow",
+  "default_assurance_mode": "flow",
+  "owner_interaction_policy": "hard_stop_only",
+  "same_failure_limit": 3,
+  "allow_degraded_product_execution": true,
+  "compatible_installed_runtime_versions": [
+    "1.2.1",
+    "1.2.2"
+  ]
+}

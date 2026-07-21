@@ -1,15 +1,25 @@
 # Local Control Tools
 
-The repository includes optional read-only or bounded local tools under `scripts/windows/companion/`. They are not ChatGPT knowledge and do not migrate active projects automatically.
+The repository includes bounded local tools under `scripts/windows/companion/`. They are not ChatGPT knowledge and do not migrate active projects automatically.
 
-- `Get-RuntimeHandshake.ps1`: inspect command inventory, roots and current state before routing.
-- `New-PhaseContract.ps1`: create a dry-run or frozen phase contract.
-- `Test-PhaseContract.ps1`: verify the contract hash and lock.
-- `Register-RepairCycle.ps1`: enforce the repair budget.
-- `New-PhaseResult.ps1`: produce a fail-closed machine-readable phase result.
-- `Test-PhaseResult.ps1`: verify result/contract consistency.
-- `Test-ProductionOutputIsolation.ps1`: run a test command with temporary roots and detect production additions, modifications or deletions.
-- `Test-CompanionPack-v1.2.2.ps1`: validate policies, schemas and golden cases.
-- `Build-CompanionPack-v1.2.2.ps1`: build the standalone ChatGPT Project knowledge pack.
+Flow Restoration tools:
 
-Use tools only after reviewing their dry-run output. Active product migration remains a separate phase.
+- `New-WorkItem.ps1`: open a new owner-approved work item and increment `goal_epoch`.
+- `Write-ExecutionScope.ps1`: write the executor-discovered exact scope.
+- `Publish-RunResult.ps1`: publish compact product, verification, release and service-warning results.
+- `Set-WorkItemStatus.ps1`: update one work item without closing the project.
+- `Get-RuntimeHandshake.ps1`: resolve current and shadow routes.
+- `Test-FlowRestorationContracts.ps1`: exercise shadow, enforcing, repair, audit and work-item reopening behavior.
+- `Test-CompanionPack-v1.2.3.ps1`: validate active Companion and routing policies.
+- `Build-CompanionPack-v1.2.3.ps1`: build the candidate Companion pack.
+
+Legacy phase-contract tools remain available for RELEASE or migrated projects:
+
+- `New-PhaseContract.ps1`;
+- `Test-PhaseContract.ps1`;
+- `Register-RepairCycle.ps1`;
+- `New-PhaseResult.ps1`;
+- `Test-PhaseResult.ps1`;
+- `Test-ProductionOutputIsolation.ps1`.
+
+Use dry-run output first. H10 rollout begins in shadow mode; enforcing migration remains a separate, reversible action.

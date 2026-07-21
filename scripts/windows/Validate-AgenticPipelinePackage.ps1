@@ -20,9 +20,10 @@ $required = @(
  "README.md","README.ru.md","VERSION.json","LICENSE","SECURITY.md","CONTRIBUTING.md","CHANGELOG.md",
  "docs/AGENTIC_PIPELINE_PLAYBOOK.md","docs/GITHUB_PUBLICATION.md","docs/PIPELINE_VERSION_MATRIX.md",
  "config/command-inventory.json","schemas/phase-status.schema.json","schemas/command-inventory.schema.json","schemas/version.schema.json",
- "docs/companion/SYSTEM_PROMPT_GPT55_COMPANION_v1.2.2.md","docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.2.md",
+ "docs/companion/SYSTEM_PROMPT_GPT55_COMPANION_v1.2.3.md","docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.3.md",
  "schemas/companion/runtime-handshake.schema.json","schemas/companion/phase-contract.schema.json","schemas/companion/finding.schema.json","schemas/companion/phase-result.schema.json",
- "evals/companion/golden_cases.json","scripts/companion/companion-control.cjs","scripts/windows/companion/Test-CompanionPack-v1.2.2.ps1",
+ "schemas/companion/work-item.schema.json","schemas/companion/execution-scope.schema.json","schemas/companion/run-result.schema.json","schemas/companion/flow-policy.schema.json",
+ "evals/companion/golden_cases.json","evals/companion/flow_restoration_cases.json","scripts/companion/companion-control.cjs","scripts/windows/companion/Test-CompanionPack-v1.2.3.ps1","scripts/windows/companion/Test-FlowRestorationContracts.ps1",
  "scripts/windows/Validate-AgenticPipelinePackage.ps1","scripts/windows/Test-DistributionIntegrity.ps1","scripts/windows/Test-PowerShellRuntimeContracts.ps1",
  "scripts/windows/Test-StateProfiles.ps1","scripts/windows/Test-CommandInventory.ps1",
  "scripts/windows/Test-TemplateHygiene.ps1","scripts/windows/Test-ProjectLeakage.ps1",
@@ -37,10 +38,14 @@ $required = @(
  "templates/agy-project-base/.agents/hooks/Test-HookContract.ps1",
  "templates/agy-project-base/.agents/workflows/githubprepare.md",
  "templates/agy-project-base/.agents/workflows/githubsync.md",
- "templates/agy-project-base/.agy/PHASE_STATUS.json",
+ "templates/agy-project-base/.agy/PHASE_STATUS.json","templates/agy-project-base/.agy/FLOW_POLICY.json",
  "templates/agy-project-base/.agy/GITHUB_PROFILE.json",
  "templates/agy-project-base/scripts/github/Prepare-GitHubPackage.ps1",
- "templates/agy-project-base/scripts/github/Sync-GitHub.ps1"
+ "templates/agy-project-base/scripts/github/Sync-GitHub.ps1",
+ "templates/agy-project-base/scripts/windows/companion/New-WorkItem.ps1",
+ "templates/agy-project-base/scripts/windows/companion/Set-WorkItemStatus.ps1",
+ "templates/agy-project-base/scripts/windows/companion/Write-ExecutionScope.ps1",
+ "templates/agy-project-base/scripts/windows/companion/Publish-RunResult.ps1"
 )
 foreach($p in $required){ if(!(Has $p)){ Add-Err "Missing required file: $p" } }
 

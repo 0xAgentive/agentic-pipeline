@@ -18,7 +18,8 @@ const SUPPORTED_SCHEMA_KEYS = new Set([
   'pattern',
   'items',
   'minLength',
-  'minItems'
+  'minItems',
+  'minimum'
 ]);
 
 const REQUIRED_HANDSHAKE_FIELDS = [
@@ -70,7 +71,28 @@ const REQUIRED_HANDSHAKE_FIELDS = [
   'audit_result_structurally_valid',
   'audit_authoritative',
   'audit_evidence_complete',
-  'claims_evidence_consistent'
+  'claims_evidence_consistent',
+  'flow_restoration_enabled',
+  'enforcement_mode',
+  'work_item_present',
+  'work_item_structurally_valid',
+  'work_item_id',
+  'goal_epoch',
+  'work_item_status',
+  'assurance_mode',
+  'execution_scope_status',
+  'product_execution_allowed',
+  'release_actions_allowed',
+  'governance_health',
+  'owner_interaction_required',
+  'product_blocker_count',
+  'verification_blocker_count',
+  'release_blocker_count',
+  'service_warning_count',
+  'run_result_present',
+  'run_result_structurally_valid',
+  'shadow_candidate_command',
+  'shadow_candidate_commands_allowed'
 ];
 
 function sameMembers(actual, expected) {
@@ -128,7 +150,7 @@ function assertHandshakeSchemaContract(schema) {
     throw new Error(`Handshake schema_version const must be 1.1.0, got ${JSON.stringify(version.const)}`);
   }
 
-  assertEnum(schema, 'routing_mode', ['normal', 'recovery', 'invalid']);
+  assertEnum(schema, 'routing_mode', ['normal', 'flow', 'guarded', 'release', 'degraded_product_execution', 'recovery', 'invalid']);
   assertEnum(schema, 'inventory_source', [
     'project_command_inventory',
     'project_workflow_directory_compat',
@@ -142,7 +164,8 @@ function assertHandshakeSchemaContract(schema) {
     'available_commands',
     'commands_allowed_now',
     'state_declared_commands_allowed_now',
-    'resolved_commands_allowed_now'
+    'resolved_commands_allowed_now',
+    'shadow_candidate_commands_allowed'
   ]) {
     assertCommandArray(schema, name);
   }
@@ -278,6 +301,10 @@ function validateValue(schema, value, location = '$') {
         errors.push(`${location}: value does not match pattern ${schema.pattern}`);
       }
     }
+  }
+
+  if (typeof value === 'number' && schema.minimum !== undefined && value < schema.minimum) {
+    errors.push(`${location}: number smaller than minimum ${schema.minimum}`);
   }
 
   if (Array.isArray(value)) {

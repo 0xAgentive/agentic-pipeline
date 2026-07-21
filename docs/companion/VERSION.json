@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
-  "companion_version": "1.2.2",
-  "release_name": "Runtime Handshake and Bounded Repair",
-  "compatible_pipeline_package": "1.2.3",
-  "compatible_runtime": "1.2.0",
-  "status": "stable"
+  "companion_version": "1.2.3",
+  "release_name": "Flow Restoration & Scoped Assurance",
+  "compatible_pipeline_package": "1.2.5",
+  "compatible_runtime": "1.2.2",
+  "status": "candidate"
 }

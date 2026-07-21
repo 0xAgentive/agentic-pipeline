@@ -3,6 +3,7 @@ param(
   [Parameter(Mandatory=$true)][string]$ProjectRoot,
   [string]$PipelineRoot = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline",
   [string]$OutFile = "",
+  [string]$RequestedCommand = "",
   [switch]$WriteToProject
 )
 
@@ -80,6 +81,112 @@ function Get-Sha256 {
   }
 
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Get-AgenticWritableTempRoot {
+  $Candidates = New-Object System.Collections.Generic.List[string]
+
+  foreach ($Value in @(
+    $env:AGENTIC_PIPELINE_TEMP,
+    $env:TEMP,
+    $env:TMP,
+    $env:TMPDIR
+  )) {
+    if (![string]::IsNullOrWhiteSpace([string]$Value)) {
+      [void]$Candidates.Add([string]$Value)
+    }
+  }
+
+  $IsWindowsPlatform = (
+    [System.Environment]::OSVersion.Platform -eq
+    [System.PlatformID]::Win32NT
+  )
+
+  $UserProfile = [System.Environment]::GetFolderPath(
+    [System.Environment+SpecialFolder]::UserProfile
+  )
+
+  if ($IsWindowsPlatform) {
+    $LocalApplicationData = [System.Environment]::GetFolderPath(
+      [System.Environment+SpecialFolder]::LocalApplicationData
+    )
+    if (![string]::IsNullOrWhiteSpace($LocalApplicationData)) {
+      [void]$Candidates.Add(
+        [System.IO.Path]::Combine($LocalApplicationData, "Temp")
+      )
+    }
+    if (![string]::IsNullOrWhiteSpace($UserProfile)) {
+      [void]$Candidates.Add(
+        [System.IO.Path]::Combine(
+          $UserProfile,
+          "AppData",
+          "Local",
+          "Temp"
+        )
+      )
+    }
+  }
+  else {
+    foreach ($Value in @(
+      $env:XDG_RUNTIME_DIR,
+      $env:XDG_CACHE_HOME
+    )) {
+      if (![string]::IsNullOrWhiteSpace([string]$Value)) {
+        [void]$Candidates.Add([string]$Value)
+      }
+    }
+    if (![string]::IsNullOrWhiteSpace($UserProfile)) {
+      [void]$Candidates.Add(
+        [System.IO.Path]::Combine($UserProfile, ".cache")
+      )
+    }
+    [void]$Candidates.Add("/tmp")
+  }
+
+  try {
+    [void]$Candidates.Add([System.IO.Path]::GetTempPath())
+  }
+  catch {
+    # The platform resolver is advisory. Every candidate is verified below.
+  }
+
+  foreach ($Candidate in @($Candidates | Select-Object -Unique)) {
+    $ProbePath = $null
+    try {
+      $ExpandedCandidate = [System.Environment]::ExpandEnvironmentVariables(
+        [string]$Candidate
+      )
+      if (![System.IO.Path]::IsPathRooted($ExpandedCandidate)) {
+        continue
+      }
+
+      $BaseRoot = [System.IO.Path]::GetFullPath($ExpandedCandidate)
+      $TempRoot = [System.IO.Path]::Combine(
+        $BaseRoot,
+        "agentic-pipeline",
+        "runtime-handshake"
+      )
+      [System.IO.Directory]::CreateDirectory($TempRoot) | Out-Null
+
+      $ProbePath = [System.IO.Path]::Combine(
+        $TempRoot,
+        ".write-probe-" + [Guid]::NewGuid().ToString("N") + ".tmp"
+      )
+      [System.IO.File]::WriteAllText($ProbePath, "", $Utf8NoBom)
+      [System.IO.File]::Delete($ProbePath)
+      return $TempRoot
+    }
+    catch {
+      if ($ProbePath) {
+        Remove-Item -LiteralPath $ProbePath -Force -ErrorAction SilentlyContinue
+      }
+    }
+  }
+
+  throw (
+    "No writable temporary directory is available for Agentic Pipeline. " +
+    "Set AGENTIC_PIPELINE_TEMP to an absolute writable directory."
+  )
 }
 
 function Test-RootCommand {
@@ -251,6 +358,35 @@ function Test-PhaseResultStructure {
   return ($Result.Code -eq 0)
 }
 
+function Test-JsonAgainstSchema {
+  param(
+    [string]$DocumentPath,
+    [string]$SchemaPath,
+    [string]$PipelineRoot
+  )
+
+  if (!(Test-Path -LiteralPath $DocumentPath -PathType Leaf) -or
+      !(Test-Path -LiteralPath $SchemaPath -PathType Leaf)) {
+    return $false
+  }
+
+  $Validator = Join-Path $PipelineRoot "scripts\companion\companion-control.cjs"
+  if (!(Test-Path -LiteralPath $Validator -PathType Leaf)) {
+    return $false
+  }
+
+  $Result = Invoke-NativeCapture `
+    -FilePath "node" `
+    -ArgumentList @(
+      $Validator,
+      "validate-json",
+      "--schema", $SchemaPath,
+      "--file", $DocumentPath
+    )
+
+  return ($Result.Code -eq 0)
+}
+
 $Project = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $Pipeline = (Resolve-Path -LiteralPath $PipelineRoot).Path
 $StateRoot = Join-Path $Project ".agy"
@@ -264,6 +400,7 @@ if (!(Test-Path -LiteralPath $Project -PathType Container)) {
 $GitRoot = $null
 $GitState = $null
 $GitHead = $null
+$GitBranch = $null
 
 if (Get-Command git -ErrorAction SilentlyContinue) {
   # Avoid decoding a non-ASCII absolute path from Git stdout under Windows
@@ -290,6 +427,13 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
       -ArgumentList @("-C", $Project, "rev-parse", "HEAD")
     if ($HeadResult.Code -eq 0) {
       $GitHead = $HeadResult.Text.Trim()
+    }
+
+    $BranchResult = Invoke-NativeCapture `
+      -FilePath "git" `
+      -ArgumentList @("-C", $Project, "branch", "--show-current")
+    if ($BranchResult.Code -eq 0) {
+      $GitBranch = $BranchResult.Text.Trim()
     }
 
     $StatusResult = Invoke-NativeCapture `
@@ -402,6 +546,11 @@ $Phase = if ($PhaseRead.Valid) { $PhaseRead.Value } else { $null }
 $ContractPath = Join-Path $StateRoot "PHASE_CONTRACT.json"
 $ContractRead = Read-JsonFile -Path $ContractPath
 $Contract = if ($ContractRead.Valid) { $ContractRead.Value } else { $null }
+$ContractSchemaPath = Join-Path $Pipeline "schemas\companion\phase-contract.schema.json"
+$PhaseContractStructurallyValid = [bool](
+  $ContractRead.Valid -and
+  (Test-JsonAgainstSchema -DocumentPath $ContractPath -SchemaPath $ContractSchemaPath -PipelineRoot $Pipeline)
+)
 
 $ResultPath = Join-Path $StateRoot "PHASE_RESULT.json"
 $ResultRead = Read-JsonFile -Path $ResultPath
@@ -416,6 +565,43 @@ $PhaseResultContractHashValid = [bool](
   $null -ne $Contract -and
   ![string]::IsNullOrWhiteSpace([string]$Contract.contract_hash) -and
   ([string]$Contract.contract_hash -eq [string]$Result.contract_hash)
+)
+
+$WorkItemPath = Join-Path $StateRoot "WORK_ITEM.json"
+$WorkItemRead = Read-JsonFile -Path $WorkItemPath
+$WorkItem = if ($WorkItemRead.Valid) { $WorkItemRead.Value } else { $null }
+$WorkItemSchemaPath = Join-Path $Pipeline "schemas\companion\work-item.schema.json"
+$WorkItemStructurallyValid = [bool](
+  $WorkItemRead.Valid -and
+  (Test-JsonAgainstSchema -DocumentPath $WorkItemPath -SchemaPath $WorkItemSchemaPath -PipelineRoot $Pipeline)
+)
+
+$ExecutionScopePath = Join-Path $StateRoot "EXECUTION_SCOPE.json"
+$ExecutionScopeRead = Read-JsonFile -Path $ExecutionScopePath
+$ExecutionScope = if ($ExecutionScopeRead.Valid) { $ExecutionScopeRead.Value } else { $null }
+$ExecutionScopeSchemaPath = Join-Path $Pipeline "schemas\companion\execution-scope.schema.json"
+$ExecutionScopeStructurallyValid = [bool](
+  !$ExecutionScopeRead.Present -or
+  ($ExecutionScopeRead.Valid -and
+   (Test-JsonAgainstSchema -DocumentPath $ExecutionScopePath -SchemaPath $ExecutionScopeSchemaPath -PipelineRoot $Pipeline))
+)
+
+$RunResultPath = Join-Path $StateRoot "RUN_RESULT.json"
+$RunResultRead = Read-JsonFile -Path $RunResultPath
+$RunResult = if ($RunResultRead.Valid) { $RunResultRead.Value } else { $null }
+$RunResultSchemaPath = Join-Path $Pipeline "schemas\companion\run-result.schema.json"
+$RunResultStructurallyValid = [bool](
+  $RunResultRead.Valid -and
+  (Test-JsonAgainstSchema -DocumentPath $RunResultPath -SchemaPath $RunResultSchemaPath -PipelineRoot $Pipeline)
+)
+
+$FlowPolicyPath = Join-Path $StateRoot "FLOW_POLICY.json"
+$FlowPolicyRead = Read-JsonFile -Path $FlowPolicyPath
+$FlowPolicy = if ($FlowPolicyRead.Valid) { $FlowPolicyRead.Value } else { $null }
+$FlowPolicySchemaPath = Join-Path $Pipeline "schemas\companion\flow-policy.schema.json"
+$FlowPolicyStructurallyValid = [bool](
+  $FlowPolicyRead.Valid -and
+  (Test-JsonAgainstSchema -DocumentPath $FlowPolicyPath -SchemaPath $FlowPolicySchemaPath -PipelineRoot $Pipeline)
 )
 
 $FinalVerificationPath = Join-Path $Project "FINAL_VERIFICATION.json"
@@ -439,12 +625,49 @@ $VerifiedResolvedFindings = 0
 $DeferredProductFindings = 0
 $DeferredInfrastructureFindings = 0
 $AcceptedRisks = 0
+$ProductBlockers = 0
+$VerificationBlockers = 0
+$ReleaseBlockers = 0
+$ServiceWarnings = 0
 
 if ($FindingsIndex -and $FindingsIndex.findings) {
   foreach ($Finding in @($FindingsIndex.findings)) {
     $Classification = [string]$Finding.phase_classification
     $LifecycleStatus = [string]$Finding.lifecycle_status
     $Category = [string]$Finding.category
+    $Materiality = [string]$Finding.materiality
+
+    if ($LifecycleStatus -eq "open_confirmed" -or
+        $LifecycleStatus -eq "repair_required" -or
+        $LifecycleStatus -eq "fixed_unverified") {
+      if ($Materiality -eq "product_blocker") {
+        $ProductBlockers++
+      }
+      elseif ($Materiality -eq "verification_blocker") {
+        $VerificationBlockers++
+      }
+      elseif ($Materiality -eq "release_blocker") {
+        $ReleaseBlockers++
+      }
+      elseif ($Materiality -eq "service_warning") {
+        $ServiceWarnings++
+      }
+      elseif ($LifecycleStatus -eq "fixed_unverified") {
+        $VerificationBlockers++
+      }
+      elseif ($Category -eq "safety" -or
+              $Category -eq "security_privacy" -or
+              $Category -eq "data_integrity" -or
+              $Category -eq "research_validity") {
+        $ProductBlockers++
+      }
+      elseif ($Category -eq "reproducibility" -or $Category -eq "delivery") {
+        $VerificationBlockers++
+      }
+      else {
+        $ServiceWarnings++
+      }
+    }
 
     if ($LifecycleStatus -eq "verified_resolved" -or $Classification -eq "resolved") {
       $VerifiedResolvedFindings++
@@ -516,6 +739,13 @@ if ($PhaseResultStructurallyValid) {
   }
 }
 
+if ($RunResultStructurallyValid) {
+  $ProductBlockers = @($RunResult.product_blockers).Count
+  $VerificationBlockers = @($RunResult.verification_blockers).Count
+  $ReleaseBlockers = @($RunResult.release_blockers).Count
+  $ServiceWarnings = @($RunResult.service_warnings).Count
+}
+
 $CurrentStatus = if ($Phase) {
   if ($null -ne $Phase.current_status) { [string]$Phase.current_status }
   elseif ($null -ne $Phase.phase_status) { [string]$Phase.phase_status }
@@ -555,7 +785,9 @@ $Facts = [ordered]@{
   git_facts = [ordered]@{
     git_state = $GitState
     head_commit = $GitHead
+    branch_name = $GitBranch
     git_root = $GitRoot
+    source_changed_since_result = if ($Phase -and $Phase.source_changed_since_result -eq $true) { $true } else { $false }
   }
   state_facts = [ordered]@{
     current_phase = if ($Phase) { $Phase.current_phase } else { $null }
@@ -577,6 +809,8 @@ $Facts = [ordered]@{
     recovery_required = if ($Phase -and $Phase.recovery_required -eq $true) { $true } else { $false }
   }
   phase_contract_facts = [ordered]@{
+    present = [bool]$ContractRead.Present
+    structurally_valid = $PhaseContractStructurallyValid
     contract_hash = if ($Contract) { $Contract.contract_hash } else { $null }
     contract_status = if ($Contract) { $Contract.status } else { $null }
   }
@@ -621,6 +855,10 @@ $Facts = [ordered]@{
     deferred_product_findings = $DeferredProductFindings
     deferred_infrastructure_findings = $DeferredInfrastructureFindings
     accepted_risks = $AcceptedRisks
+    product_blockers = $ProductBlockers
+    verification_blockers = $VerificationBlockers
+    release_blockers = $ReleaseBlockers
+    service_warnings = $ServiceWarnings
   }
   audit_facts = [ordered]@{
     audit_result_present = $AuditResultPresent
@@ -639,10 +877,69 @@ $Facts = [ordered]@{
     else {
       0
     }
+    hard_stop = if ($RunResult -and $RunResult.hard_stop -eq $true) { $true } else { $false }
+    no_progress = if ($RunResult -and $RunResult.no_progress -eq $true) { $true } else { $false }
+    same_failure_count = if ($Phase -and $null -ne $Phase.same_failure_count) { [int]$Phase.same_failure_count } else { 0 }
+    progress_observed = if ($Phase -and $Phase.progress_observed -eq $false) { $false } else { $true }
   }
-  requested_command = $null
+  work_item_facts = [ordered]@{
+    present = [bool]$WorkItemRead.Present
+    structurally_valid = $WorkItemStructurallyValid
+    work_item_id = if ($WorkItem) { $WorkItem.work_item_id } else { $null }
+    goal_epoch = if ($WorkItem) { $WorkItem.goal_epoch } else { $null }
+    status = if ($WorkItem) { $WorkItem.status } else { $null }
+    owner_approved = if ($WorkItem -and $WorkItem.owner_approved -eq $true) { $true } else { $false }
+    assurance_mode = if ($WorkItem) { $WorkItem.assurance_mode } else { $null }
+    preferred_command = if ($WorkItem) { $WorkItem.preferred_command } else { $null }
+    project_root = if ($WorkItem) { $WorkItem.project_root } else { $null }
+    branch = if ($WorkItem) { $WorkItem.branch } else { $null }
+    authorization_head = if ($WorkItem) { $WorkItem.authorization_head } else { $null }
+    scope_status = if ($ExecutionScope) { $ExecutionScope.status } else { "unresolved" }
+    external_drift = if ($ExecutionScope -and $ExecutionScope.external_drift -eq $true) { $true } else { $false }
+    hard_stop = if ($WorkItem -and $WorkItem.hard_stop -eq $true) { $true } else { $false }
+    flow_restoration_enabled = if ($FlowPolicyStructurallyValid -and $FlowPolicy.enabled -eq $true) { $true } else { $false }
+  }
+  run_result_facts = [ordered]@{
+    present = [bool]$RunResultRead.Present
+    structurally_valid = $RunResultStructurallyValid
+    work_item_id = if ($RunResult) { $RunResult.work_item_id } else { $null }
+    implementation_status = if ($RunResult) { $RunResult.implementation_status } else { $null }
+    verification_status = if ($RunResult) { $RunResult.verification_status } else { $null }
+    audit_status = if ($RunResult) { $RunResult.audit_status } else { $null }
+    acceptance_status = if ($RunResult) { $RunResult.acceptance_status } else { $null }
+    product_blockers = if ($RunResult) { @($RunResult.product_blockers).Count } else { 0 }
+    verification_blockers = if ($RunResult) { @($RunResult.verification_blockers).Count } else { 0 }
+    release_blockers = if ($RunResult) { @($RunResult.release_blockers).Count } else { 0 }
+    service_warnings = if ($RunResult) { @($RunResult.service_warnings).Count } else { 0 }
+    no_progress = if ($RunResult -and $RunResult.no_progress -eq $true) { $true } else { $false }
+    hard_stop = if ($RunResult -and $RunResult.hard_stop -eq $true) { $true } else { $false }
+  }
+  execution_scope_facts = [ordered]@{
+    status = if ($ExecutionScope) { $ExecutionScope.status } else { "unresolved" }
+    structurally_valid = $ExecutionScopeStructurallyValid
+    work_item_id = if ($ExecutionScope) { $ExecutionScope.work_item_id } else { $null }
+    project_root = if ($ExecutionScope) { $ExecutionScope.project_root } else { $null }
+    git_head = if ($ExecutionScope) { $ExecutionScope.git_head } else { $null }
+    external_drift = if ($ExecutionScope -and $ExecutionScope.external_drift -eq $true) { $true } else { $false }
+  }
+  flow_policy = [ordered]@{
+    enabled = if ($FlowPolicyStructurallyValid -and $FlowPolicy.enabled -eq $true) { $true } else { $false }
+    enforcement_mode = if ($FlowPolicyStructurallyValid) { $FlowPolicy.enforcement_mode } else { "enforcing" }
+    default_assurance_mode = if ($FlowPolicyStructurallyValid) { $FlowPolicy.default_assurance_mode } else { "flow" }
+    same_failure_limit = if ($FlowPolicyStructurallyValid) { [int]$FlowPolicy.same_failure_limit } else { 3 }
+    allow_degraded_product_execution = if ($FlowPolicyStructurallyValid -and $FlowPolicy.allow_degraded_product_execution -eq $true) { $true } else { $false }
+  }
+  requested_command = if ([string]::IsNullOrWhiteSpace($RequestedCommand)) { $null } else { $RequestedCommand }
   routing_policy = [ordered]@{
-    explicit_compatibility_matrix = @{}
+    explicit_compatibility_matrix = [ordered]@{}
+  }
+}
+
+if ($FlowPolicyStructurallyValid -and $FlowPolicy.compatible_installed_runtime_versions) {
+  foreach ($CompatibleVersion in @($FlowPolicy.compatible_installed_runtime_versions)) {
+    if (![string]::IsNullOrWhiteSpace([string]$CompatibleVersion) -and $RuntimeVersion) {
+      $Facts.routing_policy.explicit_compatibility_matrix[[string]$CompatibleVersion] = [string]$RuntimeVersion
+    }
   }
 }
 
@@ -651,7 +948,11 @@ if (!(Test-Path -LiteralPath $ResolverScript -PathType Leaf)) {
   throw "Authoritative route resolver script not found: $ResolverScript"
 }
 
-$TempFactsPath = Join-Path ([System.IO.Path]::GetTempPath()) ("handshake-facts-" + [Guid]::NewGuid().ToString("N") + ".json")
+$RuntimeTempRoot = Get-AgenticWritableTempRoot
+$TempFactsPath = [System.IO.Path]::Combine(
+  $RuntimeTempRoot,
+  "handshake-facts-" + [Guid]::NewGuid().ToString("N") + ".json"
+)
 [System.IO.File]::WriteAllText(
   $TempFactsPath,
   ($Facts | ConvertTo-Json -Depth 20),
@@ -723,7 +1024,16 @@ if ($WriteToProject) {
   $OutFile = Join-Path $StateRoot "RUNTIME_HANDSHAKE.json"
 }
 elseif ([string]::IsNullOrWhiteSpace($OutFile)) {
-  $OutFile = Join-Path ([System.IO.Path]::GetTempPath()) ("runtime-handshake-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".json")
+  $OutFile = [System.IO.Path]::Combine(
+    $RuntimeTempRoot,
+    (
+      "runtime-handshake-" +
+      (Get-Date -Format "yyyyMMdd-HHmmss") +
+      "-" +
+      [Guid]::NewGuid().ToString("N") +
+      ".json"
+    )
+  )
 }
 
 $Handshake = [ordered]@{
@@ -791,6 +1101,27 @@ $Handshake = [ordered]@{
   audit_authoritative = [bool]$Decision.audit_authoritative
   audit_evidence_complete = [bool]$Decision.audit_evidence_complete
   claims_evidence_consistent = [bool]$Decision.claims_evidence_consistent
+  flow_restoration_enabled = [bool]$Decision.flow_restoration_enabled
+  enforcement_mode = [string]$Decision.enforcement_mode
+  work_item_present = [bool]$Decision.work_item_present
+  work_item_structurally_valid = [bool]$Decision.work_item_structurally_valid
+  work_item_id = if ($Decision.work_item_id) { [string]$Decision.work_item_id } else { $null }
+  goal_epoch = if ($null -ne $Decision.goal_epoch) { [int]$Decision.goal_epoch } else { $null }
+  work_item_status = if ($Decision.work_item_status) { [string]$Decision.work_item_status } else { $null }
+  assurance_mode = if ($Decision.assurance_mode) { [string]$Decision.assurance_mode } else { $null }
+  execution_scope_status = [string]$Decision.execution_scope_status
+  product_execution_allowed = [bool]$Decision.product_execution_allowed
+  release_actions_allowed = [bool]$Decision.release_actions_allowed
+  governance_health = [string]$Decision.governance_health
+  owner_interaction_required = [bool]$Decision.owner_interaction_required
+  product_blocker_count = [int]$Decision.product_blocker_count
+  verification_blocker_count = [int]$Decision.verification_blocker_count
+  release_blocker_count = [int]$Decision.release_blocker_count
+  service_warning_count = [int]$Decision.service_warning_count
+  run_result_present = [bool]$Decision.run_result_present
+  run_result_structurally_valid = [bool]$Decision.run_result_structurally_valid
+  shadow_candidate_command = if ($Decision.shadow_candidate_command) { [string]$Decision.shadow_candidate_command } else { $null }
+  shadow_candidate_commands_allowed = [string[]]@($Decision.shadow_candidate_commands_allowed)
 }
 
 $Parent = Split-Path -Parent $OutFile
@@ -826,6 +1157,9 @@ Write-Host "Available commands: $(@($Decision.available_commands).Count)"
 Write-Host "Current status: $($Decision.current_status)"
 Write-Host "Next required command: $($Decision.next_required_command)"
 Write-Host "Routing valid: $FinalRoutingValid"
+Write-Host "Work item: $($Decision.work_item_id)"
+Write-Host "Assurance mode: $($Decision.assurance_mode)"
+Write-Host "Governance health: $($Decision.governance_health)"
 
 if ($AllErrors.Count -gt 0) {
   $AllErrors | ForEach-Object { Write-Host "- $_" }

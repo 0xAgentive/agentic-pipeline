@@ -2,12 +2,25 @@
 
 A lightweight, disciplined, and deterministic framework for coordinating AI agent workflows in local development environments. It prevents AI agents from drifting, skipping phases, or making unverified claims.
 
-**Current package release:** `1.2.4 Governance & Routing Stabilization`
+**Current package candidate:** `1.2.5 Flow Restoration & Scoped Assurance`
 **Canonical playbook:** `1.2.0`
-**Runtime:** `1.2.1`
-**ChatGPT Companion:** `1.2.2`
+**Runtime:** `1.2.2`
+**ChatGPT Companion:** `1.2.3`
 
 ---
+
+## Flow Restoration & Scoped Assurance
+
+The 1.2.5 candidate restores product velocity without weakening material gates:
+
+- work-item-scoped terminality (`SHIP` closes a work item, not the project);
+- FLOW, GUARDED and RELEASE assurance modes;
+- executor discovery before exact write scope;
+- autonomous current-scope repair while progress is measurable;
+- degraded product execution that keeps release and publication closed;
+- compact result evidence and internal-only hashes outside release/corruption boundaries.
+
+The default project policy is `shadow`: candidate routes are reported but do not authorize writes until a canary explicitly switches to enforcing mode.
 
 ## 🎯 Value Proposition & Purpose
 

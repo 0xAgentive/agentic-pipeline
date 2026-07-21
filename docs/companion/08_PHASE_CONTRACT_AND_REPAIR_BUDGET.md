@@ -1,56 +1,29 @@
-# Frozen Phase Contract and Repair Budget
+# Work-Item Scope and Repair Convergence
 
-A phase contract prevents moving goalposts and recursive repair phases.
+Legacy phase contracts remain supported, especially for RELEASE work.
 
-## Contract fields
+For FLOW/GUARDED daily work, use:
 
-- phase ID and version;
-- goal and non-goals;
-- risk track;
-- evidence level;
-- allowed and forbidden paths;
-- required outputs and checks;
-- acceptance criteria;
-- blocking conditions;
-- non-blocking debt categories;
-- repair budget;
-- next allowed commands;
-- contract hash.
+- `WORK_ITEM.json` for stable owner authorization;
+- `EXECUTION_SCOPE.json` for exact live paths;
+- `RUN_RESULT.json` for current result.
 
-## Freeze rule
+## Repair policy
 
-The contract is frozen before implementation. After execution starts, criteria cannot be added silently.
+Do not require owner approval after a fixed number of repair cycles.
+Continue while:
 
-A newly discovered issue must be one of:
+- the blocker is inside scope;
+- each iteration changes the failing evidence or implementation meaningfully;
+- required capabilities are available.
 
-- `current_phase_blocker`: violates an existing safety, integrity or acceptance condition;
-- `next_phase_requirement`: valuable but outside current contract;
-- `deferred_debt`: accepted for now;
-- `accepted_risk`: explicitly accepted by the user;
-- `false_positive`;
-- `superseded`.
+Stop for:
 
-## Default repair budget
+- outside-scope requirement;
+- destructive/publication action;
+- unavailable capability;
+- material-risk acceptance;
+- framework/runtime migration;
+- repeated identical failure without measurable progress.
 
-```json
-{
-  "max_audit_fix_cycles_per_subsystem": 1,
-  "max_total_repairs_per_phase": 2,
-  "on_budget_exhausted": "human_decision_required"
-}
-```
-
-Normal path:
-
-```text
-implementation -> audit -> one fixcritical -> one verification
-```
-
-When exhausted, create a root-cause decision with exactly these options:
-
-- continue repair;
-- accept technical debt;
-- defer until release;
-- redesign subsystem.
-
-The companion must not create another numbered repair phase automatically.
+A same-failure threshold is a safety fuse, not the normal workflow.

@@ -36,6 +36,14 @@ jobs:
         shell: bash
         run: node scripts/companion/companion-control.cjs validate-pack --repo-root .
 
+      - name: Flow restoration routing evals
+        shell: bash
+        run: node scripts/companion/companion-control.cjs test-flow-restoration --repo-root .
+
+      - name: Flow restoration PowerShell contracts
+        shell: pwsh
+        run: ./scripts/windows/companion/Test-FlowRestorationContracts.ps1 -RepoRoot .
+
       - name: Distribution integrity validator
         shell: pwsh
         run: ./scripts/windows/Test-DistributionIntegrity.ps1 -RepoRoot .

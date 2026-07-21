@@ -21,3 +21,12 @@
 
 - Split companion, runtime and active-project responsibilities.
 - Added Runtime Truth review policy and task-pack block.
+
+## 1.2.3 — Flow Restoration & Scoped Assurance
+
+- added FLOW/GUARDED/RELEASE assurance modes;
+- made SHIP work-item-scoped;
+- replaced routine repair-budget prompts with convergence-based automatic repair;
+- added compact semantic work briefs and executor discovery;
+- separated product, verification, release and service-warning findings;
+- moved hashes out of normal owner-facing responses.

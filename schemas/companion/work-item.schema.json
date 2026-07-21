@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Work Item v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_item_id",
+    "goal_epoch",
+    "goal",
+    "assurance_mode",
+    "status",
+    "owner_approved",
+    "owner_interaction_policy",
+    "scope_binding",
+    "created_at_utc",
+    "updated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "work_item_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$"
+    },
+    "goal_epoch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "assurance_mode": {
+      "enum": [
+        "flow",
+        "guarded",
+        "release"
+      ]
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "active",
+        "implementation",
+        "repair",
+        "audit",
+        "completed",
+        "blocked",
+        "archived"
+      ]
+    },
+    "owner_approved": {
+      "const": true
+    },
+    "owner_interaction_policy": {
+      "enum": [
+        "hard_stop_only"
+      ]
+    },
+    "scope_binding": {
+      "enum": [
+        "executor_discovery",
+        "exact"
+      ]
+    },
+    "preferred_command": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "/nextphase",
+        "/fastpatch",
+        null
+      ]
+    },
+    "project_root": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "branch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "authorization_head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "hard_stop": {
+      "type": "boolean"
+    },
+    "external_drift": {
+      "type": "boolean"
+    },
+    "flow_restoration_enabled": {
+      "type": "boolean"
+    },
+    "created_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "risk_hints": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

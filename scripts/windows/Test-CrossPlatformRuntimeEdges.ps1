@@ -7,6 +7,45 @@ $ErrorActionPreference = "Stop"
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $HostExe = (Get-Process -Id $PID).Path
+$VersionPath = Join-Path $Root "VERSION.json"
+$HandshakeSchemaPath = Join-Path $Root "schemas\companion\runtime-handshake.schema.json"
+
+if (!(Test-Path -LiteralPath $VersionPath -PathType Leaf)) {
+  throw "VERSION.json is missing: $VersionPath"
+}
+if (!(Test-Path -LiteralPath $HandshakeSchemaPath -PathType Leaf)) {
+  throw "Runtime handshake schema is missing: $HandshakeSchemaPath"
+}
+
+$VersionInfo = (
+  [System.IO.File]::ReadAllText(
+    $VersionPath,
+    [System.Text.Encoding]::UTF8
+  ) |
+    ConvertFrom-Json
+)
+
+$HandshakeSchema = (
+  [System.IO.File]::ReadAllText(
+    $HandshakeSchemaPath,
+    [System.Text.Encoding]::UTF8
+  ) |
+    ConvertFrom-Json
+)
+
+$ExpectedPackageVersion = [string]$VersionInfo.package_version
+$ExpectedRuntimeVersion = [string]$VersionInfo.runtime_version
+$ExpectedHandshakeSchemaVersion = [string]$HandshakeSchema.properties.schema_version.const
+
+foreach ($RequiredValue in @(
+  $ExpectedPackageVersion,
+  $ExpectedRuntimeVersion,
+  $ExpectedHandshakeSchemaVersion
+)) {
+  if ([string]::IsNullOrWhiteSpace([string]$RequiredValue)) {
+    throw "Candidate version metadata is incomplete."
+  }
+}
 $TempRoot = Join-Path (
   [System.IO.Path]::GetTempPath()
 ) ("agentic-cross-platform-edges-" + [Guid]::NewGuid().ToString("N"))
@@ -90,32 +129,14 @@ try {
   }
 
   $EnvironmentSnapshot = @{}
-  $RunningOnLinux = (
-    $PSVersionTable.PSVersion.Major -ge 6 -and
-    $IsLinux
-  )
-  $ControlledTemp = Join-Path $TempRoot "controlled-temp"
-
-  if (!$RunningOnLinux) {
-    New-Item -ItemType Directory -Force $ControlledTemp | Out-Null
-  }
-
-  foreach ($Name in @("TEMP", "TMP", "TMPDIR")) {
+  foreach ($Name in @("AGENTIC_PIPELINE_TEMP", "TEMP", "TMP", "TMPDIR")) {
     $EnvironmentSnapshot[$Name] = [Environment]::GetEnvironmentVariable(
       $Name,
       [EnvironmentVariableTarget]::Process
     )
-
-    $InjectedTempValue = if ($RunningOnLinux) {
-      $null
-    }
-    else {
-      $ControlledTemp
-    }
-
     [Environment]::SetEnvironmentVariable(
       $Name,
-      $InjectedTempValue,
+      $null,
       [EnvironmentVariableTarget]::Process
     )
   }
@@ -132,7 +153,7 @@ try {
       )
   }
   finally {
-    foreach ($Name in @("TEMP", "TMP", "TMPDIR")) {
+    foreach ($Name in @("AGENTIC_PIPELINE_TEMP", "TEMP", "TMP", "TMPDIR")) {
       [Environment]::SetEnvironmentVariable(
         $Name,
         $EnvironmentSnapshot[$Name],
@@ -142,7 +163,7 @@ try {
   }
 
   if ($HandshakeResult.Code -ne 0) {
-    throw "Default handshake failed without TEMP/TMP/TMPDIR.`n$($HandshakeResult.Text)"
+    throw "Default handshake failed without AGENTIC_PIPELINE_TEMP/TEMP/TMP/TMPDIR.`n$($HandshakeResult.Text)"
   }
 
   $PathMatch = [regex]::Match(
@@ -160,18 +181,54 @@ try {
     throw "Default handshake file was not created: $GeneratedHandshakePath"
   }
 
-  if (!$RunningOnLinux) {
-    $ExpectedTempDirectory = [System.IO.Path]::GetFullPath($ControlledTemp)
-    $ActualTempDirectory = [System.IO.Path]::GetDirectoryName(
-      [System.IO.Path]::GetFullPath($GeneratedHandshakePath)
+  if (![System.IO.Path]::IsPathRooted($GeneratedHandshakePath)) {
+    throw "Default handshake output path is not absolute: $GeneratedHandshakePath"
+  }
+
+  $GeneratedHandshakeFullPath = [System.IO.Path]::GetFullPath(
+    $GeneratedHandshakePath
+  )
+  $GeneratedHandshakeParent = [System.IO.Path]::GetDirectoryName(
+    $GeneratedHandshakeFullPath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($GeneratedHandshakeParent) -or
+      ![System.IO.Directory]::Exists($GeneratedHandshakeParent)) {
+    throw "Default handshake output directory is not usable: $GeneratedHandshakeParent"
+  }
+
+  $TrimSeparators = [char[]]@(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar
+  )
+  $ProjectFullPath = [System.IO.Path]::GetFullPath($Project).TrimEnd(
+    $TrimSeparators
+  )
+  $ProjectPrefix = $ProjectFullPath + [System.IO.Path]::DirectorySeparatorChar
+  $PathComparison = if (
+    [System.Environment]::OSVersion.Platform -eq
+    [System.PlatformID]::Win32NT
+  ) {
+    [System.StringComparison]::OrdinalIgnoreCase
+  }
+  else {
+    [System.StringComparison]::Ordinal
+  }
+
+  if ($GeneratedHandshakeFullPath.StartsWith($ProjectPrefix, $PathComparison)) {
+    throw "Default handshake output was written inside the project: $GeneratedHandshakeFullPath"
+  }
+
+  $ProjectStatus = Invoke-Capture `
+    -FilePath "git" `
+    -Arguments @(
+      "-C", $Project,
+      "status", "--porcelain=v1", "--untracked-files=all"
     )
 
-    if (![System.StringComparer]::OrdinalIgnoreCase.Equals(
-      $ExpectedTempDirectory,
-      $ActualTempDirectory
-    )) {
-      throw "Default handshake was not written to the controlled Windows temp directory. Expected=$ExpectedTempDirectory Actual=$ActualTempDirectory"
-    }
+  if ($ProjectStatus.Code -ne 0 -or
+      ![string]::IsNullOrWhiteSpace($ProjectStatus.Text)) {
+    throw "Default handshake dirtied the fixture project.`n$($ProjectStatus.Text)"
   }
 
   $Handshake = (
@@ -182,10 +239,14 @@ try {
       ConvertFrom-Json
   )
 
-  if ($Handshake.schema_version -ne "1.1.0" -or
-      $Handshake.runtime_version -ne "1.2.1" -or
+  if ($Handshake.schema_version -ne $ExpectedHandshakeSchemaVersion -or
+      $Handshake.runtime_version -ne $ExpectedRuntimeVersion -or
       $Handshake.routing_valid -ne $true) {
-    throw "Default handshake content is invalid."
+    throw (
+      "Default handshake content is invalid. " +
+      "Expected schema=$ExpectedHandshakeSchemaVersion runtime=$ExpectedRuntimeVersion routing_valid=True; " +
+      "actual schema=$($Handshake.schema_version) runtime=$($Handshake.runtime_version) routing_valid=$($Handshake.routing_valid)."
+    )
   }
 
   Remove-Item -LiteralPath $GeneratedHandshakePath -Force
@@ -259,10 +320,14 @@ try {
         ConvertFrom-Json
     )
 
-    if ($Manifest.package_version -ne "1.2.4" -or
-        $Manifest.runtime_version -ne "1.2.1" -or
+    if ($Manifest.package_version -ne $ExpectedPackageVersion -or
+        $Manifest.runtime_version -ne $ExpectedRuntimeVersion -or
         $Manifest.mode -ne "adopt") {
-      throw "Clean linked-worktree adoption manifest is invalid."
+      throw (
+        "Clean linked-worktree adoption manifest is invalid. " +
+        "Expected package=$ExpectedPackageVersion runtime=$ExpectedRuntimeVersion mode=adopt; " +
+        "actual package=$($Manifest.package_version) runtime=$($Manifest.runtime_version) mode=$($Manifest.mode)."
+      )
     }
 
     Write-Host "Bash linked-worktree adoption regression passed."

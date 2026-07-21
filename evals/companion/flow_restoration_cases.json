@@ -1,0 +1,2004 @@
+{
+  "schema_version": "1.0.0",
+  "cases": [
+    {
+      "id": "flow_ready_routes_nextphase",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "routing_mode": "flow",
+        "next_required_command": "/nextphase",
+        "decision": "route",
+        "command": "/nextphase",
+        "product_execution_allowed": true,
+        "release_actions_allowed": false,
+        "owner_interaction_required": false
+      }
+    },
+    {
+      "id": "degraded_governance_allows_product_work",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "dirty",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": false,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "routing_mode": "degraded_product_execution",
+        "next_required_command": "/nextphase",
+        "decision": "route",
+        "command": "/nextphase",
+        "product_execution_allowed": true,
+        "release_actions_allowed": false,
+        "governance_health": "degraded_non_blocking"
+      }
+    },
+    {
+      "id": "shadow_mode_never_authorizes_write",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "shadow",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "routing_mode": "flow",
+        "next_required_command": null,
+        "resolved_commands_allowed_now": [],
+        "decision": "shadow_route",
+        "command": null,
+        "product_execution_allowed": false,
+        "shadow_candidate_command": "/nextphase"
+      }
+    },
+    {
+      "id": "product_blocker_routes_fixcritical",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "product_blockers": 1,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0,
+          "work_item_id": "work-1",
+          "implementation_status": "in_progress",
+          "verification_status": "failed",
+          "audit_status": "pending",
+          "acceptance_status": "blocked"
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "next_required_command": "/fixcritical",
+        "decision": "route",
+        "command": "/fixcritical",
+        "product_blocker_count": 1,
+        "owner_interaction_required": false
+      }
+    },
+    {
+      "id": "verification_blocker_routes_audit",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "product_blockers": 0,
+          "verification_blockers": 1,
+          "release_blockers": 0,
+          "service_warnings": 0,
+          "work_item_id": "work-1",
+          "implementation_status": "completed",
+          "verification_status": "partial",
+          "audit_status": "pending",
+          "acceptance_status": "blocked"
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "verification_blocker_count": 1
+      }
+    },
+    {
+      "id": "service_warning_does_not_block",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 2,
+          "work_item_id": "work-1",
+          "implementation_status": "in_progress",
+          "verification_status": "not_run",
+          "audit_status": "not_required",
+          "acceptance_status": "not_evaluated"
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "next_required_command": "/nextphase",
+        "decision": "route",
+        "command": "/nextphase",
+        "service_warning_count": 2,
+        "owner_interaction_required": false
+      }
+    },
+    {
+      "id": "guarded_completed_requires_audit",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "guarded",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0,
+          "work_item_id": "work-1",
+          "implementation_status": "completed",
+          "verification_status": "passed",
+          "audit_status": "pending",
+          "acceptance_status": "not_evaluated"
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "routing_mode": "guarded",
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase"
+      }
+    },
+    {
+      "id": "flow_completed_closes_work_item_only",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0,
+          "work_item_id": "work-1",
+          "implementation_status": "completed",
+          "verification_status": "passed",
+          "audit_status": "not_required",
+          "acceptance_status": "accepted"
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "decision": "work_item_completed",
+        "command": null,
+        "next_required_command": null,
+        "resolved_commands_allowed_now": []
+      }
+    },
+    {
+      "id": "new_work_item_reopens_old_ship_state",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {
+          "ship_status": "ship",
+          "acceptance_status": "accepted",
+          "audit_status": "passed",
+          "verification_status": "passed"
+        },
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "next_required_command": "/nextphase",
+        "decision": "route",
+        "command": "/nextphase"
+      }
+    },
+    {
+      "id": "release_command_denied_in_degraded_product_execution",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "dirty",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": false,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        },
+        "requested_command": "/shipcheck"
+      },
+      "expected": {
+        "routing_mode": "degraded_product_execution",
+        "decision": "fail_closed",
+        "command": null,
+        "routing_valid": false,
+        "release_actions_allowed": false
+      }
+    },
+    {
+      "id": "branch_change_invalidates_lease",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "other/branch",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "routing_mode": "recovery",
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "governance_health": "invalidated_by_external_drift"
+      }
+    },
+    {
+      "id": "no_progress_requires_owner_once",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true,
+          "no_progress": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "decision": "human_decision_required",
+        "command": null,
+        "next_required_command": null,
+        "owner_interaction_required": true
+      }
+    },
+    {
+      "id": "release_work_item_stays_strict",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "release",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0,
+          "work_item_id": "work-1",
+          "implementation_status": "completed",
+          "verification_status": "passed",
+          "audit_status": "passed",
+          "acceptance_status": "accepted"
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "routing_mode": "release",
+        "next_required_command": "/shipcheck",
+        "decision": "route",
+        "command": "/shipcheck",
+        "release_actions_allowed": true
+      }
+    },
+    {
+      "id": "degraded_execution_can_be_disabled",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "dirty",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": false
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "routing_mode": "recovery",
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "governance_health": "degraded_blocking_by_policy"
+      }
+    },
+    {
+      "id": "scope_work_item_mismatch_invalidates_lease",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "exact",
+          "structurally_valid": true,
+          "work_item_id": "other-work",
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "routing_mode": "recovery",
+        "next_required_command": "/auditphase",
+        "decision": "route",
+        "command": "/auditphase",
+        "governance_health": "invalidated_by_external_drift"
+      }
+    },
+    {
+      "id": "legacy_project_without_work_item_has_null_goal_epoch",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "work_item_id": null,
+          "goal_epoch": null,
+          "status": null,
+          "owner_approved": false,
+          "assurance_mode": null,
+          "preferred_command": null,
+          "project_root": null,
+          "branch": null,
+          "authorization_head": null,
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": false
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": false,
+          "enforcement_mode": "shadow",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "work_item_present": false,
+        "work_item_id": null,
+        "goal_epoch": null
+      }
+    },
+    {
+      "id": "legacy_findings_do_not_hijack_new_work_item",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "dirty",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": false,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {
+          "acceptance_status": "blocked",
+          "audit_status": "failed",
+          "verification_status": "failed",
+          "open_confirmed_current_phase_blockers": 2,
+          "repair_required_current_phase_findings": 2,
+          "verification_required_current_phase_findings": 1,
+          "fixed_unverified_current_phase_findings": 1,
+          "product_blockers": 2,
+          "verification_blockers": 1,
+          "release_blockers": 1,
+          "service_warnings": 1
+        },
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "guarded",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "guarded",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "routing_mode": "degraded_product_execution",
+        "next_required_command": "/nextphase",
+        "decision": "route",
+        "command": "/nextphase",
+        "product_execution_allowed": true,
+        "release_actions_allowed": false,
+        "product_blocker_count": 0,
+        "verification_blocker_count": 0,
+        "release_blocker_count": 0,
+        "service_warning_count": 0,
+        "governance_health": "degraded_non_blocking"
+      }
+    },
+    {
+      "id": "invalid_current_run_result_fails_closed",
+      "input": {
+        "project_inventory": {
+          "source": "project_command_inventory",
+          "trust": "authoritative",
+          "inventory_path": ".agents/COMMAND_INVENTORY.json",
+          "inventory_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "commands": [
+            "/specdoc",
+            "/planonly",
+            "/auditphase",
+            "/nextphase",
+            "/fastpatch",
+            "/fixcritical",
+            "/landing",
+            "/shipcheck",
+            "/githubprepare",
+            "/githubsync"
+          ]
+        },
+        "installation_facts": {
+          "installation_manifest_path": ".agy/INSTALLATION_MANIFEST.json",
+          "installation_manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "installed_project_package_version": "1.2.5",
+          "installed_project_runtime_version": "1.2.2",
+          "installed_project_source_commit": "cccccccccccccccccccccccccccccccccccccccc"
+        },
+        "central_inventory_advisory": {
+          "package_version": "1.2.5",
+          "runtime_version": "1.2.2"
+        },
+        "git_facts": {
+          "git_state": "clean",
+          "head_commit": "dddddddddddddddddddddddddddddddddddddddd",
+          "branch_name": "product/test",
+          "git_root": "C:/project"
+        },
+        "state_facts": {
+          "current_status": "release_candidate_ready",
+          "ship_status": "ship"
+        },
+        "phase_contract_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "contract_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "phase_result_facts": {
+          "present": false,
+          "structurally_valid": false,
+          "missing": true
+        },
+        "acceptance_facts": {},
+        "audit_facts": {},
+        "repair_facts": {
+          "same_failure_count": 0,
+          "progress_observed": true
+        },
+        "work_item_facts": {
+          "present": true,
+          "structurally_valid": true,
+          "work_item_id": "work-1",
+          "goal_epoch": 2,
+          "status": "ready",
+          "owner_approved": true,
+          "assurance_mode": "flow",
+          "preferred_command": "/nextphase",
+          "project_root": "C:/project",
+          "branch": "product/test",
+          "authorization_head": "dddddddddddddddddddddddddddddddddddddddd",
+          "scope_status": "unresolved",
+          "external_drift": false,
+          "hard_stop": false,
+          "flow_restoration_enabled": true
+        },
+        "run_result_facts": {
+          "present": true,
+          "structurally_valid": false,
+          "work_item_id": "work-1",
+          "product_blockers": 0,
+          "verification_blockers": 0,
+          "release_blockers": 0,
+          "service_warnings": 0
+        },
+        "execution_scope_facts": {
+          "status": "unresolved",
+          "structurally_valid": true,
+          "work_item_id": null,
+          "external_drift": false
+        },
+        "flow_policy": {
+          "enabled": true,
+          "enforcement_mode": "enforcing",
+          "default_assurance_mode": "flow",
+          "same_failure_limit": 3,
+          "allow_degraded_product_execution": true
+        },
+        "routing_policy": {
+          "explicit_compatibility_matrix": {}
+        }
+      },
+      "expected": {
+        "next_required_command": null,
+        "decision": "fail_closed",
+        "command": null,
+        "routing_valid": false,
+        "run_result_present": true,
+        "run_result_structurally_valid": false
+      }
+    }
+  ]
+}

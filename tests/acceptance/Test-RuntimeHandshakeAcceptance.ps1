@@ -145,10 +145,10 @@ function New-Fixture {
   Write-Utf8 -Path (Join-Path $Root ".agy\INSTALLATION_MANIFEST.json") -Text @"
 {
   "schema_version": "1.0.0",
-  "package_version": "1.2.4",
-  "runtime_version": "1.2.1",
+  "package_version": "$($VersionInfo.package_version)",
+  "runtime_version": "$($VersionInfo.runtime_version)",
   "playbook_version": "1.2.0",
-  "companion_version": "1.2.2",
+  "companion_version": "$($VersionInfo.companion_version)",
   "source_commit": "fixture",
   "source_repo": "agentic-pipeline",
   "mode": "adopt",
@@ -181,6 +181,7 @@ function New-Fixture {
 }
 
 $ResolvedRepo = (Resolve-Path -LiteralPath $RepoRoot).Path
+$VersionInfo = Get-Content -LiteralPath (Join-Path $ResolvedRepo "VERSION.json") -Raw -Encoding UTF8 | ConvertFrom-Json
 $HandshakeScript = Join-Path $ResolvedRepo "scripts\windows\companion\Get-RuntimeHandshake.ps1"
 $CompanionControl = Join-Path $ResolvedRepo "scripts\companion\companion-control.cjs"
 $IndependentSchema = Join-Path $ResolvedRepo "tests\acceptance\handshake-schema-contract.cjs"
@@ -255,6 +256,8 @@ try {
 
   if ($null -ne $WorkflowResult.Handshake) {
     Assert-True -Condition ($WorkflowResult.Handshake.schema_version -eq "1.1.0") -Message "Handshake schema_version must be 1.1.0."
+    Assert-True -Condition ($WorkflowResult.Handshake.work_item_present -eq $false) -Message "Legacy workflow fixture must not report a work item."
+    Assert-True -Condition ($null -eq $WorkflowResult.Handshake.goal_epoch) -Message "Legacy workflow fixture goal_epoch must be null, not 0."
     Assert-True -Condition ($WorkflowResult.Handshake.inventory_source -eq "project_workflow_directory_compat") -Message "Workflow inventory_source mismatch."
     Assert-True -Condition ($WorkflowResult.Handshake.inventory_trust -eq "compatibility") -Message "Workflow inventory_trust mismatch."
 
@@ -270,8 +273,8 @@ try {
       )
     ) -Message "Non-ASCII project_root/git_root mismatch."
 
-    Assert-True -Condition ($WorkflowResult.Handshake.installed_project_package_version -eq "1.2.4") -Message "Installed package identity mismatch."
-    Assert-True -Condition ($WorkflowResult.Handshake.installed_project_runtime_version -eq "1.2.1") -Message "Installed runtime identity mismatch."
+    Assert-True -Condition ($WorkflowResult.Handshake.installed_project_package_version -eq [string]$VersionInfo.package_version) -Message "Installed package identity mismatch."
+    Assert-True -Condition ($WorkflowResult.Handshake.installed_project_runtime_version -eq [string]$VersionInfo.runtime_version) -Message "Installed runtime identity mismatch."
     Assert-True -Condition ($WorkflowResult.Handshake.runtime_compatibility -eq "compatible") -Message "Runtime compatibility should be compatible."
   }
 
@@ -302,6 +305,8 @@ try {
       Assert-True -Condition ($InventoryResult.Handshake.inventory_source -eq "project_command_inventory") -Message "Authoritative inventory_source mismatch."
       Assert-True -Condition ($InventoryResult.Handshake.inventory_trust -eq "authoritative") -Message "Authoritative inventory_trust mismatch."
       Assert-True -Condition ($InventoryResult.Handshake.inventory_sha256 -eq $ExpectedInventoryHash) -Message "Authoritative inventory exact-byte hash mismatch."
+      Assert-True -Condition ($InventoryResult.Handshake.work_item_present -eq $false) -Message "Legacy inventory fixture must not report a work item."
+      Assert-True -Condition ($null -eq $InventoryResult.Handshake.goal_epoch) -Message "Legacy inventory fixture goal_epoch must be null, not 0."
     }
 
     foreach ($Mode in @("malformed", "empty", "duplicate-command", "invalid-command")) {

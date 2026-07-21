@@ -4,12 +4,25 @@
 
 Agentic Pipeline помогает не допускать дрейфа состояния, перескакивания фаз и неподтверждённых заявлений о готовности.
 
-**Текущий пакет:** `1.2.4 Governance & Routing Stabilization`
+**Текущий кандидат:** `1.2.5 Flow Restoration & Scoped Assurance`
 **Канонический playbook:** `1.2.0`
-**Runtime:** `1.2.1`
-**ChatGPT Companion:** `1.2.2`
+**Runtime:** `1.2.2`
+**ChatGPT Companion:** `1.2.3`
 
 ---
+
+## Flow Restoration & Scoped Assurance
+
+Кандидат 1.2.5 возвращает динамику продуктовой разработки, не ослабляя существенные проверки:
+
+- `SHIP` закрывает work item, а не весь проект;
+- режимы FLOW, GUARDED и RELEASE;
+- локальное read-only discovery перед фиксацией точного write scope;
+- автономный ремонт внутри утверждённой цели, пока есть измеримый прогресс;
+- degraded product execution, при котором release и публикация остаются закрыты;
+- компактный result evidence и внутренние hashes вне release/corruption boundary.
+
+Политика проекта по умолчанию — `shadow`: кандидатный маршрут виден, но не разрешает записи до явного canary-переключения в enforcing.
 
 ## Ценность и назначение
 

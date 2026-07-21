@@ -1,68 +1,23 @@
-# Evidence Levels and Blocker Policy
+# Assurance Modes and Blocker Materiality
 
-Evidence intensity is selected before implementation and is proportional to risk.
+## FLOW
 
-## Evidence levels
+Ordinary product work. Targeted checks and one run result. No independent audit by default.
 
-### E0 — scratch
+## GUARDED
 
-One-off exploration. No persistent evidence required beyond the result.
+Privacy, exports, data integrity, security, health-adjacent wording or packaged behavior. Product-specific validators and one independent audit.
 
-### E1 — lite
+## RELEASE
 
-Small low-risk patch:
+Publication, migration, installer/distribution identity and release provenance. Full release gates may require manifests and hashes.
 
-- diff;
-- targeted check;
-- brief result;
-- no full archive unless the artifact itself is the deliverable.
+## Materiality
 
-### E2 — standard
+- `product_blocker`: product behavior, safety, privacy or data integrity is wrong;
+- `verification_blocker`: the claim is not yet proven;
+- `release_blocker`: release is closed while product work may finish;
+- `service_warning`: internal metadata is auto-reconciled;
+- `cosmetic`: no effect on current acceptance.
 
-Normal development or research:
-
-- changed files;
-- commands and exit codes;
-- key outputs;
-- targeted artifacts;
-- current state and next action.
-
-### E3 — critical
-
-Privacy, health-adjacent methodology, migration, security or release candidate:
-
-- deterministic logs;
-- provenance;
-- material artifact manifest;
-- required QA gates;
-- independent/read-only review;
-- rollback evidence.
-
-### E4 — archival
-
-Publication or reproducible regulated/long-lived research:
-
-- immutable package;
-- full manifests and hashes;
-- signed or external attestations where available;
-- replay instructions;
-- long-term provenance.
-
-## Blocker taxonomy
-
-- safety blocker;
-- security/privacy blocker;
-- data-integrity blocker;
-- research-validity blocker;
-- reproducibility blocker;
-- delivery defect;
-- observability defect;
-- cosmetic debt.
-
-## Risk-track policy
-
-Research normally blocks on safety, data integrity and research validity. Delivery polish is non-blocking unless it compromises the chosen evidence level.
-
-Public release blocks on safety, privacy, data integrity, required reproducibility and delivery integrity.
-
-Do not classify every artifact mismatch as a product blocker. Record its effect on the current phase contract.
+A stale sidecar, old test-count prose or rebuilt internal evidence archive is a service warning when an authoritative current result exists. Actual product ZIP/member inconsistency remains a product blocker.

@@ -32,7 +32,8 @@ function Invoke-Test {
 
 $CompanionArguments = @('-RepoRoot',$Root)
 if ($PackageMode) { $CompanionArguments += '-PackageMode' }
-Invoke-Test -Name 'companion pack and golden evals' -Path (Join-Path $Root 'scripts\windows\companion\Test-CompanionPack-v1.2.2.ps1') -ArgumentList $CompanionArguments
+Invoke-Test -Name 'companion pack and golden evals' -Path (Join-Path $Root 'scripts\windows\companion\Test-CompanionPack-v1.2.3.ps1') -ArgumentList $CompanionArguments
+Invoke-Test -Name 'flow restoration contracts' -Path (Join-Path $Root 'scripts\windows\companion\Test-FlowRestorationContracts.ps1') -ArgumentList @('-RepoRoot',$Root)
 Invoke-Test -Name 'PowerShell runtime contracts' -Path (Join-Path $Root 'scripts\windows\Test-PowerShellRuntimeContracts.ps1') -ArgumentList @('-RepoRoot',$Root)
 Invoke-Test -Name 'state profiles' -Path (Join-Path $Root 'scripts\windows\Test-StateProfiles.ps1') -ArgumentList @('-RepoRoot',$Root)
 Invoke-Test -Name 'command inventory' -Path (Join-Path $Root 'scripts\windows\Test-CommandInventory.ps1') -ArgumentList @('-RepoRoot',$Root)

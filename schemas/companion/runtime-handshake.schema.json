@@ -52,7 +52,28 @@
     "audit_result_structurally_valid",
     "audit_authoritative",
     "audit_evidence_complete",
-    "claims_evidence_consistent"
+    "claims_evidence_consistent",
+    "flow_restoration_enabled",
+    "enforcement_mode",
+    "work_item_present",
+    "work_item_structurally_valid",
+    "work_item_id",
+    "goal_epoch",
+    "work_item_status",
+    "assurance_mode",
+    "execution_scope_status",
+    "product_execution_allowed",
+    "release_actions_allowed",
+    "governance_health",
+    "owner_interaction_required",
+    "product_blocker_count",
+    "verification_blocker_count",
+    "release_blocker_count",
+    "service_warning_count",
+    "run_result_present",
+    "run_result_structurally_valid",
+    "shadow_candidate_command",
+    "shadow_candidate_commands_allowed"
   ],
   "properties": {
     "schema_version": {
@@ -180,6 +201,10 @@
       "type": "string",
       "enum": [
         "normal",
+        "flow",
+        "guarded",
+        "release",
+        "degraded_product_execution",
         "recovery",
         "invalid"
       ]
@@ -316,11 +341,14 @@
       "type": "string",
       "enum": [
         "route",
+        "shadow_route",
         "fail_closed",
         "no_executable_route",
         "human_decision_required",
         "reject_unknown_command",
-        "already_shipped"
+        "already_shipped",
+        "work_item_completed",
+        "project_archived"
       ]
     },
     "routing_reason_codes": {
@@ -353,6 +381,128 @@
     },
     "claims_evidence_consistent": {
       "type": "boolean"
+    },
+    "flow_restoration_enabled": {
+      "type": "boolean"
+    },
+    "enforcement_mode": {
+      "enum": [
+        "shadow",
+        "enforcing"
+      ]
+    },
+    "work_item_present": {
+      "type": "boolean"
+    },
+    "work_item_structurally_valid": {
+      "type": "boolean"
+    },
+    "work_item_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "goal_epoch": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "work_item_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "ready",
+        "active",
+        "implementation",
+        "repair",
+        "audit",
+        "completed",
+        "blocked",
+        "archived",
+        null
+      ]
+    },
+    "assurance_mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "flow",
+        "guarded",
+        "release",
+        null
+      ]
+    },
+    "execution_scope_status": {
+      "type": "string",
+      "enum": [
+        "unresolved",
+        "exact",
+        "blocked"
+      ]
+    },
+    "product_execution_allowed": {
+      "type": "boolean"
+    },
+    "release_actions_allowed": {
+      "type": "boolean"
+    },
+    "governance_health": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "degraded_non_blocking",
+        "degraded_blocking",
+        "degraded_blocking_release",
+        "invalidated_by_external_drift",
+        "unknown",
+        "invalid"
+      ]
+    },
+    "owner_interaction_required": {
+      "type": "boolean"
+    },
+    "product_blocker_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "verification_blocker_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "release_blocker_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "service_warning_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "run_result_present": {
+      "type": "boolean"
+    },
+    "run_result_structurally_valid": {
+      "type": "boolean"
+    },
+    "shadow_candidate_command": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^/[^\\s]+$"
+    },
+    "shadow_candidate_commands_allowed": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^/[^\\s]+$"
+      }
     }
   }
 }

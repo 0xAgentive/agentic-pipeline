@@ -1,39 +1,28 @@
-# ChatGPT Companion Pack v1.2.2
+# ChatGPT Companion Pack v1.2.3
 
-This folder contains the planning, audit and prompt-compilation context for Agentic Pipeline.
+Flow Restoration & Scoped Assurance restores product-focused operation while preserving material product and release gates.
 
-Version 1.2.2 adds:
+Version 1.2.3 adds:
 
-- runtime handshake before slash-command routing;
-- frozen phase contracts;
-- bounded repair loops;
-- evidence levels E0-E4;
-- blocker taxonomy;
-- independent status and finding lifecycle;
-- machine-readable phase-result authority;
-- golden evals derived from real multi-domain project failure patterns.
+- work-item-scoped terminality;
+- FLOW, GUARDED and RELEASE modes;
+- compact semantic work briefs;
+- executor discovery instead of guessed exact paths;
+- product, verification, release and service-warning materiality;
+- autonomous current-scope repair until PASS, hard stop or repeated no progress;
+- compact evidence profiles and internal-only hashes outside release or unresolved corruption.
 
-The companion is not the executor. Workspace evidence wins over chat claims. A companion update does not migrate an active project.
-
-## Compatibility posture
-
-The companion remains version `1.2.2`. Package release `1.2.4` uses runtime `1.2.1` and handshake schema `1.1.0`. The companion must consume the current handshake and must not infer installed runtime identity or migration completion from package availability.
+Package candidate `1.2.5` uses runtime `1.2.2` and keeps handshake schema `1.1.0` additive. The default template policy is `shadow`; candidate routing is observed before enforcement.
 
 ## Active files
 
-- [00_AGENTIC_PIPELINE_INDEX_v1.2.2.md](00_AGENTIC_PIPELINE_INDEX_v1.2.2.md)
-- [01_CONTEXT_SPLIT_POLICY.md](01_CONTEXT_SPLIT_POLICY.md)
-- [02_AGENT_TASK_PACK_CONTRACT_v1.2.2.md](02_AGENT_TASK_PACK_CONTRACT_v1.2.2.md)
-- [03_PRODUCT_EVIDENCE_CONTROL_PLANE.md](03_PRODUCT_EVIDENCE_CONTROL_PLANE.md)
-- [04_PROJECT_AUDIT_AND_RECOVERY.md](04_PROJECT_AUDIT_AND_RECOVERY.md)
-- [05_DOMAIN_SPECIFIC_LESSONS_OPTIONAL.md](05_DOMAIN_SPECIFIC_LESSONS_OPTIONAL.md)
-- [06_RUNTIME_TRUTH_REVIEW_POLICY.md](06_RUNTIME_TRUTH_REVIEW_POLICY.md)
+- [00_AGENTIC_PIPELINE_INDEX_v1.2.3.md](00_AGENTIC_PIPELINE_INDEX_v1.2.3.md)
+- [SYSTEM_PROMPT_GPT55_COMPANION_v1.2.3.md](SYSTEM_PROMPT_GPT55_COMPANION_v1.2.3.md)
+- [02_AGENT_TASK_PACK_CONTRACT_v1.2.3.md](02_AGENT_TASK_PACK_CONTRACT_v1.2.3.md)
+- [README_INSTALL_RU_v1.2.3.md](README_INSTALL_RU_v1.2.3.md)
 - [07_RUNTIME_HANDSHAKE_AND_COMMAND_ROUTING.md](07_RUNTIME_HANDSHAKE_AND_COMMAND_ROUTING.md)
 - [08_PHASE_CONTRACT_AND_REPAIR_BUDGET.md](08_PHASE_CONTRACT_AND_REPAIR_BUDGET.md)
 - [09_EVIDENCE_LEVELS_AND_BLOCKER_POLICY.md](09_EVIDENCE_LEVELS_AND_BLOCKER_POLICY.md)
-- [10_STATUS_AND_FINDING_LIFECYCLE.md](10_STATUS_AND_FINDING_LIFECYCLE.md)
 - [11_PROMPT_COMPILER_AND_RESULT_AUTHORITY.md](11_PROMPT_COMPILER_AND_RESULT_AUTHORITY.md)
-- [12_GOLDEN_EVALS.md](12_GOLDEN_EVALS.md)
-- [13_LOCAL_CONTROL_TOOLS.md](13_LOCAL_CONTROL_TOOLS.md)
-- [SYSTEM_PROMPT_GPT55_COMPANION_v1.2.2.md](SYSTEM_PROMPT_GPT55_COMPANION_v1.2.2.md)
-- [README_INSTALL_RU_v1.2.2.md](README_INSTALL_RU_v1.2.2.md)
+
+Historical v1.2.1 and v1.2.2 files remain for provenance and migration review; they are not the active candidate policy.

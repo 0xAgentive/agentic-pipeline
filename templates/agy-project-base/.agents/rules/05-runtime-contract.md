@@ -1,58 +1,41 @@
-# Runtime Contract
+# Runtime Contract — Flow Restoration
 
 This workspace is operated through the Agentic Development Pipeline.
 
-## Source of truth
+## Sources of truth
 
-Before any substantial action, read:
+Read before substantial work:
 
-- `.agy/PHASE_STATUS.json`
-- `.agy/AGENT_STATE.md`
-- `.agy/RECOVERY_PROMPT.md`
+- `.agy/WORK_ITEM.json` when present;
+- `.agy/FLOW_POLICY.json` when present;
+- `.agy/EXECUTION_SCOPE.json` when present;
+- `.agy/RUN_RESULT.json` when present;
+- `.agy/RUNTIME_HANDSHAKE.json` when present;
+- legacy `.agy/PHASE_STATUS.json` and phase files for compatibility.
 
-The field `next_required_command` defines the expected next workflow.
+## Terminality
 
-## State discipline
+`SHIP` closes one work item. It does not archive the project.
+A new explicit owner goal opens a new work item and may route to `/nextphase`.
+Only an explicit archived project state closes all product work.
 
-Do not silently jump phases.
+## Assurance modes
 
-If the user asks for work that does not match the current state, respond with:
+- FLOW: ordinary product work and low-risk changes.
+- GUARDED: privacy, exports, data integrity, security, health-adjacent or packaged behavior.
+- RELEASE: publication, migration and distributable identity.
 
-```text
-STATE CHECK
-Current expected command: <value from .agy/PHASE_STATUS.json>
-User requested: <requested action>
-Recommended next command: <safe next command>
-Reason: <short reason>
-```
+## Degraded product execution
 
-Do not execute implementation work from a planning, audit, landing, or shipcheck state.
+A stale or schema-invalid legacy phase contract may close release/publication actions without blocking an owner-approved FLOW or GUARDED work item.
 
-## Phase separation
+In degraded product execution:
 
-- `/specdoc` writes specifications only.
-- `/planonly` writes plans only.
-- `/auditphase` verifies state, docs, checks, and risks only.
-- `/probephase` validates local assumptions only.
-- `/nextphase` implements one approved phase only.
-- `/fastpatch` is allowed only if `scripts/Test-FastPatchAllowed.ps1` exits with code 0.
-- `/githubprepare` prepares repository metadata only.
-- `/githubsync` publishes through deterministic `git` and `gh` commands only.
-- `/landing` saves recoverable state only.
-- `/shipcheck` decides release readiness only.
+- `/nextphase`, `/fixcritical`, `/auditphase` and eligible `/fastpatch` may be used;
+- `/shipcheck`, `/githubprepare`, `/githubsync`, release, migration and destructive operations remain closed;
+- exact scope and current Git facts must still be checked locally.
 
-## Verification rule
+## Owner interaction
 
-Model-written reports are not verification.
-
-Verification means deterministic evidence:
-
-- exit code 0 from checks;
-- git diff reviewed;
-- screenshots or browser artifacts for UI;
-- security/privacy grep or tests when relevant;
-- semantic/domain tests for critical logic.
-
-## Override rule
-
-A human may explicitly override the recommended next command, but the agent must record the override and residual risk in `.agy/EVIDENCE_LOG.md`.
+Do not request approval of plans or current-scope repair iterations.
+Ask the owner only for scope expansion, destructive/publication action, material-risk acceptance, unavailable capability or repeated no-progress failure.

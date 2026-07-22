@@ -11,7 +11,7 @@ Flow Restoration tools:
 - `Get-RuntimeHandshake.ps1`: resolve current and shadow routes.
 - `Test-FlowRestorationContracts.ps1`: exercise shadow, enforcing, repair, audit and work-item reopening behavior.
 - `Test-CompanionPack-v1.2.3.ps1`: validate active Companion and routing policies.
-- `Build-CompanionPack-v1.2.3.ps1`: build the candidate Companion pack.
+- `Build-CompanionPack-v1.2.3.ps1`: build the Companion pack.
 
 Legacy phase-contract tools remain available for RELEASE or migrated projects:
 

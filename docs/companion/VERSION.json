@@ -4,5 +4,5 @@
   "release_name": "Flow Restoration & Scoped Assurance",
   "compatible_pipeline_package": "1.2.5",
   "compatible_runtime": "1.2.2",
-  "status": "candidate"
+  "status": "stable"
 }

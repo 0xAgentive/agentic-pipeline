@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.5 candidate - Flow Restoration & Scoped Assurance
+## 1.2.5 - Flow Restoration & Scoped Assurance
 
 - Added work-item-scoped terminality and owner-approved work items.
 - Added FLOW, GUARDED and RELEASE assurance modes.

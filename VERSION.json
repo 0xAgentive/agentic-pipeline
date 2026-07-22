@@ -7,5 +7,5 @@
   "runtime_truth_patch": "1.2.2a",
   "documentation_cleanup": "1.2.3a",
   "companion_version": "1.2.3",
-  "status": "candidate"
+  "status": "stable"
 }

@@ -2,7 +2,7 @@
 
 A lightweight, disciplined, and deterministic framework for coordinating AI agent workflows in local development environments. It prevents AI agents from drifting, skipping phases, or making unverified claims.
 
-**Current package candidate:** `1.2.5 Flow Restoration & Scoped Assurance`
+**Current package release:** `1.2.5 Flow Restoration & Scoped Assurance`
 **Canonical playbook:** `1.2.0`
 **Runtime:** `1.2.2`
 **ChatGPT Companion:** `1.2.3`
@@ -11,7 +11,7 @@ A lightweight, disciplined, and deterministic framework for coordinating AI agen
 
 ## Flow Restoration & Scoped Assurance
 
-The 1.2.5 candidate restores product velocity without weakening material gates:
+The 1.2.5 release restores product velocity without weakening material gates:
 
 - work-item-scoped terminality (`SHIP` closes a work item, not the project);
 - FLOW, GUARDED and RELEASE assurance modes;
@@ -20,7 +20,7 @@ The 1.2.5 candidate restores product velocity without weakening material gates:
 - degraded product execution that keeps release and publication closed;
 - compact result evidence and internal-only hashes outside release/corruption boundaries.
 
-The default project policy is `shadow`: candidate routes are reported but do not authorize writes until a canary explicitly switches to enforcing mode.
+The default project policy is `shadow`: shadow routes are reported but do not authorize writes until a canary explicitly switches to enforcing mode.
 
 ## 🎯 Value Proposition & Purpose
 
@@ -30,7 +30,7 @@ AI coding assistants are highly capable but prone to **state drift** and **over-
 3. It declares the task completed based on its own internal reasoning.
 4. The system fails to build, tests fail, or human review reveals extensive unintended side-effects.
 
-**Agentic Pipeline solves this.** It forces a structured, step-by-step loop where the agent cannot proceed to the next phase without providing **deterministic evidence** (passing test runs, clean diffs, and exact terminal commands) and obtaining **explicit human approval** at phase boundaries.
+**Agentic Pipeline solves this.** It uses a structured loop in which material completion requires **deterministic evidence** (passing test runs, clean diffs, and exact terminal commands). Owner approval is required for a new work item, scope expansion, destructive actions, and release/publication—not for routine repair inside an already approved scope.
 
 ---
 

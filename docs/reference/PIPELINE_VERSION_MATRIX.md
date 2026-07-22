@@ -1,15 +1,15 @@
 # Pipeline Version Matrix
 
-This file records the public and candidate version posture of `agentic-pipeline`.
+This file records the public version posture of `agentic-pipeline`.
 
 ## Current state
 
 | Layer | Current version | Notes |
 |---|---:|---|
-| Stable package release | **1.2.3** | Distribution Integrity on `main`: state profiles, fresh-install smoke, command inventory, template hygiene, leakage checks and tracked-only release packages. |
-| Package candidate | **1.2.5** | Flow Restoration & Scoped Assurance: work-item terminality, assurance modes, scoped execution leases, compact evidence and shadow rollout. |
+| Package release | **1.2.5** | Flow Restoration & Scoped Assurance: work-item terminality, assurance modes, scoped execution leases, compact evidence and shadow rollout. |
+| Previous stable package | 1.2.4 | Governance & Routing Stabilization: objective routing, independent acceptance, inventory trust, installation identity and cross-platform runtime checks. |
 | Canonical playbook | **1.2.0** | `docs/AGENTIC_PIPELINE_PLAYBOOK.md` and the versioned/reference copies remain byte-identical. |
-| Candidate runtime | **1.2.2** | Additive Flow Restoration fields on handshake `1.1.0`, owner-approved work items, exact execution scope and degraded product execution. |
+| Runtime | **1.2.2** | Additive Flow Restoration fields on handshake `1.1.0`, owner-approved work items, exact execution scope and degraded product execution. |
 | Runtime Truth patch | 1.2.2a | Flow Restoration contracts, shadow routing and scoped assurance validation. |
 | Documentation cleanup | 1.2.3a | Flow Restoration documentation and compact owner-facing policy. It is not the runtime version. |
 | ChatGPT Companion | 1.2.3 | Compact semantic briefs, blocker materiality, autonomous current-scope repair and internal-only hashes. |

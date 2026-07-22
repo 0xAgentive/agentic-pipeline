@@ -12,7 +12,7 @@ Version 1.2.3 adds:
 - autonomous current-scope repair until PASS, hard stop or repeated no progress;
 - compact evidence profiles and internal-only hashes outside release or unresolved corruption.
 
-Package candidate `1.2.5` uses runtime `1.2.2` and keeps handshake schema `1.1.0` additive. The default template policy is `shadow`; candidate routing is observed before enforcement.
+Package release `1.2.5` uses runtime `1.2.2` and keeps handshake schema `1.1.0` additive. The default template policy is `shadow`; shadow routing is observed before enforcement.
 
 ## Active files
 
@@ -25,4 +25,4 @@ Package candidate `1.2.5` uses runtime `1.2.2` and keeps handshake schema `1.1.0
 - [09_EVIDENCE_LEVELS_AND_BLOCKER_POLICY.md](09_EVIDENCE_LEVELS_AND_BLOCKER_POLICY.md)
 - [11_PROMPT_COMPILER_AND_RESULT_AUTHORITY.md](11_PROMPT_COMPILER_AND_RESULT_AUTHORITY.md)
 
-Historical v1.2.1 and v1.2.2 files remain for provenance and migration review; they are not the active candidate policy.
+Historical v1.2.1 and v1.2.2 files remain for provenance and migration review; they are not the active policy.

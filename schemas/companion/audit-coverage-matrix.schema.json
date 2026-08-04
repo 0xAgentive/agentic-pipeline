@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Audit Coverage Matrix v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_item_id",
+    "target_head",
+    "audit_cycle",
+    "status",
+    "acceptance_coverage",
+    "generated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "work_item_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_head": {
+      "type": "string",
+      "minLength": 7
+    },
+    "audit_cycle": {
+      "enum": [
+        "initial_comprehensive",
+        "final"
+      ]
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "complete",
+        "blocked"
+      ]
+    },
+    "acceptance_coverage": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coverage_id",
+          "acceptance_index",
+          "requirement",
+          "surfaces",
+          "evidence_required",
+          "checks",
+          "status"
+        ],
+        "properties": {
+          "coverage_id": {
+            "type": "string",
+            "pattern": "^AC-[0-9]{3}$"
+          },
+          "acceptance_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "requirement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "surfaces": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence_required": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "checks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "enum": [
+              "not_evaluated",
+              "covered",
+              "finding_open",
+              "blocked",
+              "not_applicable"
+            ]
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "uncovered_acceptance_indexes": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "uniqueItems": true
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "completed_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

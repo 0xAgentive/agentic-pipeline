@@ -1,41 +1,30 @@
-# Runtime Contract — Flow Restoration
+# Runtime Contract — Autonomous Audit Convergence
 
-This workspace is operated through the Agentic Development Pipeline.
+This workspace uses Agentic Pipeline runtime 1.2.3.
 
-## Sources of truth
+## Authority order
 
 Read before substantial work:
 
-- `.agy/WORK_ITEM.json` when present;
-- `.agy/FLOW_POLICY.json` when present;
-- `.agy/EXECUTION_SCOPE.json` when present;
-- `.agy/RUN_RESULT.json` when present;
-- `.agy/RUNTIME_HANDSHAKE.json` when present;
-- legacy `.agy/PHASE_STATUS.json` and phase files for compatibility.
+- `.agy/WORK_ITEM.json`;
+- `.agy/EXECUTION_SCOPE.json`;
+- `.agy/EXECUTION_LEASE.json` before any write;
+- `.agy/STAGE_FIREWALL.json` when present;
+- `.agy/AUDIT_COVERAGE_MATRIX.json`, `FINDINGS.json` and `REPAIR_DELTA.json` during audit/repair;
+- `.agy/REVIEWER_ATTESTATION.json` for independent audit;
+- `.agy/RUN_RESULT.json` and `.agy/CLOSURE_STATE.json` for closure;
+- legacy phase files only for compatibility.
 
-## Terminality
+## Write authority
 
-`SHIP` closes one work item. It does not archive the project.
-A new explicit owner goal opens a new work item and may route to `/nextphase`.
-Only an explicit archived project state closes all product work.
+No write is authorized until the execution lease binds the owner goal, work item, epoch, exact project/worktree, branch, baseline HEAD and exact allowed paths.
 
-## Assurance modes
+Expected in-scope edits do not invalidate an active lease. Wrong root, branch drift, owner-goal drift, outside-scope changes, runtime migration or a new material risk invalidate it.
 
-- FLOW: ordinary product work and low-risk changes.
-- GUARDED: privacy, exports, data integrity, security, health-adjacent or packaged behavior.
-- RELEASE: publication, migration and distributable identity.
+## Convergence
 
-## Degraded product execution
+One immutable owner brief governs the work item. GUARDED work uses one comprehensive first audit, up to three grouped repair batches and one final audit by default. Late material findings are audit-coverage misses.
 
-A stale or schema-invalid legacy phase contract may close release/publication actions without blocking an owner-approved FLOW or GUARDED work item.
+## Verification debt
 
-In degraded product execution:
-
-- `/nextphase`, `/fixcritical`, `/auditphase` and eligible `/fastpatch` may be used;
-- `/shipcheck`, `/githubprepare`, `/githubsync`, release, migration and destructive operations remain closed;
-- exact scope and current Git facts must still be checked locally.
-
-## Owner interaction
-
-Do not request approval of plans or current-scope repair iterations.
-Ask the owner only for scope expansion, destructive/publication action, material-risk acceptance, unavailable capability or repeated no-progress failure.
+When deterministic product verification passes but protected audit is unavailable, close with verification debt, keep release blocked and allow the next owner-approved product goal. Do not start a pseudo-independent audit loop.

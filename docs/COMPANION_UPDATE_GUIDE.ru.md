@@ -1,39 +1,9 @@
-# Как обновлять ChatGPT companion и Antigravity pipeline вместе
+# Обновление Pipeline 1.2.6, Runtime 1.2.3 и Companion 1.2.4
 
-## Когда обновлять companion
+1. Обновите локальный репозиторий и GitHub скриптом release kit.
+2. В ChatGPT Project полностью замените Project Instructions содержимым `01_PROJECT_INSTRUCTIONS_v1.2.4.md`.
+3. В Project Sources оставьте по одной копии файлов `knowledge/00–15`.
+4. Удалите активные модули Companion 1.2.3 и ниже.
+5. Для Antigravity-проекта сначала завершите активный work item, затем выполните `Update-AgenticProjectRuntime-v1.2.3.ps1` в dry-run и только потом с `-Apply`.
 
-Обновляйте companion, если изменилось:
-
-- как формулировать ТЗ;
-- как анализировать чужие планы;
-- как разделять ChatGPT и Antigravity;
-- как проверять evidence;
-- как объяснять pipeline пользователю;
-- какие lessons извлечены из реальных проектов.
-
-## Когда обновлять pipeline repo
-
-Обновляйте `agentic-pipeline`, если изменилось:
-
-- README / public docs;
-- шаблон проекта;
-- workflow/rule/hook/script;
-- validators;
-- GitHub publication scripts;
-- package/release files.
-
-## Когда обновлять active project
-
-Обновляйте активный проект только отдельной фазой, если:
-
-- текущая фаза завершена;
-- tests/build green;
-- audit подтвердил безопасное окно;
-- есть migration plan.
-
-## Нельзя
-
-- считать, что companion update автоматически обновил Antigravity;
-- считать, что repo docs update автоматически мигрировал H10;
-- менять pipeline посреди active feature work;
-- пушить framework patch без validation.
+Runtime updater изменяет только allowlist framework-owned файлов, создаёт резервные копии и сохраняет product source, project docs, `WORK_ITEM.json`, результаты и существующее состояние проекта.

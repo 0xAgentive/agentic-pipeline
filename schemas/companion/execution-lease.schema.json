@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Execution Lease v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lease_id",
+    "status",
+    "work_item_id",
+    "goal_epoch",
+    "assurance_mode",
+    "project_root",
+    "worktree_root",
+    "branch",
+    "baseline_head",
+    "owner_goal_sha256",
+    "execution_scope_sha256",
+    "allowed_paths",
+    "issued_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "lease_id": {
+      "type": "string",
+      "minLength": 8
+    },
+    "status": {
+      "enum": [
+        "active",
+        "invalidated",
+        "completed"
+      ]
+    },
+    "work_item_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_epoch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "assurance_mode": {
+      "enum": [
+        "flow",
+        "guarded",
+        "release"
+      ]
+    },
+    "project_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "worktree_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "baseline_head": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{7,64}$"
+    },
+    "owner_goal_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "execution_scope_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "allowed_paths": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "forbidden_domains": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stage_profile": {
+      "enum": [
+        "general",
+        "protocol_freeze",
+        "analytical_validation",
+        "empirical_validation"
+      ]
+    },
+    "first_write_started": {
+      "type": "boolean"
+    },
+    "first_write_started_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "issued_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "invalidated_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "invalidation_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

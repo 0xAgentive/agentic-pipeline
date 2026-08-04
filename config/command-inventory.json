@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "runtime_version": "1.2.2",
+  "runtime_version": "1.2.3",
   "commands": [
     {
       "command": "/specdoc",
@@ -12,13 +12,22 @@
       "command": "/planonly",
       "mode": "write-docs",
       "workflow": ".agents/workflows/planonly.md",
-      "required_paths": []
+      "required_paths": [
+        "scripts/windows/companion/Write-ExecutionScope.ps1",
+        "scripts/windows/companion/New-ExecutionLease.ps1",
+        "scripts/windows/companion/New-StageFirewall.ps1"
+      ]
     },
     {
       "command": "/auditphase",
       "mode": "read-only",
       "workflow": ".agents/workflows/auditphase.md",
-      "required_paths": []
+      "required_paths": [
+        "scripts/windows/companion/Publish-AuditCoverageMatrix.ps1",
+        "scripts/windows/companion/Test-AuditCoverageMatrix.ps1",
+        "scripts/windows/companion/New-ProtectedReviewerAttestation.ps1",
+        "scripts/windows/companion/Test-ProtectedReviewerAttestation.ps1"
+      ]
     },
     {
       "command": "/probephase",
@@ -30,7 +39,10 @@
       "command": "/nextphase",
       "mode": "write",
       "workflow": ".agents/workflows/nextphase.md",
-      "required_paths": []
+      "required_paths": [
+        "scripts/windows/companion/Test-ExecutionLease.ps1",
+        "scripts/windows/companion/Register-FindingDelta.ps1"
+      ]
     },
     {
       "command": "/fastpatch",
@@ -68,7 +80,9 @@
       "command": "/shipcheck",
       "mode": "read-only-gate",
       "workflow": ".agents/workflows/shipcheck.md",
-      "required_paths": []
+      "required_paths": [
+        "scripts/windows/companion/Compile-ResultAuthority.ps1"
+      ]
     },
     {
       "command": "/landing",
@@ -106,7 +120,12 @@
       "command": "/fixcritical",
       "mode": "bounded-write",
       "workflow": ".agents/workflows/fixcritical.md",
-      "required_paths": []
+      "required_paths": [
+        "scripts/windows/companion/Publish-RepairDelta.ps1",
+        "scripts/windows/companion/Register-RepairBatch.ps1",
+        "scripts/windows/companion/Register-FindingDelta.ps1",
+        "scripts/windows/companion/Test-ExecutionLease.ps1"
+      ]
     },
     {
       "command": "/lessons",

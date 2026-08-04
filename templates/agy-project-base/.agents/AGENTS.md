@@ -1,6 +1,6 @@
 # Runtime Agent Instructions
 
-Framework Runtime Version: `1.2.2`
+Framework Runtime Version: `1.2.3`
 Primary runtime: Google Antigravity
 Hook mode by default: manual guard scripts
 
@@ -12,6 +12,7 @@ Before substantial work read:
 
 - `.agy/FLOW_POLICY.json` when present;
 - `.agy/WORK_ITEM.json` when present;
+- `.agy/EXECUTION_LEASE.json`, `.agy/AUDIT_COVERAGE_MATRIX.json`, `.agy/FINDINGS.json`, `.agy/REPAIR_DELTA.json` and `.agy/CLOSURE_STATE.json` when present;
 - `.agy/EXECUTION_SCOPE.json` when present;
 - `.agy/RUN_RESULT.json` when present;
 - `.agy/RUNTIME_HANDSHAKE.json` when present;

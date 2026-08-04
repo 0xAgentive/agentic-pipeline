@@ -1,5 +1,15 @@
 # Companion Changelog
 
+## 1.2.4 — Autonomous Audit Convergence
+
+- Added one-brief-per-work-item enforcement.
+- Added execution-lease awareness before product writes.
+- Added comprehensive first-audit coverage and stable finding deltas.
+- Added bounded grouped repair batches and audit-coverage-miss classification.
+- Added protected-reviewer and scientific-stage-firewall policy.
+- Added compact intermediate owner output and single result-authority compiler.
+
+
 ## 1.2.2 hotfix 1 — Project-Neutral Active Pack
 
 - Archived the project-specific optional example from the active pack.

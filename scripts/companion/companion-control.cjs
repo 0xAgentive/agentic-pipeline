@@ -271,9 +271,9 @@ function testSchemaValidator() {
 
 function activeCompanionFiles(repoRoot) {
   return [
-    'docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.3.md',
+    'docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.4.md',
     'docs/companion/01_CONTEXT_SPLIT_POLICY.md',
-    'docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.3.md',
+    'docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.4.md',
     'docs/companion/03_PRODUCT_EVIDENCE_CONTROL_PLANE.md',
     'docs/companion/04_PROJECT_AUDIT_AND_RECOVERY.md',
     'docs/companion/05_DOMAIN_SPECIFIC_LESSONS_OPTIONAL.md',
@@ -285,8 +285,10 @@ function activeCompanionFiles(repoRoot) {
     'docs/companion/11_PROMPT_COMPILER_AND_RESULT_AUTHORITY.md',
     'docs/companion/12_GOLDEN_EVALS.md',
     'docs/companion/13_LOCAL_CONTROL_TOOLS.md',
-    'docs/companion/SYSTEM_PROMPT_GPT55_COMPANION_v1.2.3.md',
-    'docs/companion/README_INSTALL_RU_v1.2.3.md',
+    'docs/companion/14_AUTONOMOUS_CONVERGENCE_AND_AUDIT_COVERAGE.md',
+    'docs/companion/15_OWNER_OUTPUT_PRESENTATION.md',
+    'docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.4.md',
+    'docs/companion/README_INSTALL_RU_v1.2.4.md',
     'docs/companion/README.md',
     'docs/companion/VERSION.json'
   ].map((relative) => path.join(repoRoot, relative));
@@ -430,13 +432,13 @@ function route(input) {
       inventory_sha256: inventorySource === 'missing' ? null : 'a'.repeat(64)
     },
     installation_facts: {
-      installed_project_package_version: '1.2.3',
-      installed_project_runtime_version: '1.2.0',
+      installed_project_package_version: '1.2.6',
+      installed_project_runtime_version: '1.2.3',
       installed_project_source_commit: 'legacy-fixture'
     },
     central_inventory_advisory: {
-      package_version: '1.2.3',
-      runtime_version: '1.2.0',
+      package_version: '1.2.6',
+      runtime_version: '1.2.3',
       commands: []
     },
     git_facts: {
@@ -834,7 +836,15 @@ function validatePack(repoRoot) {
     'work-item.schema.json',
     'execution-scope.schema.json',
     'run-result.schema.json',
-    'flow-policy.schema.json'
+    'flow-policy.schema.json',
+    'execution-lease.schema.json',
+    'audit-coverage-matrix.schema.json',
+    'finding-set.schema.json',
+    'repair-delta.schema.json',
+    'convergence-budget.schema.json',
+    'reviewer-attestation.schema.json',
+    'stage-firewall.schema.json',
+    'closure-state.schema.json'
   ]) {
     const filePath = path.join(schemaDir, name);
     if (!fs.existsSync(filePath)) {
@@ -851,8 +861,8 @@ function validatePack(repoRoot) {
   const companionVersionPath = path.join(repoRoot, 'docs', 'companion', 'VERSION.json');
   if (fs.existsSync(companionVersionPath)) {
     const version = readJson(companionVersionPath);
-    if (version.companion_version !== '1.2.3') {
-      errors.push('Companion VERSION.json does not declare 1.2.3');
+    if (version.companion_version !== '1.2.4') {
+      errors.push('Companion VERSION.json does not declare 1.2.4');
     }
   }
 
@@ -884,6 +894,20 @@ function validatePack(repoRoot) {
   const flowCases = runFlowRestorationCases(repoRoot);
   if (!flowCases.ok) errors.push(...flowCases.errors);
   if (flowCases.count < 10) errors.push('Flow restoration eval suite must contain at least 10 cases.');
+
+  const convergenceEvalPath = path.join(repoRoot, 'evals', 'companion', 'autonomous_convergence_cases.json');
+  if (!fs.existsSync(convergenceEvalPath)) {
+    errors.push('Missing autonomous convergence eval cases');
+  } else {
+    const suite = readJson(convergenceEvalPath);
+    if (!Array.isArray(suite.cases) || suite.cases.length < 10) errors.push('Autonomous convergence eval suite must contain at least 10 cases');
+    const ids = new Set();
+    for (const item of suite.cases || []) {
+      if (!item.id || !item.input || !Array.isArray(item.expected) || item.expected.length === 0) errors.push('Malformed autonomous convergence eval case');
+      if (ids.has(item.id)) errors.push(`Duplicate autonomous convergence eval id: ${item.id}`);
+      ids.add(item.id);
+    }
+  }
 
   const commandInventoryPath = path.join(repoRoot, 'config', 'command-inventory.json');
   if (fs.existsSync(commandInventoryPath)) {

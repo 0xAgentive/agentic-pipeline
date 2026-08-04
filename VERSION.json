@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0.0",
-  "package_version": "1.2.5",
-  "release_name": "Flow Restoration & Scoped Assurance",
+  "package_version": "1.2.6",
+  "release_name": "Autonomous Audit Convergence",
   "playbook_version": "1.2.0",
-  "runtime_version": "1.2.2",
-  "runtime_truth_patch": "1.2.2a",
-  "documentation_cleanup": "1.2.3a",
-  "companion_version": "1.2.3",
+  "runtime_version": "1.2.3",
+  "runtime_truth_patch": "1.2.3a",
+  "documentation_cleanup": "1.2.4a",
+  "companion_version": "1.2.4",
   "status": "stable"
 }

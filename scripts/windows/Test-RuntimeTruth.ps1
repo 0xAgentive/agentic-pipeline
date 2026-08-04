@@ -192,7 +192,7 @@ if (!(Test-Path -LiteralPath (Join-Path $Root $companionPolicyRel) -PathType Lea
 }
 
 if (![string]::IsNullOrWhiteSpace($companionVersion)) {
-  $companionPromptRel = "docs\companion\SYSTEM_PROMPT_GPT55_COMPANION_v$companionVersion.md"
+  $companionPromptRel = "docs\companion\SYSTEM_PROMPT_GPT56_COMPANION_v$companionVersion.md"
   $companionTaskRel = "docs\companion\02_AGENT_TASK_PACK_CONTRACT_v$companionVersion.md"
   $companionIndexRel = "docs\companion\00_AGENTIC_PIPELINE_INDEX_v$companionVersion.md"
 

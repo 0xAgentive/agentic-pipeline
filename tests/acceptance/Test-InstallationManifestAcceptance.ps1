@@ -76,9 +76,9 @@ foreach ($Required in @($VersionPath, $WindowsInstaller, $BashInstaller, $Manife
 }
 
 $Version = Read-Json -Path $VersionPath
-Assert-Equal -Actual $Version.package_version -Expected "1.2.5" -Message "Acceptance requires package 1.2.5 candidate."
-Assert-Equal -Actual $Version.runtime_version -Expected "1.2.2" -Message "Acceptance requires runtime 1.2.2."
-Assert-Equal -Actual $Version.companion_version -Expected "1.2.3" -Message "Companion version changed unexpectedly."
+Assert-Equal -Actual $Version.package_version -Expected "1.2.6" -Message "Acceptance requires package 1.2.6 candidate."
+Assert-Equal -Actual $Version.runtime_version -Expected "1.2.3" -Message "Acceptance requires runtime 1.2.3."
+Assert-Equal -Actual $Version.companion_version -Expected "1.2.4" -Message "Acceptance requires Companion 1.2.4."
 
 $WindowsInstallerText = [System.IO.File]::ReadAllText($WindowsInstaller, [System.Text.Encoding]::UTF8)
 $BashInstallerText = [System.IO.File]::ReadAllText($BashInstaller, [System.Text.Encoding]::UTF8)
@@ -91,7 +91,7 @@ foreach ($InstallerContract in @(
   if (!$InstallerContract.Text.Contains("write-installation-manifest.cjs")) {
     throw "$($InstallerContract.Name) must invoke the shared manifest writer."
   }
-  foreach ($ForbiddenLiteral in @('"1.2.5"', '"1.2.2"', '"1.2.3"')) {
+  foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.4"')) {
     if ($InstallerContract.Text.Contains($ForbiddenLiteral)) {
       throw "$($InstallerContract.Name) hardcodes release version literal $ForbiddenLiteral."
     }
@@ -101,7 +101,7 @@ foreach ($InstallerContract in @(
 if (!$ManifestWriterText.Contains("VERSION.json")) {
   throw "Shared manifest writer must read VERSION.json."
 }
-foreach ($ForbiddenLiteral in @('"1.2.5"', '"1.2.2"', '"1.2.3"')) {
+foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.4"')) {
   if ($ManifestWriterText.Contains($ForbiddenLiteral)) {
     throw "Shared manifest writer hardcodes release version literal $ForbiddenLiteral."
   }
@@ -148,14 +148,14 @@ try {
       New-Item -ItemType Directory -Force $BashTarget | Out-Null
       [System.IO.File]::WriteAllText((Join-Path $BashTarget "README.md"), "# Bash fixture`n", $Utf8NoBom)
 
-      foreach ($Args in @(
+      foreach ($GitArguments in @(
         @("-C", $BashTarget, "init", "--quiet"),
         @("-C", $BashTarget, "config", "user.name", "Acceptance Fixture"),
         @("-C", $BashTarget, "config", "user.email", "fixture@example.invalid"),
         @("-C", $BashTarget, "add", "."),
         @("-C", $BashTarget, "commit", "-m", "fixture", "--quiet")
       )) {
-        $GitResult = Invoke-Capture -FilePath "git" -Arguments $Args
+        $GitResult = Invoke-Capture -FilePath "git" -Arguments $GitArguments
         if ($GitResult.Code -ne 0) { throw "Bash fixture Git setup failed. Output=$($GitResult.Text)" }
       }
 

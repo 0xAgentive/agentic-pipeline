@@ -5,9 +5,9 @@ required=(
   README.md README.ru.md VERSION.json LICENSE CHANGELOG.md CONTRIBUTING.md SECURITY.md
   docs/AGENTIC_PIPELINE_PLAYBOOK.md docs/AUDIT_CHECKLIST.md docs/PIPELINE_VERSION_MATRIX.md
   config/command-inventory.json schemas/phase-status.schema.json schemas/command-inventory.schema.json schemas/version.schema.json
-  docs/companion/SYSTEM_PROMPT_GPT55_COMPANION_v1.2.2.md docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.2.md
+  docs/companion/01_PROJECT_INSTRUCTIONS_v1.2.4.md docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.4.md docs/companion/14_AUTONOMOUS_CONVERGENCE_AND_AUDIT_COVERAGE.md docs/companion/15_OWNER_OUTPUT_PRESENTATION.md
   schemas/companion/runtime-handshake.schema.json schemas/companion/phase-contract.schema.json schemas/companion/finding.schema.json schemas/companion/phase-result.schema.json
-  evals/companion/golden_cases.json scripts/companion/companion-control.cjs scripts/windows/companion/Test-CompanionPack-v1.2.2.ps1
+  evals/companion/golden_cases.json evals/companion/autonomous_convergence_cases.json scripts/companion/companion-control.cjs scripts/control-plane/autonomous-convergence.cjs tests/acceptance/autonomous-convergence-contract.cjs scripts/windows/companion/Test-CompanionPack-v1.2.4.ps1 scripts/windows/companion/Test-AutonomousConvergenceContracts.ps1
   templates/state-profiles/new-project/PHASE_STATUS.json
   templates/state-profiles/adopt-existing/PHASE_STATUS.json
   templates/agy-project-base/.agents/AGENTS.md
@@ -19,6 +19,12 @@ required=(
   templates/agy-project-base/scripts/Test-FastPatchAllowed.ps1
   templates/agy-project-base/scripts/github/Prepare-GitHubPackage.ps1
   templates/agy-project-base/scripts/github/Sync-GitHub.ps1
+  templates/agy-project-base/scripts/control-plane/autonomous-convergence.cjs
+  templates/agy-project-base/scripts/windows/companion/New-ExecutionLease.ps1
+  templates/agy-project-base/scripts/windows/companion/Test-ExecutionLease.ps1
+  templates/agy-project-base/scripts/windows/companion/Publish-AuditCoverageMatrix.ps1
+  templates/agy-project-base/scripts/windows/companion/Test-AuditCoverageMatrix.ps1
+  templates/agy-project-base/scripts/windows/companion/Compile-ResultAuthority.ps1
   scripts/bash/adopt-pipeline.sh
   scripts/windows/Initialize-AgenticProject.ps1
   scripts/windows/Apply-AgenticPipeline-v1.1.1.ps1

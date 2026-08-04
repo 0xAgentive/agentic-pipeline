@@ -117,6 +117,7 @@ if (!$SkipPreValidation) {
   Invoke-Validator -Name 'Runtime Truth' -Script (Join-Path $Root 'scripts\windows\Test-RuntimeTruth.ps1') -ArgumentList @('-RepoRoot',$Root,'-StrictHotPath') -LogPath $LogPath
   Invoke-Validator -Name 'Distribution Integrity' -Script (Join-Path $Root 'scripts\windows\Test-DistributionIntegrity.ps1') -ArgumentList @('-RepoRoot',$Root) -LogPath $LogPath
   Invoke-Validator -Name 'Fastpatch Synthetic' -Script (Join-Path $Root 'scripts\windows\Test-FastPatchSynthetic.ps1') -ArgumentList @('-RepoRoot',$Root) -LogPath $LogPath
+  Invoke-Validator -Name 'Autonomous Convergence' -Script (Join-Path $Root 'scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1') -ArgumentList @('-RepoRoot',$Root) -LogPath $LogPath
   Invoke-Native -FilePath 'git' -ArgumentList @('-C',$Root,'diff','--check') -LogPath $LogPath
 }
 
@@ -141,6 +142,7 @@ try {
   Invoke-Validator -Name 'Extracted Hard Package' -Script (Join-Path $PackageRoot 'scripts\windows\Validate-AgenticPipelinePackage.ps1') -ArgumentList @('-RepoRoot',$PackageRoot,'-Strict') -LogPath $LogPath
   Invoke-Validator -Name 'Extracted Runtime Truth' -Script (Join-Path $PackageRoot 'scripts\windows\Test-RuntimeTruth.ps1') -ArgumentList @('-RepoRoot',$PackageRoot,'-StrictHotPath') -LogPath $LogPath
   Invoke-Validator -Name 'Extracted Distribution Integrity' -Script (Join-Path $PackageRoot 'scripts\windows\Test-DistributionIntegrity.ps1') -ArgumentList @('-RepoRoot',$PackageRoot,'-PackageMode') -LogPath $LogPath
+  Invoke-Validator -Name 'Extracted Autonomous Convergence' -Script (Join-Path $PackageRoot 'scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1') -ArgumentList @('-RepoRoot',$PackageRoot) -LogPath $LogPath
 
   $Contents = @()
   foreach ($File in Get-ChildItem -LiteralPath $PackageRoot -Recurse -Force -File | Sort-Object FullName) {

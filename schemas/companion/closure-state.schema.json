@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Closure State v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_item_id",
+    "implementation_status",
+    "verification_status",
+    "audit_status",
+    "acceptance_status",
+    "release_status",
+    "next_owner_goal_allowed",
+    "closure_reason",
+    "generated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "work_item_id": {
+      "type": "string"
+    },
+    "implementation_status": {
+      "enum": [
+        "completed",
+        "partial",
+        "failed",
+        "blocked"
+      ]
+    },
+    "verification_status": {
+      "enum": [
+        "passed",
+        "failed",
+        "partial",
+        "blocked",
+        "debt"
+      ]
+    },
+    "audit_status": {
+      "enum": [
+        "passed",
+        "failed",
+        "blocked",
+        "not_required",
+        "unavailable"
+      ]
+    },
+    "acceptance_status": {
+      "enum": [
+        "accepted",
+        "completed_with_verification_debt",
+        "rejected",
+        "blocked"
+      ]
+    },
+    "release_status": {
+      "enum": [
+        "open",
+        "blocked",
+        "not_applicable"
+      ]
+    },
+    "next_owner_goal_allowed": {
+      "type": "boolean"
+    },
+    "closure_reason": {
+      "type": "string"
+    },
+    "open_finding_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "generated_at_utc": {
+      "type": "string"
+    }
+  }
+}

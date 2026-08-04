@@ -1,14 +1,15 @@
-# Prompt Compiler and Result Authority
+# Prompt Compiler and Single Result Authority
 
-The Companion compiles a short semantic work brief. It does not invent runtime facts or exact paths.
+The Companion compiles one short immutable work brief. It does not invent runtime facts or exact paths.
 
-## Result authority
+After the initial brief, the machine authority is project-local:
 
-For FLOW/GUARDED, use `.agy/RUN_RESULT.json`.
-For RELEASE or legacy contracted work, `PHASE_RESULT.json` remains supported.
+- `EXECUTION_LEASE.json` for write authorization;
+- `AUDIT_COVERAGE_MATRIX.json` for audit completeness;
+- `FINDINGS.json` and `REPAIR_DELTA.json` for repairs;
+- `REVIEWER_ATTESTATION.json` for protected audit independence;
+- `RUN_RESULT.json` and `CLOSURE_STATE.json` for closure.
 
-The latest successful required test run supersedes stale prose counts through explicit `run_id` and `supersedes_run_id` fields.
+`Compile-ResultAuthority.ps1` is the only supported closure compiler for runtime 1.2.3. Do not independently hand-author contradictory run, audit, handshake and closure statuses.
 
-Do not reconstruct hashes, byte sizes, test totals, commits or next commands from memory.
-Do not treat a service-warning mismatch as a product failure.
-Do not print hashes to the owner unless requested, unresolved corruption exists or release identity depends on them.
+If protected audit is unavailable after deterministic verification passes, close with verification debt and keep release blocked. Do not start another pseudo-independent audit loop.

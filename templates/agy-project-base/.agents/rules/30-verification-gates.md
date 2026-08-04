@@ -1,18 +1,18 @@
-# Verification Gates — Materiality
+# Verification Gates — Materiality and Convergence
 
-Classify findings as:
+Materiality:
 
 - `product_blocker`: product behavior, safety, privacy or data integrity is wrong;
-- `verification_blocker`: the claim cannot yet be proven;
-- `release_blocker`: product work may finish but publication is closed;
-- `service_warning`: internal metadata can be reconciled automatically;
-- `cosmetic`: does not affect the current work item.
+- `verification_blocker`: the current claim is not proven;
+- `release_blocker`: release is closed but product work may finish;
+- `service_warning`: metadata can be reconciled automatically;
+- `cosmetic`: no material effect.
 
-Rules:
+Lifecycle:
 
-- product blockers route to repair;
-- verification blockers route to audit;
-- release blockers block RELEASE only;
-- service warnings never require owner intervention and never create a new task pack;
-- stale prose, test-count wording, evidence-sidecar drift and optional reports are service warnings when an authoritative current result exists;
-- actual artifact inconsistency, unsafe wording, privacy failure and data corruption remain product blockers.
+- first comprehensive audit publishes the material finding set;
+- late material findings are `audit_coverage_miss`;
+- current-scope product blockers route to grouped repair;
+- verification limitations after deterministic pass may close with debt;
+- release blockers do not freeze future owner-approved work;
+- no more than the configured repair-batch budget without closure or one hard stop.

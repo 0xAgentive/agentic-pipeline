@@ -89,6 +89,8 @@
       "enum": [
         "not_evaluated",
         "accepted",
+        "completed_with_verification_debt",
+        "rejected",
         "blocked"
       ]
     },
@@ -303,6 +305,42 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "execution_lease_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "audit_coverage_status": {
+      "enum": [
+        "not_required",
+        "pending",
+        "complete",
+        "blocked"
+      ]
+    },
+    "reviewer_independence_status": {
+      "enum": [
+        "not_required",
+        "independent",
+        "not_independent",
+        "unavailable"
+      ]
+    },
+    "repair_batches_used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "repair_batch_limit": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "closure_state_path": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
 }

@@ -1,32 +1,28 @@
-# Product Evidence Contract — Proportional Profiles
-
-Evidence must be proportional to the active assurance mode.
+# Product Evidence Contract — Convergent Profiles
 
 ## FLOW
 
-Default evidence:
+- work item;
+- execution scope and lease;
+- targeted verification receipt;
+- one compiled run/closure result.
 
-- `.agy/WORK_ITEM.json`;
-- `.agy/RUN_RESULT.json`;
-- the real product artifact when the task creates one.
-
-No independent audit or evidence ZIP by default.
+Independent audit is not required by default.
 
 ## GUARDED
 
-Default evidence:
+- everything in FLOW;
+- comprehensive first-audit coverage matrix;
+- stable finding set;
+- actual product artifacts and product-specific validators;
+- protected reviewer attestation and one final audit, when capability exists.
 
-- work item;
-- run result;
-- one independent audit result;
-- actual product artifacts and relevant product-specific validators.
+If protected audit capability is unavailable after deterministic verification passes, close with verification debt. Do not fabricate independence.
 
 ## RELEASE
 
-Release may additionally require manifests, provenance, hashes, extracted-package validation and release audit.
+Release may additionally require distribution manifests, provenance, extracted-package validation and release audit.
 
 ## Human output
 
-Show status, concise changes, checks and artifact paths. Keep sizes and hashes inside machine manifests unless the user asks or integrity remains unresolved.
-
-Do not duplicate one fact across many independently edited JSON and Markdown files.
+Show product status, material finding delta, route and up to three artifact paths. Keep hashes, sizes and repetitive evidence metadata inside machine files.

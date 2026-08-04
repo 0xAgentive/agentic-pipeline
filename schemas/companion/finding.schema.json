@@ -110,6 +110,33 @@
     },
     "owner_decision_required": {
       "type": "boolean"
+    },
+    "origin": {
+      "enum": [
+        "initial_audit",
+        "audit_coverage_miss",
+        "verification",
+        "owner_change",
+        "runtime"
+      ]
+    },
+    "coverage_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "audit_cycle": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "repair_batch_id": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
 }

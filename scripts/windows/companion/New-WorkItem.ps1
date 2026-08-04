@@ -4,6 +4,7 @@ param(
   [Parameter(Mandatory=$true)][string]$Goal,
   [ValidateSet('flow','guarded','release')][string]$AssuranceMode = 'flow',
   [ValidateSet('/nextphase','/fastpatch')][string]$PreferredCommand = '/nextphase',
+  [ValidateSet('general','protocol_freeze','analytical_validation','empirical_validation')][string]$StageProfile = 'general',
   [string]$WorkItemId = '',
   [string[]]$Acceptance = @(),
   [string[]]$NonGoals = @(),
@@ -36,7 +37,7 @@ function Publish-AtomicFile {
   }
   New-Item -ItemType Directory -Force -Path $TargetParent | Out-Null
 
-  [System.IO.File]::Move($SourcePath, $TargetPath, $true)
+  Move-Item -LiteralPath $SourcePath -Destination $TargetPath -Force
 }
 
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
@@ -78,7 +79,18 @@ if ([string]::IsNullOrWhiteSpace($WorkItemId)) {
   $WorkItemId = "$Slug-$GoalEpoch"
 }
 
+function Get-Sha256Text([string]$Text) {
+  $Bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+  $Hasher = [System.Security.Cryptography.SHA256]::Create()
+  try { return ([Convert]::ToHexString($Hasher.ComputeHash($Bytes))).ToLowerInvariant() }
+  finally { $Hasher.Dispose() }
+}
+
 $Now = (Get-Date).ToUniversalTime().ToString('o')
+$GoalFingerprint = Get-Sha256Text $Goal.Trim()
+$RepairLimit = if ($AssuranceMode -eq 'flow') { 2 } else { 3 }
+$InitialAuditLimit = if ($AssuranceMode -eq 'flow') { 0 } else { 1 }
+$FinalAuditLimit = if ($AssuranceMode -eq 'flow') { 0 } else { 1 }
 $Document = [ordered]@{
   schema_version = '1.0.0'
   work_item_id = $WorkItemId
@@ -96,6 +108,16 @@ $Document = [ordered]@{
   hard_stop = $false
   external_drift = $false
   flow_restoration_enabled = $true
+  stage_profile = $StageProfile
+  brief_revision = 1
+  brief_fingerprint = $GoalFingerprint
+  brief_locked_at_utc = $Now
+  owner_goal_fingerprint = $GoalFingerprint
+  convergence_policy = [ordered]@{
+    initial_audit_limit = $InitialAuditLimit
+    repair_batch_limit = $RepairLimit
+    final_audit_limit = $FinalAuditLimit
+  }
   created_at_utc = $Now
   updated_at_utc = $Now
   acceptance = [string[]]@($Acceptance | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
@@ -112,17 +134,40 @@ try {
     Write-Host 'WORK ITEM DRY RUN PASSED.'
     Write-Host "Work item: $WorkItemId"
     Write-Host "Mode: $AssuranceMode"
+  Write-Host "Stage profile: $StageProfile"
     Write-Host 'No file was modified.'
     exit 0
   }
   New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
   $TargetTemp = $OutputPath + '.tmp'
   Copy-Item -LiteralPath $Temp -Destination $TargetTemp -Force
+  $HistoryRoot = Join-Path $StateRoot ('history\epoch-' + $GoalEpoch)
+  New-Item -ItemType Directory -Force -Path $HistoryRoot | Out-Null
+  foreach ($Name in @('EXECUTION_SCOPE.json','EXECUTION_LEASE.json','AUDIT_COVERAGE_MATRIX.json','FINDINGS.json','FINDING_DELTA.json','REPAIR_DELTA.json','REPAIR_BUDGET.json','REVIEWER_ATTESTATION.json','CLOSURE_STATE.json')) {
+    $Existing = Join-Path $StateRoot $Name
+    if (Test-Path -LiteralPath $Existing -PathType Leaf) { Move-Item -LiteralPath $Existing -Destination (Join-Path $HistoryRoot $Name) -Force }
+  }
   Publish-AtomicFile -SourcePath $TargetTemp -TargetPath $OutputPath
+  $Budget = [ordered]@{
+    schema_version = '1.0.0'
+    work_item_id = $WorkItemId
+    assurance_mode = $AssuranceMode
+    initial_audit_limit = $InitialAuditLimit
+    repair_batch_limit = $RepairLimit
+    final_audit_limit = $FinalAuditLimit
+    initial_audits_used = 0
+    repair_batches_used = 0
+    final_audits_used = 0
+    status = 'available'
+    updated_at_utc = $Now
+    history = @()
+  }
+  [System.IO.File]::WriteAllText((Join-Path $StateRoot 'REPAIR_BUDGET.json'), ($Budget | ConvertTo-Json -Depth 20), $Utf8NoBom)
   Write-Host "Work item written: $OutputPath"
   Write-Host "Work item: $WorkItemId"
   Write-Host "Goal epoch: $GoalEpoch"
   Write-Host "Mode: $AssuranceMode"
+  Write-Host "Stage profile: $StageProfile"
 }
 finally {
   Remove-Item -LiteralPath $Temp -Force -ErrorAction SilentlyContinue

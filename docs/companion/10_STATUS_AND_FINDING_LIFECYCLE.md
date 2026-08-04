@@ -1,6 +1,4 @@
-# Status and Finding Lifecycle
-
-A single `completed` flag is not sufficient.
+# Status and Finding Lifecycle v1.2.4
 
 ## Independent status dimensions
 
@@ -8,15 +6,13 @@ A single `completed` flag is not sufficient.
 {
   "implementation_status": "completed",
   "verification_status": "passed",
-  "artifact_status": "partial",
-  "audit_status": "pending",
-  "acceptance_status": "not_evaluated",
+  "artifact_status": "complete",
+  "audit_status": "passed",
+  "acceptance_status": "accepted",
   "scientific_validation_status": "unvalidated",
   "ship_status": "not_applicable"
 }
 ```
-
-Allowed values should be explicit and schema-validated.
 
 ## Finding lifecycle
 
@@ -28,24 +24,10 @@ Allowed values should be explicit and schema-validated.
 - `false_positive`;
 - `superseded`.
 
-A finding marked resolved must not remain in the open count.
+Every finding has a stable `finding_id`. A finding discovered after the initial comprehensive audit must record `origin: audit_coverage_miss` unless the owner changed the requirement.
 
-## Health/scientific distinction
+Companion output reports only the delta. It must not restate the full brief or entire finding history.
 
-For methodology findings, track separately:
+## Scientific stage distinction
 
-- implementation alignment;
-- empirical validation;
-- production-use permission.
-
-Example:
-
-```json
-{
-  "implementation_alignment_status": "resolved",
-  "empirical_validation_status": "unvalidated",
-  "production_use_status": "blocked"
-}
-```
-
-Do not infer validation from centralization, documentation or green unit tests.
+Track protocol, algorithm and empirical validation separately. A Protocol Freeze work item cannot modify production analytical behavior without an explicit `algorithm_repair` sub-scope and new analytical baseline.

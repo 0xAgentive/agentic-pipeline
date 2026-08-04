@@ -1,8 +1,8 @@
 # Runtime and Flow Restoration Acceptance
 
-This directory is an independent acceptance layer for Agentic Pipeline package candidate 1.2.5 / runtime 1.2.2.
+This directory is an independent acceptance layer for Agentic Pipeline package candidate 1.2.6 / runtime 1.2.3.
 
-It protects legacy 1.2.4 routing behavior while adding additive Flow Restoration contracts:
+It protects legacy routing behavior while adding Flow Restoration and Autonomous Audit Convergence contracts:
 
 - work-item-scoped terminality;
 - FLOW, GUARDED and RELEASE routing;
@@ -11,3 +11,5 @@ It protects legacy 1.2.4 routing behavior while adding additive Flow Restoration
 - exact execution-scope and compact run-result schemas;
 - installation identity derived from `VERSION.json`;
 - unchanged legacy golden-case IDs.
+
+Autonomous-convergence acceptance additionally protects exact pre-write leases, complete first-audit coverage, bounded repair batches, protected reviewer independence, scientific-stage firewalls and single compiled closure authority.

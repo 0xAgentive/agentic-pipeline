@@ -1,25 +1,15 @@
-# Local Control Tools
+# Local Control Tools v1.2.4
 
-The repository includes bounded local tools under `scripts/windows/companion/`. They are not ChatGPT knowledge and do not migrate active projects automatically.
+Flow Restoration tools remain available. Runtime 1.2.3 adds:
 
-Flow Restoration tools:
+- `New-ExecutionLease.ps1` / `Test-ExecutionLease.ps1`;
+- `Publish-AuditCoverageMatrix.ps1` / `Test-AuditCoverageMatrix.ps1`;
+- `Register-FindingDelta.ps1`;
+- `Publish-RepairDelta.ps1`;
+- `Register-RepairBatch.ps1`;
+- `New-ProtectedReviewerAttestation.ps1` / `Test-ProtectedReviewerAttestation.ps1`;
+- `New-StageFirewall.ps1`;
+- `Compile-ResultAuthority.ps1`;
+- `Test-AutonomousConvergenceContracts.ps1`.
 
-- `New-WorkItem.ps1`: open a new owner-approved work item and increment `goal_epoch`.
-- `Write-ExecutionScope.ps1`: write the executor-discovered exact scope.
-- `Publish-RunResult.ps1`: publish compact product, verification, release and service-warning results.
-- `Set-WorkItemStatus.ps1`: update one work item without closing the project.
-- `Get-RuntimeHandshake.ps1`: resolve current and shadow routes.
-- `Test-FlowRestorationContracts.ps1`: exercise shadow, enforcing, repair, audit and work-item reopening behavior.
-- `Test-CompanionPack-v1.2.3.ps1`: validate active Companion and routing policies.
-- `Build-CompanionPack-v1.2.3.ps1`: build the Companion pack.
-
-Legacy phase-contract tools remain available for RELEASE or migrated projects:
-
-- `New-PhaseContract.ps1`;
-- `Test-PhaseContract.ps1`;
-- `Register-RepairCycle.ps1`;
-- `New-PhaseResult.ps1`;
-- `Test-PhaseResult.ps1`;
-- `Test-ProductionOutputIsolation.ps1`.
-
-Use dry-run output first. H10 rollout begins in shadow mode; enforcing migration remains a separate, reversible action.
+The tools are project-local control mechanisms. They do not create owner goals and do not publish or release product code.

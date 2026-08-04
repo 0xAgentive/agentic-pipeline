@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Scientific Stage Firewall v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_item_id",
+    "stage_profile",
+    "status",
+    "protected_path_patterns",
+    "algorithm_repair_authorized",
+    "generated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "work_item_id": {
+      "type": "string"
+    },
+    "stage_profile": {
+      "enum": [
+        "general",
+        "protocol_freeze",
+        "analytical_validation",
+        "empirical_validation"
+      ]
+    },
+    "status": {
+      "enum": [
+        "active",
+        "inactive",
+        "blocked"
+      ]
+    },
+    "protected_path_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "algorithm_repair_authorized": {
+      "type": "boolean"
+    },
+    "algorithm_repair_finding_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "analytical_baseline_head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "generated_at_utc": {
+      "type": "string"
+    }
+  }
+}

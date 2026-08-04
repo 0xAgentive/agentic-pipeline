@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "mode": "shadow",
+  "defaults": {
+    "flow": { "initial_audit_limit": 0, "repair_batch_limit": 2, "final_audit_limit": 0 },
+    "guarded": { "initial_audit_limit": 1, "repair_batch_limit": 3, "final_audit_limit": 1 },
+    "release": { "initial_audit_limit": 1, "repair_batch_limit": 3, "final_audit_limit": 1 }
+  },
+  "late_material_finding_policy": "audit_coverage_miss",
+  "protected_reviewer_required_for_guarded_acceptance": true,
+  "verification_debt_allows_next_owner_goal": true
+}

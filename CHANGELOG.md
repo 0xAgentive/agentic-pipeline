@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.6 - Autonomous Audit Convergence
+
+- Added a fail-closed pre-write execution lease bound to project, worktree, branch, baseline, work item and exact scope.
+- Added comprehensive first-audit coverage matrices with stable finding IDs and explicit audit-coverage-miss lifecycle.
+- Replaced repeated semantic task packs with an immutable owner brief plus machine-readable finding and repair deltas.
+- Added bounded grouped repair budgets for GUARDED work and deterministic closure with verification debt instead of endless repair loops.
+- Added protected-reviewer attestations bound to a read-only checkout, exact HEAD and exact artifact manifest.
+- Added a scientific-stage firewall separating Protocol Freeze from analytical-algorithm repair.
+- Added a single result-authority compiler and compact Companion 1.2.4 intermediate output.
+- Added autonomous-convergence acceptance evals for wrong-worktree writes, late findings, self-audit, stage drift, stale closure and repeated brief generation.
+- Hardened Windows release/update transport with retry, HTTP/1.1 and per-command OpenSSL fallback without disabling TLS certificate verification.
+
 ## 1.2.5 - Flow Restoration & Scoped Assurance
 
 - Added work-item-scoped terminality and owner-approved work items.

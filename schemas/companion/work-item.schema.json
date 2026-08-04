@@ -131,6 +131,56 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "stage_profile": {
+      "enum": [
+        "general",
+        "protocol_freeze",
+        "analytical_validation",
+        "empirical_validation"
+      ]
+    },
+    "brief_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "brief_fingerprint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "brief_locked_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "owner_goal_fingerprint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "convergence_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "initial_audit_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repair_batch_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "final_audit_limit": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
     }
   }
 }

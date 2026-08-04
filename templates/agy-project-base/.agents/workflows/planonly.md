@@ -1,30 +1,13 @@
 ---
-description: Produce a phase-gated implementation plan without changing product code.
+description: Create the one immutable owner-approved work brief and stop before implementation.
 ---
 
 # /planonly
 
-## Goal
+Create or validate exactly one work brief for the new owner goal.
 
-Create a bounded, verifiable phase plan from the current specification and repository state.
+Include goal, assurance mode, stage profile, acceptance outcomes, non-goals, risk hints, hard stops, `hard_stop_only` owner policy and `executor_discovery` scope binding.
 
-## Allowed writes
+Lock the brief fingerprint in `WORK_ITEM.json`. Do not create a second brief for repair or audit. Subsequent iterations use finding and repair deltas.
 
-- `docs/IMPLEMENTATION_PLAN.md`
-- `docs/VERIFICATION_PLAN.md`
-- `.agy/PHASE_STATUS.json`
-- `.agy/AGENT_STATE.md`
-- `.agy/RECOVERY_PROMPT.md`
-
-## Forbidden
-
-- product-code implementation;
-- dependency installation;
-- broad formatting;
-- commit, push, publish or ship claims.
-
-## Required plan fields
-
-For each phase: goal, allowed scope, forbidden scope, risk, checks, evidence, stop conditions, rollback and exact next command.
-
-Stop after the plan. The next command is normally `/nextphase` or `/probephase`.
+Do not implement product code in this workflow.

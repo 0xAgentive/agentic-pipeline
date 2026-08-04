@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "work_item_id": "none",
+  "stage_profile": "general",
+  "status": "inactive",
+  "protected_path_patterns": [],
+  "algorithm_repair_authorized": false,
+  "algorithm_repair_finding_ids": [],
+  "analytical_baseline_head": null,
+  "generated_at_utc": "template"
+}

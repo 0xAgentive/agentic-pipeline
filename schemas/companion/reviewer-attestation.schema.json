@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Protected Reviewer Attestation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_item_id",
+    "target_head",
+    "implementation_context_id",
+    "reviewer_context_id",
+    "implementation_root",
+    "reviewer_root",
+    "read_only",
+    "artifact_manifest_sha256",
+    "predicate_origin",
+    "independence_status",
+    "generated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "work_item_id": {
+      "type": "string"
+    },
+    "target_head": {
+      "type": "string",
+      "minLength": 7
+    },
+    "implementation_context_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewer_context_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "implementation_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewer_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "read_only": {
+      "const": true
+    },
+    "artifact_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "predicate_origin": {
+      "enum": [
+        "protected_reviewer",
+        "external_validator",
+        "implementation_context"
+      ]
+    },
+    "reviewer_authored_implementation": {
+      "type": "boolean"
+    },
+    "reviewer_authored_artifact_generator": {
+      "type": "boolean"
+    },
+    "reviewer_authored_predicates": {
+      "type": "boolean"
+    },
+    "independence_status": {
+      "enum": [
+        "independent",
+        "not_independent",
+        "unavailable"
+      ]
+    },
+    "generated_at_utc": {
+      "type": "string"
+    }
+  }
+}

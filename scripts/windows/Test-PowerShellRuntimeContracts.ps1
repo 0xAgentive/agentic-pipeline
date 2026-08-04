@@ -79,6 +79,21 @@ foreach ($File in $Files) {
     }
   }
 
+  $ForEachStatementAsts = $Ast.FindAll({
+    param($Node)
+    $Node -is [System.Management.Automation.Language.ForEachStatementAst]
+  }, $true)
+
+  foreach ($ForEachStatementAst in $ForEachStatementAsts) {
+    $Name = $ForEachStatementAst.Variable.VariablePath.UserPath.ToLowerInvariant()
+    if ($ReservedAutomaticVariables -contains $Name) {
+      Add-Error ("Automatic variable is used as a foreach iterator: {0}:{1} `${2}" -f
+        $File.FullName,
+        $ForEachStatementAst.Extent.StartLineNumber,
+        $Name)
+    }
+  }
+
   $SplattedAutomaticAsts = $Ast.FindAll({
     param($Node)
     $Node -is [System.Management.Automation.Language.VariableExpressionAst] -and

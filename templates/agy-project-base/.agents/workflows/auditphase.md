@@ -1,38 +1,28 @@
 ---
-description: Independent read-only verification of the current work item and actual product artifacts.
+description: Comprehensive read-only audit with coverage matrix, stable findings and protected final review.
 ---
 
 # /auditphase
 
-## Mode
+Read-only. Do not repair in this workflow.
 
-Read-only. Do not repair findings in this workflow.
+## Initial comprehensive audit
 
-## Read
+1. Bind exact work item, target root, branch and HEAD.
+2. Publish `AUDIT_COVERAGE_MATRIX.json` mapping every acceptance outcome to surfaces, evidence and checks.
+3. Reject incomplete acceptance coverage.
+4. Inspect actual product artifacts and project-specific validators.
+5. Publish all material findings with stable IDs in `FINDINGS.json`.
+6. Register the single initial audit in `REPAIR_BUDGET.json`.
 
-- `.agy/WORK_ITEM.json`;
-- `.agy/EXECUTION_SCOPE.json`;
-- `.agy/RUN_RESULT.json`;
-- current Git diff and status;
-- actual product artifacts and product-specific validators;
-- relevant requirements and safety/privacy rules.
+The first audit must aim for complete coverage before any repair batch.
 
-## Verify
+## Final protected audit
 
-- work item and run result refer to the same `work_item_id`;
-- changed paths stay inside the exact execution scope;
-- required commands actually exited successfully;
-- product and verification claims match actual bytes/behavior;
-- service warnings do not masquerade as product blockers;
-- release-only gaps do not block FLOW/GUARDED product acceptance;
-- GUARDED and RELEASE checks are independent from implementation claims.
+1. Use a separate read-only reviewer root/context.
+2. Bind exact final HEAD and exact artifact manifest.
+3. Publish and validate `REVIEWER_ATTESTATION.json`.
+4. Re-check the original coverage matrix and every finding lifecycle.
+5. A new material finding is `audit_coverage_miss`.
 
-## Result
-
-- product blocker: update `RUN_RESULT.json`, then continue through `/fixcritical` without owner approval;
-- verification blocker: remain in audit until verified;
-- service warning: reconcile automatically and do not block;
-- PASS: mark the work item completed;
-- outside-scope or hard stop: request one owner decision.
-
-Output one verdict, material blockers, checks and artifact paths. No hash ceremony in normal product work.
+If protected reviewer capability is unavailable, do not fabricate audit acceptance. Return audit unavailable for closure with verification debt.

@@ -44,6 +44,14 @@ jobs:
         shell: pwsh
         run: ./scripts/windows/companion/Test-FlowRestorationContracts.ps1 -RepoRoot .
 
+      - name: Autonomous convergence Node contracts
+        shell: bash
+        run: node tests/acceptance/autonomous-convergence-contract.cjs
+
+      - name: Autonomous convergence PowerShell contracts
+        shell: pwsh
+        run: ./scripts/windows/companion/Test-AutonomousConvergenceContracts.ps1 -RepoRoot .
+
       - name: Distribution integrity validator
         shell: pwsh
         run: ./scripts/windows/Test-DistributionIntegrity.ps1 -RepoRoot .

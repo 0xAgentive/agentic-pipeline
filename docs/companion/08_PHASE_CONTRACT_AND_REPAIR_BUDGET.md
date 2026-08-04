@@ -1,29 +1,26 @@
-# Work-Item Scope and Repair Convergence
+# Work-Item Scope and Bounded Repair Convergence
 
-Legacy phase contracts remain supported, especially for RELEASE work.
+FLOW/GUARDED daily work uses:
 
-For FLOW/GUARDED daily work, use:
+- `WORK_ITEM.json` — immutable owner authorization;
+- `EXECUTION_SCOPE.json` — exact live paths;
+- `EXECUTION_LEASE.json` — pre-write authority;
+- `AUDIT_COVERAGE_MATRIX.json` — complete first-audit coverage;
+- `FINDINGS.json` and `REPAIR_DELTA.json` — stable repair lifecycle;
+- `RUN_RESULT.json` and `CLOSURE_STATE.json` — final authority.
 
-- `WORK_ITEM.json` for stable owner authorization;
-- `EXECUTION_SCOPE.json` for exact live paths;
-- `RUN_RESULT.json` for current result.
+## Default repair budget
 
-## Repair policy
+- FLOW: at most two grouped repair batches;
+- GUARDED: one comprehensive audit, at most three grouped repair batches, one final audit;
+- RELEASE: release-specific policy, never weaker than GUARDED.
 
-Do not require owner approval after a fixed number of repair cycles.
-Continue while:
+A batch may resolve multiple related findings. Do not count individual edits as separate cycles.
 
-- the blocker is inside scope;
-- each iteration changes the failing evidence or implementation meaningfully;
-- required capabilities are available.
+After the budget is exhausted:
 
-Stop for:
+- open product blockers → one material hard stop;
+- only verification/audit limitations → `completed_with_verification_debt`, release blocked, next owner goal allowed;
+- no open material findings → accepted closure.
 
-- outside-scope requirement;
-- destructive/publication action;
-- unavailable capability;
-- material-risk acceptance;
-- framework/runtime migration;
-- repeated identical failure without measurable progress.
-
-A same-failure threshold is a safety fuse, not the normal workflow.
+A new material finding after the comprehensive audit is `AUDIT_COVERAGE_MISS`. It must be recorded in Pipeline evals and must not silently reset the budget.

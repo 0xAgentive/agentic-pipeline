@@ -29,7 +29,7 @@ function Publish-AtomicFile {
   }
   New-Item -ItemType Directory -Force -Path $TargetParent | Out-Null
 
-  [System.IO.File]::Move($SourcePath, $TargetPath, $true)
+  Move-Item -LiteralPath $SourcePath -Destination $TargetPath -Force
 }
 
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)

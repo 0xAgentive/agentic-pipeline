@@ -1,8 +1,63 @@
 {
-  "hooks": [
-    {
-      "event": "manual",
-      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .agents/hooks/guard_preflight.ps1"
-    }
-  ]
+  "agentic-owner-autonomy": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .agents/hooks/agentic_runtime_hook.cjs prewrite",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .agents/hooks/agentic_runtime_hook.cjs precommand",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .agents/hooks/agentic_runtime_hook.cjs postwrite",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .agents/hooks/agentic_runtime_hook.cjs postcommand",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node .agents/hooks/agentic_runtime_hook.cjs preinvocation",
+        "timeout": 15
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node .agents/hooks/agentic_runtime_hook.cjs stop",
+        "timeout": 15
+      }
+    ]
+  }
 }

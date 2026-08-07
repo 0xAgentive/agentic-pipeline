@@ -1,25 +1,7 @@
-# Autonomous Convergence and Audit Coverage
+# Owner-Autonomous Convergence and Audit Coverage
 
-## Pre-write lease
+One comprehensive first audit publishes the complete material finding set for every acceptance outcome and every declared audit dimension. Unknown finding fields or statuses, missing dimensions and stale candidate identities fail closed.
 
-No product write is authorized until project, worktree, branch, baseline HEAD, work item, epoch, owner-goal fingerprint and exact execution scope agree.
+After the audit, Antigravity repairs open product blockers automatically while the evidence changes measurably. Late material findings remain in the same work item. Repeated equivalent no-progress or a real owner decision is the only reason to stop routine correction.
 
-## Comprehensive first audit
-
-A GUARDED audit begins with a coverage matrix mapping every acceptance outcome to surfaces, evidence and checks. The first audit publishes the complete material finding set before repair.
-
-## Grouped repairs
-
-Repair is driven by stable finding IDs. Related findings are fixed in one batch. Default GUARDED budget: three batches. A new finding after first-audit closure is an audit-coverage miss.
-
-## Protected reviewer
-
-Independent audit requires a separate read-only context and checkout, exact target HEAD, exact artifact manifest, and predicates not authored by the implementation context. Otherwise close with verification debt.
-
-## Scientific stage firewall
-
-Protocol Freeze may edit protocol, schemas, fixtures, adapters and validators. Production analytical behavior requires an explicit algorithm-repair sub-scope and a new analytical baseline.
-
-## Closure
-
-One compiler derives result, blocker and closure states from receipts. Narrative text never overrides the compiler.
+The Companion does not issue a new long Document after every handoff. It creates an Action Packet with the technical delta and shows the owner a brief plain-language summary.

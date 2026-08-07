@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.1.0",
+  "mode": "enforcing",
+  "authorization_model": "progress_and_material_risk",
+  "auto_continue_while_progress": true,
+  "consecutive_no_progress_limit": 2,
+  "same_failure_limit": 2,
+  "late_material_finding_policy": "register_and_continue",
+  "owner_decision_reasons": [
+    "scope_or_requirement_change",
+    "destructive_or_irreversible_action",
+    "publication_or_release",
+    "credentials_private_data_or_paid_network_access",
+    "material_risk_acceptance",
+    "normative_protocol_change",
+    "required_capability_unavailable"
+  ],
+  "owner_permission_never_required_for": [
+    "additional_repair_iteration",
+    "audit_correction",
+    "verification_retry",
+    "tool_or_shell_retry",
+    "manifest_or_evidence_rebuild",
+    "current_scope_control_plane_repair"
+  ]
+}

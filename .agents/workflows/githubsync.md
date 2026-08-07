@@ -1,4 +1,4 @@
-﻿---
+---
 description: Commit and push the current project to GitHub through deterministic git/gh commands. No GitHub MCP required.
 ---
 

@@ -89,7 +89,9 @@ const SUPPORTED_SCHEMA_KEYS = new Set([
   'items',
   'minLength',
   'minItems',
-  'minimum'
+  'minimum',
+  'maximum',
+  'uniqueItems'
 ]);
 
 function assertSupportedSchema(schema, location = '$') {
@@ -271,15 +273,15 @@ function testSchemaValidator() {
 
 function activeCompanionFiles(repoRoot) {
   return [
-    'docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.4.md',
+    'docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.8.md',
     'docs/companion/01_CONTEXT_SPLIT_POLICY.md',
-    'docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.4.md',
+    'docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.8.md',
     'docs/companion/03_PRODUCT_EVIDENCE_CONTROL_PLANE.md',
     'docs/companion/04_PROJECT_AUDIT_AND_RECOVERY.md',
     'docs/companion/05_DOMAIN_SPECIFIC_LESSONS_OPTIONAL.md',
     'docs/companion/06_RUNTIME_TRUTH_REVIEW_POLICY.md',
     'docs/companion/07_RUNTIME_HANDSHAKE_AND_COMMAND_ROUTING.md',
-    'docs/companion/08_PHASE_CONTRACT_AND_REPAIR_BUDGET.md',
+    'docs/companion/08_PHASE_CONTRACT_AND_PROGRESS_POLICY.md',
     'docs/companion/09_EVIDENCE_LEVELS_AND_BLOCKER_POLICY.md',
     'docs/companion/10_STATUS_AND_FINDING_LIFECYCLE.md',
     'docs/companion/11_PROMPT_COMPILER_AND_RESULT_AUTHORITY.md',
@@ -287,8 +289,8 @@ function activeCompanionFiles(repoRoot) {
     'docs/companion/13_LOCAL_CONTROL_TOOLS.md',
     'docs/companion/14_AUTONOMOUS_CONVERGENCE_AND_AUDIT_COVERAGE.md',
     'docs/companion/15_OWNER_OUTPUT_PRESENTATION.md',
-    'docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.4.md',
-    'docs/companion/README_INSTALL_RU_v1.2.4.md',
+    'docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.8.md',
+    'docs/companion/README_INSTALL_RU_v1.2.8.md',
     'docs/companion/README.md',
     'docs/companion/VERSION.json'
   ].map((relative) => path.join(repoRoot, relative));
@@ -296,7 +298,7 @@ function activeCompanionFiles(repoRoot) {
 
 function makeLegacyResult(input, partial) {
   let resolved = partial.resolved_commands_allowed_now || input.available_commands || [];
-  if (input.repair_budget_exhausted && !input.user_continue_repair_authorized) {
+  if (input.progress_stalled === true) {
     const blocked = new Set(['/fixcritical', '/nextphase', '/fastpatch']);
     resolved = resolved.filter((command) => !blocked.has(command));
   }
@@ -340,8 +342,8 @@ function route(input) {
       routing_errors: [`Requested command '${requested}' is not installed in project-local inventory.`]
     });
   }
-  if (input.repair_budget_exhausted && !input.user_continue_repair_authorized && !input.work_item_id) {
-    return makeLegacyResult(input, { decision: 'human_decision_required', command: null });
+  if (input.progress_stalled === true && !input.work_item_id) {
+    return makeLegacyResult(input, { decision: 'hard_stop_no_progress', command: null });
   }
   if (input.required_child_exit_codes &&
       input.required_child_exit_codes.some((code) => Number(code) !== 0)) {
@@ -432,13 +434,13 @@ function route(input) {
       inventory_sha256: inventorySource === 'missing' ? null : 'a'.repeat(64)
     },
     installation_facts: {
-      installed_project_package_version: '1.2.6',
-      installed_project_runtime_version: '1.2.3',
+      installed_project_package_version: '1.2.8',
+      installed_project_runtime_version: '1.2.8',
       installed_project_source_commit: 'legacy-fixture'
     },
     central_inventory_advisory: {
-      package_version: '1.2.6',
-      runtime_version: '1.2.3',
+      package_version: '1.2.8',
+      runtime_version: '1.2.8',
       commands: []
     },
     git_facts: {
@@ -506,8 +508,9 @@ function route(input) {
         input.claims_evidence_consistent !== undefined ? input.claims_evidence_consistent : true
     },
     repair_facts: {
-      repair_budget_known: true,
-      repair_budget_exhausted: input.repair_budget_exhausted === true,
+      repair_budget_known: false,
+      repair_budget_exhausted: false,
+      progress_stalled: input.progress_stalled === true,
       user_continue_repair_authorized: input.user_continue_repair_authorized === true,
       registered_repair_cycle_count: input.registered_repair_cycle_count || 0,
       hard_stop: input.hard_stop === true,
@@ -623,18 +626,18 @@ function route(input) {
   }
 
   if (input.current_status === 'acceptance_blocked' && gitState === 'clean') {
-    const budgetBlocked = input.repair_budget_exhausted && !input.user_continue_repair_authorized;
+    const progressStalled = input.progress_stalled === true;
     const legacyAllowed = [...available]
       .filter((command) => command !== '/landing')
-      .filter((command) => !budgetBlocked || !['/fixcritical', '/nextphase', '/fastpatch'].includes(command))
+      .filter((command) => !progressStalled || !['/fixcritical', '/nextphase', '/fastpatch'].includes(command))
       .sort();
     legacy.resolved_commands_allowed_now = legacyAllowed;
-    if (budgetBlocked) {
+    if (progressStalled) {
       legacy.next_required_command = null;
-      legacy.decision = 'human_decision_required';
+      legacy.decision = 'hard_stop';
       legacy.command = null;
       legacy.routing_valid = true;
-      legacy.routing_errors = [];
+      legacy.routing_errors = ['Repeated no-progress. No request for another repair iteration is allowed.'];
     }
   }
 
@@ -844,7 +847,11 @@ function validatePack(repoRoot) {
     'convergence-budget.schema.json',
     'reviewer-attestation.schema.json',
     'stage-firewall.schema.json',
-    'closure-state.schema.json'
+    'closure-state.schema.json',
+    'progress-state.schema.json',
+    'next-action.schema.json',
+    'candidate-manifest-status.schema.json',
+    'action-packet.schema.json'
   ]) {
     const filePath = path.join(schemaDir, name);
     if (!fs.existsSync(filePath)) {
@@ -861,8 +868,8 @@ function validatePack(repoRoot) {
   const companionVersionPath = path.join(repoRoot, 'docs', 'companion', 'VERSION.json');
   if (fs.existsSync(companionVersionPath)) {
     const version = readJson(companionVersionPath);
-    if (version.companion_version !== '1.2.4') {
-      errors.push('Companion VERSION.json does not declare 1.2.4');
+    if (version.companion_version !== '1.2.8') {
+      errors.push('Companion VERSION.json does not declare 1.2.8');
     }
   }
 

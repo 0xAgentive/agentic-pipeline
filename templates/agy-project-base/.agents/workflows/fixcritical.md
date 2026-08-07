@@ -1,28 +1,15 @@
----
-description: Repair confirmed current-scope findings in one bounded grouped batch.
----
-
 # /fixcritical
 
-Continue the current work item. Never create a new semantic brief.
+Goal: repair all open, confirmed, auto-repairable product blockers in the current owner-approved work item.
 
-## Inputs
+Prerequisites: active work item; exact execution lease; active stage firewall; schema-valid findings; current candidate identity or an explicitly invalidated manifest.
 
-- immutable `WORK_ITEM.json`;
-- valid `EXECUTION_LEASE.json`;
-- `FINDINGS.json`;
-- current `REPAIR_DELTA.json`;
-- `REPAIR_BUDGET.json`;
-- optional `STAGE_FIREWALL.json`.
+Behavior:
+1. Group related findings by subsystem and repair the smallest coherent group.
+2. Continue automatically while `PROGRESS_STATE.json` shows measurable progress.
+3. Register late findings without asking the owner and keep the same work item.
+4. Re-run focused and affected regression checks after each coherent repair.
+5. Publish repair delta, progress state and next action.
+6. Stop only for a true owner decision or two repeated no-progress outcomes.
 
-## Procedure
-
-1. Validate execution lease and repair budget.
-2. Repair only the finding IDs in the current repair delta.
-3. Do not expand scope without one material hard stop.
-4. Update finding lifecycle: `open_confirmed → fixed_unverified → verified_resolved`.
-5. Run only the affected deterministic verification plus required regressions.
-6. Register the grouped repair batch once.
-7. Return to final audit or closure compiler.
-
-If the budget is exhausted, close with verification debt when only verification/release limitations remain, or issue one product hard stop when product blockers remain.
+Continue confirmed repairs automatically while measurable progress is observed.

@@ -1,74 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Convergence Budget v1",
+  "title": "Legacy Convergence Budget v1 (deprecated)",
+  "description": "Compatibility only. Runtime 1.2.8 never blocks work because a count is exhausted.",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "schema_version",
-    "work_item_id",
-    "assurance_mode",
-    "initial_audit_limit",
-    "repair_batch_limit",
-    "final_audit_limit",
-    "initial_audits_used",
-    "repair_batches_used",
-    "final_audits_used",
-    "status",
-    "updated_at_utc"
+    "work_item_id"
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "type": "string"
     },
     "work_item_id": {
       "type": "string"
     },
-    "assurance_mode": {
-      "enum": [
-        "flow",
-        "guarded",
-        "release"
-      ]
-    },
-    "initial_audit_limit": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "repair_batch_limit": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "final_audit_limit": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "initial_audits_used": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "repair_batches_used": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "final_audits_used": {
-      "type": "integer",
-      "minimum": 0
-    },
     "status": {
-      "enum": [
-        "available",
-        "exhausted",
-        "closed"
-      ]
-    },
-    "updated_at_utc": {
       "type": "string"
-    },
-    "history": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
     }
   }
 }

@@ -1,0 +1,284 @@
+{
+  "schema_version": "1.2.8",
+  "ecosystem_version": "1.2.8",
+  "title": "Known failure regression playbook",
+  "policy": "Every known failure class must be checked against the exact final candidate before local or GitHub mutation.",
+  "cases": [
+    {
+      "id": "KF-001",
+      "name": "PowerShell variable followed by colon",
+      "layer": "powershell",
+      "expected": "no ambiguous $Name: interpolation outside scoped variables"
+    },
+    {
+      "id": "KF-002",
+      "name": "PowerShell automatic args misuse",
+      "layer": "powershell",
+      "expected": "no foreach/assignment/splat through automatic $args"
+    },
+    {
+      "id": "KF-003",
+      "name": "WindowsApps bash alias",
+      "layer": "installer",
+      "expected": "bash is used only after GNU Bash functional probe"
+    },
+    {
+      "id": "KF-004",
+      "name": "Git TLS transport",
+      "layer": "github",
+      "expected": "safe HTTPS profiles without disabling certificate validation"
+    },
+    {
+      "id": "KF-005",
+      "name": "Runtime update installation mode",
+      "layer": "runtime",
+      "expected": "runtime-update mode is supported and manifest is truthful"
+    },
+    {
+      "id": "KF-006",
+      "name": "Runtime overlay documentation scan",
+      "layer": "runtime",
+      "expected": "deployed runtime validation skips repository-only docs"
+    },
+    {
+      "id": "KF-007",
+      "name": "Dirty project runtime root",
+      "layer": "runtime",
+      "expected": "allowlisted update supports reviewed dirty roots and never cleans product source"
+    },
+    {
+      "id": "KF-008",
+      "name": "UTF-8 Cyrillic path handoff",
+      "layer": "installer",
+      "expected": "machine paths are read from UTF-8 result JSON, not parsed from console text"
+    },
+    {
+      "id": "KF-009",
+      "name": "Human docs and compatibility README",
+      "layer": "docs",
+      "expected": "active links resolve and README_RU redirects to README.ru.md"
+    },
+    {
+      "id": "KF-010",
+      "name": "Version matrix drift",
+      "layer": "docs",
+      "expected": "canonical and reference version matrices match"
+    },
+    {
+      "id": "KF-011",
+      "name": "Golden case baseline drift",
+      "layer": "tests",
+      "expected": "case count, IDs and source hash match"
+    },
+    {
+      "id": "KF-012",
+      "name": "Owner repair counter prompt",
+      "layer": "companion",
+      "expected": "owner-facing files contain no counter authorization or x/y status"
+    },
+    {
+      "id": "KF-013",
+      "name": "False-positive policy scan",
+      "layer": "tests",
+      "expected": "validator does not reject compliant negative wording"
+    },
+    {
+      "id": "KF-014",
+      "name": "Unified ecosystem version",
+      "layer": "release",
+      "expected": "all owner-visible components and assets use 1.2.8"
+    },
+    {
+      "id": "KF-015",
+      "name": "Wrong worktree first write",
+      "layer": "runtime",
+      "expected": "pre-write hook blocks before mutation"
+    },
+    {
+      "id": "KF-016",
+      "name": "Non-atomic work item activation",
+      "layer": "runtime",
+      "expected": "work item, scope, firewall, lease, handshake and route bind atomically"
+    },
+    {
+      "id": "KF-017",
+      "name": "Malformed findings false closure",
+      "layer": "control-plane",
+      "expected": "unknown finding schema or lifecycle fails closed"
+    },
+    {
+      "id": "KF-018",
+      "name": "Ambient dirty candidate manifest",
+      "layer": "control-plane",
+      "expected": "manifest contains leased candidate files only and invalidates after writes"
+    },
+    {
+      "id": "KF-019",
+      "name": "Placeholder tests",
+      "layer": "tests",
+      "expected": "mandatory tests cannot pass through assert true, pass or import suppression"
+    },
+    {
+      "id": "KF-020",
+      "name": "Mutation before complete preflight",
+      "layer": "installer",
+      "expected": "isolated candidate validators and all release builds pass before main changes"
+    },
+    {
+      "id": "KF-021",
+      "name": "Rollback fidelity",
+      "layer": "installer",
+      "expected": "failed mutation restores baseline HEAD and clean tree"
+    },
+    {
+      "id": "KF-022",
+      "name": "Companion source parity",
+      "layer": "release",
+      "expected": "repository, local package and GitHub asset contain identical active Companion files"
+    },
+    {
+      "id": "KF-023",
+      "name": "Action packet delivery",
+      "layer": "bridge",
+      "expected": "single JSON packet is auto-imported from Downloads and injected by hook"
+    },
+    {
+      "id": "KF-024",
+      "name": "Wrong project handoff",
+      "layer": "handoff",
+      "expected": "project identity gate blocks unrelated workspace context"
+    },
+    {
+      "id": "KF-025",
+      "name": "Runtime root versus product worktree",
+      "layer": "handoff",
+      "expected": "both roles are represented separately"
+    },
+    {
+      "id": "KF-026",
+      "name": "Fake acceptance artifact",
+      "layer": "handoff",
+      "expected": "missing real artifact or project handoff cannot be synthesized into PASS"
+    },
+    {
+      "id": "KF-027",
+      "name": "Final package validation order",
+      "layer": "release",
+      "expected": "final bytes are closed, reopened and verified before attestation"
+    },
+    {
+      "id": "KF-028",
+      "name": "Owner-facing technical overload",
+      "layer": "companion",
+      "expected": "chat output uses four plain-Russian sections; technical detail stays in packet"
+    },
+    {
+      "id": "KF-029",
+      "name": "Manual owner relay",
+      "layer": "bridge",
+      "expected": "owner downloads JSON only; local bridge performs project delivery"
+    },
+    {
+      "id": "KF-030",
+      "name": "First-error-only preflight",
+      "layer": "installer",
+      "expected": "candidate validation reports all independent failures in one run"
+    },
+    {
+      "id": "KF-037",
+      "name": "PowerShell singleton-array normalization",
+      "layer": "powershell",
+      "expected": "ToArray results used with Count remain typed arrays even when zero or one item is returned"
+    },
+    {
+      "id": "KF-031",
+      "name": "Flow restoration parameter compatibility",
+      "layer": "runtime",
+      "expected": "New-WorkItem accepts PipelineRoot and emits an atomic new-work-item packet"
+    },
+    {
+      "id": "KF-032",
+      "name": "PowerShell automatic-variable collision",
+      "layer": "powershell",
+      "expected": "active scripts do not bind or assign reserved automatic variables"
+    },
+    {
+      "id": "KF-033",
+      "name": "Generic List array coercion",
+      "layer": "powershell",
+      "expected": "Generic List values use ToArray instead of direct @($list)"
+    },
+    {
+      "id": "KF-034",
+      "name": "State-profile runtime-version drift",
+      "layer": "runtime",
+      "expected": "all active state profiles match VERSION.json runtime_version"
+    },
+    {
+      "id": "KF-035",
+      "name": "Project-specific deployment leakage",
+      "layer": "release",
+      "expected": "canonical production scripts are project-agnostic"
+    },
+    {
+      "id": "KF-036",
+      "name": "Runtime-update installation-manifest mode",
+      "layer": "runtime",
+      "expected": "shared manifest writer accepts runtime-update and emits no product route"
+    },
+    {
+      "id": "KF-038",
+      "name": "StrictMode optional action-packet property",
+      "layer": "powershell",
+      "expected": "missing optional packet fields are normalized instead of throwing"
+    },
+    {
+      "id": "KF-039",
+      "name": "Meta-regression test implementation failure",
+      "layer": "validation",
+      "expected": "known-failure test uses readable PowerShell and cannot fail from method-like invocation syntax"
+    },
+    {
+      "id": "KF-040",
+      "name": "Operational versus advisory gate separation",
+      "layer": "installer",
+      "expected": "documentation and cosmetic warnings do not block a core-safe deployment"
+    },
+    {
+      "id": "KF-041",
+      "name": "Full operational deployment smoke",
+      "layer": "installer",
+      "expected": "work-item transaction, runtime update and Action Bridge import pass in one Unicode-path fixture"
+    },
+    {
+      "id": "KF-042",
+      "name": "No product route from runtime update",
+      "layer": "runtime",
+      "expected": "runtime-update manifest keeps next_command null"
+    },
+    {
+      "id": "KF-043",
+      "name": "Canonical full source package deployment",
+      "layer": "release",
+      "expected": "local repository and GitHub release use the same validated full source tree"
+    },
+    {
+      "id": "KF-044",
+      "name": "Resumable network publication",
+      "layer": "github",
+      "expected": "transient GitHub failure preserves local success and supports publication retry"
+    },
+    {
+      "id": "KF-045",
+      "name": "Non-material line-ending warnings",
+      "layer": "git",
+      "expected": "LF/CRLF warnings and trailing-whitespace advisories do not masquerade as product blockers"
+    },
+    {
+      "id": "KF-046",
+      "name": "Control-plane writer/schema revision parity",
+      "layer": "runtime",
+      "expected": "active 1.1 control-plane writers produce documents accepted by the corresponding schemas while 1.0 state remains compatible"
+    }
+  ]
+}

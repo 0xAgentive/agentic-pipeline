@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "ecosystem_version": "1.2.8",
+  "release_name": "Unified Owner-Autonomous Execution",
+  "components": {
+    "pipeline": "1.2.8",
+    "runtime": "1.2.8",
+    "playbook": "1.2.8",
+    "companion": "1.2.8",
+    "action_bridge": "1.2.8",
+    "context_handoff": "1.2.8"
+  },
+  "status": "stable"
+}

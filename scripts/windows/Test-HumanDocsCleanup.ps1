@@ -146,9 +146,6 @@ if ($Errors.Count -gt 0) {
   exit 1
 }
 
-Write-Host "Human Docs validation passed." -ForegroundColor Green
-exit 0
-
 # AGY_NO_FILE_URI_GUARD_START
 # Reject local file:// links in active public documentation.
 $ActiveMarkdownForFileUriGuard = @()
@@ -180,3 +177,6 @@ if ($FileUriHits.Count -gt 0) {
   throw "Forbidden file:/// links found: $($FileUriHits.Count)"
 }
 # AGY_NO_FILE_URI_GUARD_END
+
+Write-Host "Human Docs validation passed." -ForegroundColor Green
+exit 0

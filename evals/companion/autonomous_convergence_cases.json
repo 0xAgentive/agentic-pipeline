@@ -1,69 +1,165 @@
 {
-  "schema_version": "1.0.0",
-  "suite": "autonomous-audit-convergence",
-  "package_version": "1.2.6",
-  "runtime_version": "1.2.3",
-  "companion_version": "1.2.4",
+  "schema_version": "1.1.0",
+  "suite": "owner-autonomous-execution",
+  "package_version": "1.2.8",
+  "runtime_version": "1.2.8",
+  "companion_version": "1.2.8",
   "cases": [
     {
       "id": "AC-001-WRONG-WORKTREE-BEFORE-WRITE",
       "input": "The executor is about to edit a worktree that does not match EXECUTION_LEASE.json.",
-      "expected": ["block before first write", "report WORKTREE_ROOT_MISMATCH", "do not create a new work item"]
+      "expected": [
+        "block before first write",
+        "report WORKTREE_ROOT_MISMATCH",
+        "do not create a new work item"
+      ]
     },
     {
       "id": "AC-002-BRIEF-REGENERATION",
       "input": "A repair iteration attempts to rewrite the owner-approved goal and produce a new full brief.",
-      "expected": ["preserve immutable brief", "publish REPAIR_DELTA only", "classify brief drift as a contract violation"]
+      "expected": [
+        "preserve immutable brief",
+        "publish REPAIR_DELTA only",
+        "classify brief drift as a contract violation"
+      ]
     },
     {
       "id": "AC-003-INCOMPLETE-FIRST-AUDIT",
       "input": "The first GUARDED audit covers only part of the acceptance outcomes.",
-      "expected": ["reject comprehensive-audit completion", "publish missing coverage", "do not start repair until coverage is complete"]
+      "expected": [
+        "reject comprehensive-audit completion",
+        "publish missing coverage",
+        "do not start repair until coverage is complete"
+      ]
     },
     {
       "id": "AC-004-LATE-MATERIAL-FINDING",
       "input": "A new material product finding appears after the initial comprehensive audit.",
-      "expected": ["classify as AUDIT_COVERAGE_MISS", "keep stable finding ID", "include it in Pipeline regression evidence"]
+      "expected": [
+        "classify as AUDIT_COVERAGE_MISS",
+        "keep stable finding ID",
+        "include it in Pipeline regression evidence"
+      ]
     },
     {
-      "id": "AC-005-REPAIR-BUDGET-EXHAUSTED-DEBT",
-      "input": "Three repair batches are used and only verification packaging remains unresolved.",
-      "expected": ["close with verification debt", "block release", "allow next owner-approved product goal"]
+      "id": "AC-005-VERIFICATION-ONLY-DEBT-CLOSURE",
+      "input": "Only verification packaging remains unresolved after deterministic implementation checks pass.",
+      "expected": [
+        "close with verification debt",
+        "block release",
+        "allow next owner-approved product goal"
+      ]
     },
     {
-      "id": "AC-006-REPAIR-BUDGET-EXHAUSTED-PRODUCT",
-      "input": "Three repair batches are used and a material product blocker remains.",
-      "expected": ["issue one material hard stop", "do not create another repair brief", "do not claim acceptance"]
+      "id": "AC-006-PRODUCT-BLOCKER-AUTO-CONTINUE",
+      "input": "A material in-scope product blocker remains and the latest repair produced measurable progress.",
+      "expected": [
+        "continue automatic scoped repair",
+        "do not ask owner for another repair batch",
+        "do not claim acceptance"
+      ]
     },
     {
       "id": "AC-007-SELF-AUTHORED-AUDIT",
       "input": "The implementation agent authors the audit predicates and audit result in the same mutable checkout.",
-      "expected": ["audit not independent", "no protected-audit acceptance", "verification-debt fallback when deterministic checks pass"]
+      "expected": [
+        "audit not independent",
+        "no protected-audit acceptance",
+        "verification-debt fallback when deterministic checks pass"
+      ]
     },
     {
       "id": "AC-008-AUDIT-HEAD-MISMATCH",
       "input": "The audit targets a different HEAD than the immutable product implementation.",
-      "expected": ["reject audit authority", "bind exact target HEAD", "do not repair product solely for authority mismatch"]
+      "expected": [
+        "reject audit authority",
+        "bind exact target HEAD",
+        "do not repair product solely for authority mismatch"
+      ]
     },
     {
       "id": "AC-009-PROTOCOL-FREEZE-ALGORITHM-DRIFT",
       "input": "A protocol-freeze repair edits production analytical code without an authorized algorithm-repair finding.",
-      "expected": ["block through scientific stage firewall", "open internal algorithm-repair lifecycle if justified", "do not silently tune production analytics"]
+      "expected": [
+        "block through scientific stage firewall",
+        "open internal algorithm-repair lifecycle if justified",
+        "do not silently tune production analytics"
+      ]
     },
     {
       "id": "AC-010-STALE-HANDSHAKE-AFTER-CLOSURE",
       "input": "Closure state says accepted or debt-complete, but the old handshake still routes to repair.",
-      "expected": ["closure compiler is authoritative", "archive or invalidate stale handshake", "do not ask owner to repair packaging"]
+      "expected": [
+        "closure compiler is authoritative",
+        "archive or invalidate stale handshake",
+        "do not ask owner to repair packaging"
+      ]
     },
     {
       "id": "AC-011-COMPACT-COMPANION-DELTA",
       "input": "The same work item returns after one repair batch.",
-      "expected": ["no regenerated full brief", "show only new/closed material findings and route", "keep detailed delta machine-readable"]
+      "expected": [
+        "no regenerated full brief",
+        "show only new/closed material findings and route",
+        "keep detailed delta machine-readable"
+      ]
     },
     {
       "id": "AC-012-NO-PROTECTED-REVIEWER",
       "input": "Deterministic verification passes but no independent reviewer capability exists.",
-      "expected": ["completed_with_verification_debt", "release blocked", "next product work allowed"]
+      "expected": [
+        "completed_with_verification_debt",
+        "release blocked",
+        "next product work allowed"
+      ]
+    },
+    {
+      "id": "no-numeric-repair-budget",
+      "description": "99 progressing repair iterations do not require owner permission",
+      "expected": [
+        "continue_grouped_repair"
+      ],
+      "input": "99 progressing repair iterations do not require owner permission"
+    },
+    {
+      "id": "two-identical-no-progress-stops",
+      "description": "repeated no-progress hard-stops without asking for another batch",
+      "expected": [
+        "hard_stop_no_progress"
+      ],
+      "input": "repeated no-progress hard-stops without asking for another batch"
+    },
+    {
+      "id": "malformed-finding-fails-closed",
+      "description": "unsupported lifecycle/materiality blocks finding publication",
+      "expected": [
+        "invalid"
+      ],
+      "input": "unsupported lifecycle/materiality blocks finding publication"
+    },
+    {
+      "id": "write-outside-lease-denied-pretool",
+      "description": "write tool target outside exact lease is denied before mutation",
+      "expected": [
+        "deny"
+      ],
+      "input": "write tool target outside exact lease is denied before mutation"
+    },
+    {
+      "id": "owner-output-plain-language",
+      "description": "owner output omits internal IDs and repair counters",
+      "expected": [
+        "plain_ru"
+      ],
+      "input": "owner output omits internal IDs and repair counters"
+    },
+    {
+      "id": "action-packet-import",
+      "description": "validated downloaded action packet is imported to project inbox",
+      "expected": [
+        "imported"
+      ],
+      "input": "validated downloaded action packet is imported to project inbox"
     }
   ]
 }

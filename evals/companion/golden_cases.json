@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "companion_version": "1.2.2",
   "cases": [
     {
@@ -46,12 +46,17 @@
     {
       "id": "second_repair_cycle_requires_human_decision",
       "input": {
-        "repair_budget_exhausted": true
+        "repair_budget_exhausted": true,
+        "confirmed_blockers": true,
+        "available_commands": [
+          "/fixcritical"
+        ]
       },
       "expected": {
-        "decision": "human_decision_required",
-        "command": null
-      }
+        "decision": "route",
+        "command": "/fixcritical"
+      },
+      "migration_note": "Historical case ID retained. Runtime 1.2.8 ignores numerical repair limits and continues a confirmed in-scope repair."
     },
     {
       "id": "research_track_ignores_delivery_only_debt",
@@ -739,14 +744,17 @@
       },
       "expected": {
         "routing_mode": "normal",
-        "resolved_commands_allowed_now": [],
-        "next_required_command": null,
-        "decision": "human_decision_required",
-        "command": null,
+        "resolved_commands_allowed_now": [
+          "/fixcritical"
+        ],
+        "next_required_command": "/fixcritical",
+        "decision": "route",
+        "command": "/fixcritical",
         "routing_valid": true,
         "routing_errors": [],
         "reason_codes": []
-      }
+      },
+      "migration_note": "Historical case ID retained. The repair-budget input is ignored in Pipeline 1.2.8."
     },
     {
       "id": "repair_budget_exhausted_with_user_override_routes_fixcritical",
@@ -773,7 +781,8 @@
         "routing_valid": true,
         "routing_errors": [],
         "reason_codes": []
-      }
+      },
+      "migration_note": "Historical case ID retained. Owner override is no longer required for routine repair continuation."
     },
     {
       "id": "ready_to_ship_without_complete_evidence_blocks_shipcheck",
@@ -980,6 +989,18 @@
         "routing_errors": [],
         "reason_codes": []
       }
+    },
+    {
+      "id": "repeated_no_progress_stops_without_repair_override_prompt",
+      "input": {
+        "progress_stalled": true
+      },
+      "expected": {
+        "decision": "hard_stop_no_progress",
+        "command": null
+      },
+      "description": "Two repeated identical no-progress outcomes stop the current execution without asking the owner to authorize another repair batch."
     }
-  ]
+  ],
+  "suite_version": "1.2.8"
 }

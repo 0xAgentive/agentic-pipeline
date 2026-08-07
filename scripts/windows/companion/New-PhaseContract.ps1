@@ -14,8 +14,10 @@ param(
   [string[]]$BlockingConditions = @(),
   [string[]]$NonBlockingDebtCategories = @("delivery","observability","cosmetic"),
   [string[]]$NextAllowedCommands = @("/auditphase"),
-  [int]$MaxAuditFixCyclesPerSubsystem = 1,
-  [int]$MaxTotalRepairsPerPhase = 2,
+  [int]$ConsecutiveNoProgressLimit = 2,
+  [int]$SameFailureLimit = 2,
+  [int]$MaxAuditFixCyclesPerSubsystem = 0, # deprecated compatibility input; ignored
+  [int]$MaxTotalRepairsPerPhase = 0, # deprecated compatibility input; ignored
   [string]$PipelineRoot = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline",
   [Parameter(Mandatory=$false)][ValidateRange(1, 2147483647)][int]$ContractVersion = 0,
   [string]$InjectFailurePoint = $null,
@@ -176,8 +178,8 @@ if (Test-Path -LiteralPath $ContractPath -PathType Leaf) {
   if (!$PSBoundParameters.ContainsKey('BlockingConditions') -and $null -ne $CurrentContract.blocking_conditions) { $BlockingConditions = [string[]]$CurrentContract.blocking_conditions }
   if (!$PSBoundParameters.ContainsKey('NonBlockingDebtCategories') -and $null -ne $CurrentContract.non_blocking_debt_categories) { $NonBlockingDebtCategories = [string[]]$CurrentContract.non_blocking_debt_categories }
   if (!$PSBoundParameters.ContainsKey('NextAllowedCommands') -and $null -ne $CurrentContract.next_allowed_commands) { $NextAllowedCommands = [string[]]$CurrentContract.next_allowed_commands }
-  if (!$PSBoundParameters.ContainsKey('MaxAuditFixCyclesPerSubsystem') -and $null -ne $CurrentContract.repair_budget -and $null -ne $CurrentContract.repair_budget.max_audit_fix_cycles_per_subsystem) { $MaxAuditFixCyclesPerSubsystem = [int]$CurrentContract.repair_budget.max_audit_fix_cycles_per_subsystem }
-  if (!$PSBoundParameters.ContainsKey('MaxTotalRepairsPerPhase') -and $null -ne $CurrentContract.repair_budget -and $null -ne $CurrentContract.repair_budget.max_total_repairs_per_phase) { $MaxTotalRepairsPerPhase = [int]$CurrentContract.repair_budget.max_total_repairs_per_phase }
+  if (!$PSBoundParameters.ContainsKey('ConsecutiveNoProgressLimit') -and $null -ne $CurrentContract.progress_policy) { $ConsecutiveNoProgressLimit = [int]$CurrentContract.progress_policy.consecutive_no_progress_limit }
+  if (!$PSBoundParameters.ContainsKey('SameFailureLimit') -and $null -ne $CurrentContract.progress_policy) { $SameFailureLimit = [int]$CurrentContract.progress_policy.same_failure_limit }
 } else {
   if ($Replace) {
     throw "Cannot replace contract because no contract exists at: $ContractPath"
@@ -223,10 +225,10 @@ $Contract = [ordered]@{
   acceptance_criteria = [string[]]$AcceptanceCriteria
   blocking_conditions = [string[]]$BlockingConditions
   non_blocking_debt_categories = [string[]]$NonBlockingDebtCategories
-  repair_budget = [ordered]@{
-    max_audit_fix_cycles_per_subsystem = $MaxAuditFixCyclesPerSubsystem
-    max_total_repairs_per_phase = $MaxTotalRepairsPerPhase
-    on_budget_exhausted = "human_decision_required"
+  progress_policy = [ordered]@{
+    auto_continue_while_progress = $true
+    consecutive_no_progress_limit = $ConsecutiveNoProgressLimit
+    same_failure_limit = $SameFailureLimit
   }
   next_allowed_commands = [string[]]$NextAllowedCommands
   frozen_at_utc = if ($Apply) { (Get-Date).ToUniversalTime().ToString("o") } else { $null }

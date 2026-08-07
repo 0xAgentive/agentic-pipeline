@@ -60,9 +60,9 @@ Checklists and templates for pipeline development and future scoping:
 
 ## ChatGPT Companion
 
-- [ChatGPT Companion Pack v1.2.3](companion/README.md)
+- [ChatGPT Companion Pack v1.2.8](companion/README.md)
 
 ## Distribution and maintenance
 
-- [Distribution Integrity v1.2.3](maintainers/DISTRIBUTION_INTEGRITY_v1.2.3.md)
+- [Distribution Integrity v1.2.3](archive/DISTRIBUTION_INTEGRITY_v1.2.3.md)
 - [Pipeline Version Matrix](PIPELINE_VERSION_MATRIX.md)

@@ -1,74 +1,45 @@
 # Runtime Agent Instructions
 
-Framework Runtime Version: `1.2.3`
+Framework Runtime Version: `1.2.8`
 Primary runtime: Google Antigravity
-Hook mode by default: manual guard scripts
+Hook mode: active project-local enforcement
 
-This file is the canonical runtime instruction surface for the project. Root `AGENTS.md` is only a pointer.
+## Core operating rule
 
-## Start with current authority
+The owner approves a product goal once. Routine implementation, audit correction, verification retry and current-scope repair continue automatically. Routine work continues automatically while measurable progress is observed. Internal iteration counts never require owner approval. Stop only for a true owner decision or repeated no-progress.
 
-Before substantial work read:
+## Current authority
 
-- `.agy/FLOW_POLICY.json` when present;
-- `.agy/WORK_ITEM.json` when present;
-- `.agy/EXECUTION_LEASE.json`, `.agy/AUDIT_COVERAGE_MATRIX.json`, `.agy/FINDINGS.json`, `.agy/REPAIR_DELTA.json` and `.agy/CLOSURE_STATE.json` when present;
-- `.agy/EXECUTION_SCOPE.json` when present;
-- `.agy/RUN_RESULT.json` when present;
-- `.agy/RUNTIME_HANDSHAKE.json` when present;
-- legacy `.agy/PHASE_STATUS.json`, `.agy/AGENT_STATE.md` and `.agy/RECOVERY_PROMPT.md` for compatibility;
-- the selected workflow under `.agents/workflows/`.
+Read `.agy/ACTION_PACKET_RECEIPT.json`, `.agy/WORK_ITEM.json`, `.agy/EXECUTION_SCOPE.json`, `.agy/EXECUTION_LEASE.json`, `.agy/STAGE_FIREWALL.json`, `.agy/PROGRESS_STATE.json`, `.agy/NEXT_ACTION.json`, `.agy/FINDINGS.json`, `.agy/AUDIT_COVERAGE_MATRIX.json`, `.agy/CANDIDATE_MANIFEST_STATUS.json` and `.agy/RUNTIME_HANDSHAKE.json` when present.
 
-A shadow candidate route is diagnostic only. It does not authorize writes.
+## Before writes
 
-## Work-item terminality
+- Start a new owner goal through `Start-WorkItemTransaction.ps1`.
+- Perform read-only discovery.
+- Bind exact paths and allowed commands through `Bind-ExecutionScopeTransaction.ps1`.
+- Active `PreToolUse` hooks deny file writes and mutation commands outside that lease.
+- A scientific-stage firewall must be active for health/scientific work.
 
-`SHIP` closes one work item. It does not close the project.
-A new explicit owner goal opens a new work item and may route to `/nextphase`.
-Only an explicit archived project state closes future product work.
+## Convergence
 
-## Assurance modes
+Continue while there is measurable progress. `Register-Progress.ps1` tracks product findings, tests and candidate identities. Iteration counts are informational only. Two identical/no-progress outcomes trigger one hard stop; they never trigger an owner request for more repair permission.
 
-- FLOW: ordinary product work; targeted verification; compact result.
-- GUARDED: privacy, exports, data integrity, security, health-adjacent or packaged behavior; protected audit.
-- RELEASE: publication, migration, distributable identity and release provenance.
+Owner interaction is permitted only for scope/requirements change, destructive or irreversible action, publication/release, credentials/private data/paid network access, material risk acceptance, normative protocol change, or a genuinely unavailable required capability.
 
-Do not escalate to RELEASE because a ZIP exists or internal metadata changed.
+## Findings and audit
 
-## Command discipline
+Finding and audit artifacts are fail-closed. Unknown materiality, missing lifecycle, incomplete declared coverage or candidate identity mismatch blocks closure and routes an internal control-plane correction. Malformed findings are never silently ignored.
 
-- `/specdoc`: specification only.
-- `/planonly`: legacy planning only when objectively routed.
-- `/nextphase`: execute one owner-approved work item through implementation, current-scope repair and required audit.
-- `/fixcritical`: repair confirmed current-scope product blockers without another owner approval.
-- `/auditphase`: read-only verification or protected audit.
-- `/fastpatch`: small low-risk FLOW change after deterministic pre/post gates.
-- `/probephase`: bounded uncertainty reduction.
-- `/visualqa`, `/reportqa`, `/securityaudit`, `/artifactaudit`: evidence gates when applicable.
-- `/shipcheck`: RELEASE decision only.
-- `/landing`: legacy recovery/orientation only.
-- `/githubprepare`, `/githubsync`: release/publication only and never in degraded product execution.
+## Owner communication
 
-## Scope and repair
+Technical details belong in the action packet and machine artifacts. Owner-facing comments use plain Russian and answer only: what is happening, what is done, what happens next, and whether the owner must act. Do not show hashes, paths, lease IDs, finding IDs, epochs, schemas or internal counters unless the owner asks.
 
-Antigravity performs read-only discovery and writes exact `.agy/EXECUTION_SCOPE.json` before the first edit. Do not rely on guessed paths from a remote brief.
+## Tool and route behavior
 
-Continue current-scope repair automatically while each iteration makes measurable progress. Ask the owner only for scope expansion, destructive/publication action, unavailable required capability, material-risk acceptance, framework migration or repeated no-progress failure.
+- `/nextphase`: initial implementation candidate.
+- `/auditphase`: read-only comprehensive or final audit.
+- `/fixcritical`: current-scope repair; no numerical limit.
+- `/fastpatch`: script-gated low-risk UI patch.
+- `/shipcheck`, `/githubprepare`, `/githubsync`: release only.
 
-## Evidence
-
-Model prose is not verification. Use deterministic commands, exit codes, diffs, tests and actual product artifacts.
-
-- FLOW normally uses `WORK_ITEM.json` and `RUN_RESULT.json`.
-- GUARDED adds one independent audit result.
-- RELEASE may require manifests, provenance and hashes.
-
-Do not print sizes or hashes to the owner unless requested, unresolved corruption exists or release identity depends on them.
-
-## Tools and hooks
-
-Use the smallest tool surface. No write-capable MCP tools without explicit approval.
-
-Hook scripts are manual guards unless `.agents/hooks.json` is non-empty and a local same-surface probe has passed. Do not claim active hooks when configuration is empty.
-
-Project-specific rules and skills may extend this runtime but cannot weaken safety, scope, verification or release boundaries.
+A Stop hook may continue the same approved work item automatically when `.agy/NEXT_ACTION.json` permits it. It must stop on a true owner decision, repeated no-progress, wrong project, unsafe/destructive action, or missing required capability.

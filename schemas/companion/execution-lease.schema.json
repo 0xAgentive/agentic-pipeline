@@ -21,7 +21,10 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
     },
     "lease_id": {
       "type": "string",
@@ -120,6 +123,20 @@
       "items": {
         "type": "string"
       }
+    },
+    "allowed_command_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "route": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
 }

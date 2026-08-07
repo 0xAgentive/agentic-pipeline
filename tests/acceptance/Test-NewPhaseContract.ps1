@@ -135,10 +135,10 @@ Run-Test "4. invalid risk_track with correct hash and lock" {
     acceptance_criteria = @()
     blocking_conditions = @()
     non_blocking_debt_categories = @("delivery","observability","cosmetic")
-    repair_budget = @{
-      max_audit_fix_cycles_per_subsystem = 1
-      max_total_repairs_per_phase = 2
-      on_budget_exhausted = "human_decision_required"
+    progress_policy = @{
+      auto_continue_while_progress = $true
+      consecutive_no_progress_limit = 2
+      same_failure_limit = 2
     }
     next_allowed_commands = @("/auditphase")
     frozen_at_utc = (Get-Date).ToUniversalTime().ToString("o")
@@ -187,10 +187,10 @@ Run-Test "5. missing required property" {
     acceptance_criteria = @()
     blocking_conditions = @()
     non_blocking_debt_categories = @("delivery","observability","cosmetic")
-    repair_budget = @{
-      max_audit_fix_cycles_per_subsystem = 1
-      max_total_repairs_per_phase = 2
-      on_budget_exhausted = "human_decision_required"
+    progress_policy = @{
+      auto_continue_while_progress = $true
+      consecutive_no_progress_limit = 2
+      same_failure_limit = 2
     }
     next_allowed_commands = @("/auditphase")
     frozen_at_utc = (Get-Date).ToUniversalTime().ToString("o")
@@ -239,10 +239,10 @@ Run-Test "6. forbidden extra property" {
     acceptance_criteria = @()
     blocking_conditions = @()
     non_blocking_debt_categories = @("delivery","observability","cosmetic")
-    repair_budget = @{
-      max_audit_fix_cycles_per_subsystem = 1
-      max_total_repairs_per_phase = 2
-      on_budget_exhausted = "human_decision_required"
+    progress_policy = @{
+      auto_continue_while_progress = $true
+      consecutive_no_progress_limit = 2
+      same_failure_limit = 2
     }
     next_allowed_commands = @("/auditphase")
     frozen_at_utc = (Get-Date).ToUniversalTime().ToString("o")

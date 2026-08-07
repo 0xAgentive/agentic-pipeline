@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Progress State v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "observations_count",
+    "consecutive_no_progress",
+    "same_failure_count",
+    "owner_decision_required",
+    "updated_at_utc",
+    "history"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
+    },
+    "work_item_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "idle",
+        "active",
+        "progressing",
+        "stalled",
+        "blocked",
+        "completed"
+      ]
+    },
+    "consecutive_no_progress": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "last_progress_fingerprint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "last_material_change": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_failure_fingerprint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "same_failure_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "owner_decision_required": {
+      "type": "boolean"
+    },
+    "owner_decision_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "updated_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "observations_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Internal observation count; never an authorization limit."
+    },
+    "last_metrics": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

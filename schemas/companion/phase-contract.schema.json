@@ -18,7 +18,7 @@
     "acceptance_criteria",
     "blocking_conditions",
     "non_blocking_debt_categories",
-    "repair_budget",
+    "progress_policy",
     "next_allowed_commands",
     "contract_hash"
   ],
@@ -112,28 +112,6 @@
         "type": "string"
       }
     },
-    "repair_budget": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "max_audit_fix_cycles_per_subsystem",
-        "max_total_repairs_per_phase",
-        "on_budget_exhausted"
-      ],
-      "properties": {
-        "max_audit_fix_cycles_per_subsystem": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "max_total_repairs_per_phase": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "on_budget_exhausted": {
-          "const": "human_decision_required"
-        }
-      }
-    },
     "next_allowed_commands": {
       "type": "array",
       "items": {
@@ -156,6 +134,28 @@
     "contract_hash": {
       "type": "string",
       "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "progress_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "auto_continue_while_progress",
+        "consecutive_no_progress_limit",
+        "same_failure_limit"
+      ],
+      "properties": {
+        "auto_continue_while_progress": {
+          "const": true
+        },
+        "consecutive_no_progress_limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "same_failure_limit": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
     }
   }
 }

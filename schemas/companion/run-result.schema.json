@@ -328,19 +328,33 @@
         "unavailable"
       ]
     },
-    "repair_batches_used": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "repair_batch_limit": {
-      "type": "integer",
-      "minimum": 0
-    },
     "closure_state_path": {
       "type": [
         "string",
         "null"
       ]
+    },
+    "progress_status": {
+      "enum": [
+        "progressing",
+        "stalled",
+        "blocked",
+        "completed",
+        "unknown"
+      ]
+    },
+    "consecutive_no_progress": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "same_failure_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "progress_observations": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Internal diagnostic count; never an authorization limit."
     }
   }
 }

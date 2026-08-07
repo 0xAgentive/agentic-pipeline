@@ -1,0 +1,3 @@
+[CmdletBinding()]
+param([string]$ProjectRoot='.',[string]$FindingSetPath='')
+$ErrorActionPreference='Stop';$Root=(Resolve-Path -LiteralPath $ProjectRoot).Path;if([string]::IsNullOrWhiteSpace($FindingSetPath)){$FindingSetPath=Join-Path $Root '.agy\FINDINGS.json'};$Node=(Get-Command node -ErrorAction Stop).Source;$Validator=Join-Path $Root 'scripts\control-plane\validate-findings.cjs';if(!(Test-Path $FindingSetPath)){throw "Finding set missing: $FindingSetPath"};$Raw=Get-Content $FindingSetPath -Raw;$Output=$Raw|& $Node $Validator;if($LASTEXITCODE-ne0){Write-Host $Output;throw 'Finding set validation failed.'};Write-Host $Output;Write-Host 'Finding set validation passed.'

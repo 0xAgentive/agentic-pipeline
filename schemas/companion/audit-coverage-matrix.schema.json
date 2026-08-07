@@ -10,6 +10,7 @@
     "audit_cycle",
     "status",
     "acceptance_coverage",
+    "dimension_coverage",
     "generated_at_utc"
   ],
   "properties": {
@@ -121,6 +122,79 @@
         "string",
         "null"
       ]
+    },
+    "dimension_coverage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coverage_id",
+          "dimension",
+          "item_id",
+          "surfaces",
+          "evidence_required",
+          "checks",
+          "status"
+        ],
+        "properties": {
+          "coverage_id": {
+            "type": "string",
+            "pattern": "^DM-[A-Z0-9_.-]+-[0-9]{3}$"
+          },
+          "dimension": {
+            "type": "string",
+            "minLength": 1
+          },
+          "item_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "surfaces": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence_required": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "checks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "enum": [
+              "not_evaluated",
+              "covered",
+              "finding_open",
+              "blocked",
+              "not_applicable"
+            ]
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "uncovered_dimension_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
     }
   }
 }

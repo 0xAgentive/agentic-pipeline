@@ -22,19 +22,23 @@ function Hash([string]$RelPath) {
 }
 
 
+$rootVersionText = Read-Text "VERSION.json"
+$ExpectedPlaybookVersion = $null
+try {
+  if ([string]::IsNullOrWhiteSpace($rootVersionText)) { throw "VERSION.json missing" }
+  $RootVersionObject = $rootVersionText | ConvertFrom-Json
+  $ExpectedPlaybookVersion = [string]$RootVersionObject.playbook_version
+  if ([string]::IsNullOrWhiteSpace($ExpectedPlaybookVersion)) { throw "playbook_version missing" }
+} catch { Add-Error "Cannot resolve playbook_version from VERSION.json: $($_.Exception.Message)" }
 $canonicalPlaybook = Read-Text "docs\AGENTIC_PIPELINE_PLAYBOOK.md"
-$versionedPlaybook = Read-Text "docs\maintainers\AGENTIC_PIPELINE_PLAYBOOK_v1.2.0.md"
-if (!$canonicalPlaybook -or ($canonicalPlaybook -notmatch 'Version:\s*`?1\.2\.0`?' -and $canonicalPlaybook -notmatch 'Playbook v1\.2\.0')) {
-  Add-Error "Canonical playbook is not v1.2.0"
-}
-if (!$versionedPlaybook -or ($versionedPlaybook -notmatch 'Version:\s*`?1\.2\.0`?' -and $versionedPlaybook -notmatch 'Playbook v1\.2\.0')) {
-  Add-Error "Versioned v1.2.0 playbook is missing or invalid"
-}
-if ((Hash "docs\AGENTIC_PIPELINE_PLAYBOOK.md") -ne (Hash "docs\maintainers\AGENTIC_PIPELINE_PLAYBOOK_v1.2.0.md")) {
-  Add-Error "Canonical playbook does not match versioned v1.2.0 playbook"
+$versionedPlaybook = if($ExpectedPlaybookVersion){Read-Text ("docs\maintainers\AGENTIC_PIPELINE_PLAYBOOK_v"+$ExpectedPlaybookVersion+".md")}else{$null}
+if($ExpectedPlaybookVersion){
+ $Marker='Version:\s*`?'+[regex]::Escape($ExpectedPlaybookVersion)+'`?'
+ if(!$canonicalPlaybook-or$canonicalPlaybook-notmatch$Marker){Add-Error "Canonical playbook version mismatch"}
+ if(!$versionedPlaybook-or$versionedPlaybook-notmatch$Marker){Add-Error "Versioned playbook is missing or invalid"}
+ if((Hash "docs\AGENTIC_PIPELINE_PLAYBOOK.md")-ne(Hash ("docs\maintainers\AGENTIC_PIPELINE_PLAYBOOK_v"+$ExpectedPlaybookVersion+".md"))){Add-Error "Canonical playbook does not match versioned playbook"}
 }
 
-$rootVersionText = Read-Text "VERSION.json"
 $ExpectedRuntimeVersion = $null
 try {
   if ([string]::IsNullOrWhiteSpace($rootVersionText)) { throw "VERSION.json missing" }
@@ -53,6 +57,8 @@ if ($ExpectedRuntimeVersion) {
   }
 }
 
+
+if (!(Test-Path -LiteralPath (Join-Path $Root 'ECOSYSTEM_VERSION.json') -PathType Leaf)) { Add-Error 'Missing ECOSYSTEM_VERSION.json' }
 $rootGate = "scripts\Test-FastPatchAllowed.ps1"
 $templateGate = "templates\agy-project-base\scripts\Test-FastPatchAllowed.ps1"
 $workflow = "templates\agy-project-base\.agents\workflows\fastpatch.md"

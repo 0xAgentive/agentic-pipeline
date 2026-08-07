@@ -1,4 +1,4 @@
-﻿---
+---
 description: Prepare a project for first GitHub publication by generating repository metadata, documentation, templates, and safety files.
 ---
 

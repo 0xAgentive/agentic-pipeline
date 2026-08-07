@@ -136,23 +136,27 @@ test('late material finding becomes audit coverage miss', () => {
   assert.strictEqual(classified.origin, 'audit_coverage_miss');
 });
 
-test('bounded repair budget closes verification-only remainder with debt', () => {
+test('repair history never requires owner authorization while progress continues', () => {
   const r = core.resolveRepairBudget({
     assuranceMode: 'guarded',
-    budget: { repair_batches_used: 3, repair_batch_limit: 3 },
-    openFindings: [{ finding_id: 'VF-1', lifecycle_status: 'open_confirmed', materiality: 'verification_blocker' }]
-  });
-  assert.strictEqual(r.status, 'exhausted');
-  assert.strictEqual(r.action, 'close_with_verification_debt');
-});
-
-test('bounded repair budget hard-stops remaining product blocker', () => {
-  const r = core.resolveRepairBudget({
-    assuranceMode: 'guarded',
-    budget: { repair_batches_used: 3, repair_batch_limit: 3 },
+    budget: { repair_batches_used: 99, repair_batch_limit: 3 },
+    progressState: { status: 'progressing', observations_count: 99 },
     openFindings: [{ finding_id: 'PF-1', lifecycle_status: 'open_confirmed', materiality: 'product_blocker' }]
   });
-  assert.strictEqual(r.action, 'hard_stop_product_blocker');
+  assert.strictEqual(r.status, 'available');
+  assert.strictEqual(r.limit, null);
+  assert.strictEqual(r.action, 'continue_grouped_repair');
+});
+
+test('repeated no-progress stops without asking for another repair batch', () => {
+  const r = core.resolveRepairBudget({
+    assuranceMode: 'guarded',
+    budget: { repair_batches_used: 99, repair_batch_limit: 3 },
+    progressState: { status: 'stalled', observations_count: 99, owner_decision_required: false },
+    openFindings: [{ finding_id: 'PF-1', lifecycle_status: 'open_confirmed', materiality: 'product_blocker' }]
+  });
+  assert.strictEqual(r.status, 'stalled');
+  assert.strictEqual(r.action, 'hard_stop_no_progress');
 });
 
 test('self-authored audit is not independent', () => {
@@ -211,7 +215,7 @@ test('single authority compiler closes unavailable protected audit with verifica
   assert.strictEqual(closure.release_status, 'blocked');
 });
 
-test('single authority compiler rejects open product blocker', () => {
+test('single authority compiler keeps open product blocker in automatic repair while progress is possible', () => {
   const closure = core.compileClosure({
     workItem: baseWorkItem(),
     findings: [{ finding_id: 'F-1', lifecycle_status: 'open_confirmed', materiality: 'product_blocker' }],
@@ -220,7 +224,9 @@ test('single authority compiler rejects open product blocker', () => {
     reviewerAttestation: independentReviewer(),
     budget: { repair_batches_used: 1 }
   });
-  assert.strictEqual(closure.acceptance_status, 'rejected');
+  assert.strictEqual(closure.acceptance_status, 'not_evaluated');
+  assert.strictEqual(closure.implementation_status, 'in_progress');
+  assert.strictEqual(closure.next_workflow, '/fixcritical');
   assert.strictEqual(closure.next_owner_goal_allowed, false);
 });
 

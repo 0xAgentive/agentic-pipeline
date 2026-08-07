@@ -1,63 +1,137 @@
+[CmdletBinding()]
 param(
-  [string]$RepoRoot = ".",
-  [switch]$PackageMode
+  [string]$RepoRoot = '.',
+  [switch]$PackageMode,
+  [ValidateSet('operational', 'strict')][string]$Profile = 'operational'
 )
 
-$ErrorActionPreference = "Stop"
+Set-StrictMode -Version 3.0
+$ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $HostExe = (Get-Process -Id $PID).Path
+$CoreFailures = New-Object System.Collections.Generic.List[string]
+$AdvisoryFailures = New-Object System.Collections.Generic.List[string]
+$Passes = New-Object System.Collections.Generic.List[string]
 
-function Invoke-Test {
+function Invoke-Validator {
   param(
-    [Parameter(Mandatory=$true)][string]$Name,
-    [Parameter(Mandatory=$true)][string]$Path,
-    [string[]]$ArgumentList = @()
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$RelativePath,
+    [string[]]$ArgumentList = @(),
+    [ValidateSet('core', 'advisory')][string]$Severity = 'core'
   )
 
   Write-Host "[$Name]"
+  $Path = Join-Path $Root $RelativePath
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    $Message = "Missing validator: $RelativePath"
+    if ($Severity -eq 'core') { [void]$CoreFailures.Add($Message) } else { [void]$AdvisoryFailures.Add($Message) }
+    return
+  }
 
-  $OldPreference = $ErrorActionPreference
+  $PreviousPreference = $ErrorActionPreference
   try {
-    $ErrorActionPreference = "Continue"
+    $ErrorActionPreference = 'Continue'
     & $HostExe -NoProfile -ExecutionPolicy Bypass -File $Path @ArgumentList 2>&1 |
       ForEach-Object { Write-Host $_ }
-    $Code = $LASTEXITCODE
+    $ExitCode = $LASTEXITCODE
+  }
+  catch {
+    Write-Host $_
+    $ExitCode = 1
   }
   finally {
-    $ErrorActionPreference = $OldPreference
+    $ErrorActionPreference = $PreviousPreference
   }
 
-  if ($Code -ne 0) { throw "$Name failed with exit code $Code" }
+  if ($ExitCode -eq 0) {
+    [void]$Passes.Add($Name)
+    return
+  }
+
+  $Message = "$Name failed with exit code $ExitCode"
+  if ($Severity -eq 'core') {
+    [void]$CoreFailures.Add($Message)
+  }
+  else {
+    [void]$AdvisoryFailures.Add($Message)
+  }
 }
 
-$CompanionArguments = @('-RepoRoot',$Root)
+$CompanionArguments = @('-RepoRoot', $Root)
 if ($PackageMode) { $CompanionArguments += '-PackageMode' }
-Invoke-Test -Name 'companion pack and golden evals' -Path (Join-Path $Root 'scripts\windows\companion\Test-CompanionPack-v1.2.4.ps1') -ArgumentList $CompanionArguments
-Invoke-Test -Name 'flow restoration contracts' -Path (Join-Path $Root 'scripts\windows\companion\Test-FlowRestorationContracts.ps1') -ArgumentList @('-RepoRoot',$Root)
-Invoke-Test -Name 'autonomous convergence contracts' -Path (Join-Path $Root 'scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1') -ArgumentList @('-RepoRoot',$Root)
-Invoke-Test -Name 'PowerShell runtime contracts' -Path (Join-Path $Root 'scripts\windows\Test-PowerShellRuntimeContracts.ps1') -ArgumentList @('-RepoRoot',$Root)
-Invoke-Test -Name 'state profiles' -Path (Join-Path $Root 'scripts\windows\Test-StateProfiles.ps1') -ArgumentList @('-RepoRoot',$Root)
-Invoke-Test -Name 'command inventory' -Path (Join-Path $Root 'scripts\windows\Test-CommandInventory.ps1') -ArgumentList @('-RepoRoot',$Root)
-Invoke-Test -Name 'template hygiene' -Path (Join-Path $Root 'scripts\windows\Test-TemplateHygiene.ps1') -ArgumentList @('-RepoRoot',$Root)
-Invoke-Test -Name 'project leakage' -Path (Join-Path $Root 'scripts\windows\Test-ProjectLeakage.ps1') -ArgumentList @('-RepoRoot',$Root)
-Invoke-Test -Name 'fresh install' -Path (Join-Path $Root 'scripts\windows\Test-FreshInstall.ps1') -ArgumentList @('-RepoRoot',$Root)
-Invoke-Test -Name 'cross-platform runtime edges' -Path (Join-Path $Root 'scripts\windows\Test-CrossPlatformRuntimeEdges.ps1') -ArgumentList @('-RepoRoot',$Root)
 
-foreach ($Required in @('VERSION.json','scripts\windows\Build-ReleasePackage.ps1','config\command-inventory.json')) {
-  if (!(Test-Path -LiteralPath (Join-Path $Root $Required))) { throw "Distribution file missing: $Required" }
+$CoreTests = @(
+  [pscustomobject]@{ Name = 'companion pack and golden evals'; Path = 'scripts\windows\companion\Test-CompanionPack-v1.2.8.ps1'; Args = $CompanionArguments },
+  [pscustomobject]@{ Name = 'flow restoration contracts'; Path = 'scripts\windows\companion\Test-FlowRestorationContracts.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'autonomous convergence contracts'; Path = 'scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'PowerShell runtime contracts'; Path = 'scripts\windows\Test-PowerShellRuntimeContracts.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'state profiles'; Path = 'scripts\windows\Test-StateProfiles.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'command inventory'; Path = 'scripts\windows\Test-CommandInventory.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'fresh install'; Path = 'scripts\windows\Test-FreshInstall.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'owner autonomy'; Path = 'scripts\windows\Test-OwnerAutonomyContracts.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'unified ecosystem version'; Path = 'scripts\windows\Test-UnifiedEcosystemVersion.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'operational deployment'; Path = 'scripts\windows\Test-OperationalDeployment.ps1'; Args = @('-RepoRoot', $Root) }
+)
+
+$AdvisoryTests = @(
+  [pscustomobject]@{ Name = 'known failure regression playbook'; Path = 'scripts\windows\Test-KnownFailureRegressionPlaybook-v1.2.8.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'template hygiene'; Path = 'scripts\windows\Test-TemplateHygiene.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'project leakage'; Path = 'scripts\windows\Test-ProjectLeakage.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'cross-platform runtime edges'; Path = 'scripts\windows\Test-CrossPlatformRuntimeEdges.ps1'; Args = @('-RepoRoot', $Root) }
+)
+
+foreach ($Test in $CoreTests) {
+  Invoke-Validator -Name $Test.Name -RelativePath $Test.Path -ArgumentList $Test.Args -Severity 'core'
+}
+foreach ($Test in $AdvisoryTests) {
+  Invoke-Validator -Name $Test.Name -RelativePath $Test.Path -ArgumentList $Test.Args -Severity 'advisory'
 }
 
-$VersionInfo = Get-Content -LiteralPath (Join-Path $Root 'VERSION.json') -Raw | ConvertFrom-Json
-foreach ($Field in @('package_version','playbook_version','runtime_version','companion_version','status')) {
-  if (!($VersionInfo.PSObject.Properties.Name -contains $Field)) { throw "VERSION.json missing field: $Field" }
+foreach ($Required in @('VERSION.json', 'scripts\windows\Build-ReleasePackage.ps1', 'config\command-inventory.json')) {
+  if (-not (Test-Path -LiteralPath (Join-Path $Root $Required))) {
+    [void]$CoreFailures.Add("Distribution file missing: $Required")
+  }
 }
-if ($VersionInfo.status -notin @('development','candidate','stable','deprecated')) { throw "VERSION.json status is invalid" }
+
+try {
+  $VersionInfo = Get-Content -LiteralPath (Join-Path $Root 'VERSION.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+  foreach ($Field in @('package_version', 'playbook_version', 'runtime_version', 'companion_version', 'status')) {
+    if (-not ($VersionInfo.PSObject.Properties.Name -contains $Field)) {
+      [void]$CoreFailures.Add("VERSION.json missing field: $Field")
+    }
+  }
+  if ([string]$VersionInfo.status -notin @('development', 'candidate', 'stable', 'deprecated')) {
+    [void]$CoreFailures.Add('VERSION.json status is invalid')
+  }
+}
+catch {
+  [void]$CoreFailures.Add("Invalid VERSION.json: $($_.Exception.Message)")
+}
 
 if ($PackageMode) {
-  foreach ($Forbidden in @('.git','.pipeline_patch_backup','.artifacts')) {
-    if (Test-Path -LiteralPath (Join-Path $Root $Forbidden)) { throw "Forbidden release-package path present: $Forbidden" }
+  foreach ($Forbidden in @('.git', '.pipeline_patch_backup', '.artifacts')) {
+    if (Test-Path -LiteralPath (Join-Path $Root $Forbidden)) {
+      [void]$CoreFailures.Add("Forbidden release-package path present: $Forbidden")
+    }
   }
 }
 
-Write-Host "Distribution-integrity validation passed."
+if ($AdvisoryFailures.Count -gt 0) {
+  Write-Host 'Distribution advisory warnings:'
+  $AdvisoryFailures | Sort-Object -Unique | ForEach-Object { Write-Host "- $_" }
+}
+
+if ($CoreFailures.Count -gt 0) {
+  Write-Host 'Distribution core validation failed:'
+  $CoreFailures | Sort-Object -Unique | ForEach-Object { Write-Host "- $_" }
+  exit 1
+}
+
+if ($Profile -eq 'strict' -and $AdvisoryFailures.Count -gt 0) {
+  Write-Host 'Strict distribution validation failed because advisory checks did not pass.'
+  exit 1
+}
+
+Write-Host "Distribution-integrity validation passed. Core=$($CoreTests.Count); advisory_warnings=$($AdvisoryFailures.Count); profile=$Profile"
 exit 0

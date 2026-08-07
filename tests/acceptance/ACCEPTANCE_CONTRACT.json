@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.4.0",
-  "contract_id": "agentic-pipeline-runtime-routing-1.2.6",
+  "schema_version": "1.5.0",
+  "contract_id": "agentic-pipeline-runtime-routing-1.2.8",
   "protected_paths": [
     ".github/workflows/validate.yml",
     "tests/acceptance/ACCEPTANCE_CONTRACT.json",
@@ -15,10 +15,10 @@
   ],
   "implementation_forbidden_from_modifying_protected_paths": true,
   "expected_handshake_schema_version": "1.1.0",
-  "expected_package_version": "1.2.6",
-  "expected_runtime_version": "1.2.3",
-  "expected_playbook_version": "1.2.0",
-  "expected_companion_version": "1.2.4",
+  "expected_package_version": "1.2.8",
+  "expected_runtime_version": "1.2.8",
+  "expected_playbook_version": "1.2.8",
+  "expected_companion_version": "1.2.8",
   "expected_workflow_composite_sha256": "c9036e5d356c5b24845542431613e0287804084d242b40c5d9218fd56ccfece0",
   "resolver_input_contract": {
     "command_inventory": "project_inventory",
@@ -66,9 +66,13 @@
     "service_warnings_do_not_block_product_execution": true,
     "pre_write_execution_lease_required": true,
     "comprehensive_first_audit_required": true,
-    "repair_budget_is_bounded": true,
     "protected_reviewer_is_enforced": true,
-    "scientific_stage_firewall_is_enforced": true
+    "scientific_stage_firewall_is_enforced": true,
+    "numeric_repair_budget_forbidden": true,
+    "progress_guard_required": true,
+    "routine_repair_owner_approval_forbidden": true,
+    "plain_language_owner_output_required": true,
+    "action_packet_delivery_required": true
   },
   "installer_contract": {
     "single_manifest_writer_required": true,

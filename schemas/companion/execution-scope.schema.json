@@ -8,14 +8,15 @@
     "work_item_id",
     "status",
     "project_root",
-    "git_head",
     "allowed_paths",
-    "forbidden_domains",
-    "generated_at_utc"
+    "forbidden_domains"
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
     },
     "work_item_id": {
       "type": "string",
@@ -64,6 +65,32 @@
       "items": {
         "type": "string"
       }
+    },
+    "allowed_command_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "forbidden_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "route": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "discovered_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
 }

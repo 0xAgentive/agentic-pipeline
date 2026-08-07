@@ -1,15 +1,7 @@
-# Local Control Tools v1.2.4
+# Local Control Tools and Action Bridge
 
-Flow Restoration tools remain available. Runtime 1.2.3 adds:
+Companion creates one `AGENTIC_ACTION_PACKET_*.json`. The local Action Bridge watches Downloads, validates version, time window, replay protection and the per-project capability token, then materializes and atomically imports the task into `.agy/inbox/ACTIVE_ACTION_PACKET/`. Legacy ZIP packets are accepted only for backward compatibility and are not the owner-facing format.
 
-- `New-ExecutionLease.ps1` / `Test-ExecutionLease.ps1`;
-- `Publish-AuditCoverageMatrix.ps1` / `Test-AuditCoverageMatrix.ps1`;
-- `Register-FindingDelta.ps1`;
-- `Publish-RepairDelta.ps1`;
-- `Register-RepairBatch.ps1`;
-- `New-ProtectedReviewerAttestation.ps1` / `Test-ProtectedReviewerAttestation.ps1`;
-- `New-StageFirewall.ps1`;
-- `Compile-ResultAuthority.ps1`;
-- `Test-AutonomousConvergenceContracts.ps1`.
+Antigravity's PreInvocation hook injects the pending task once. The runtime activates either a new work item or an exact continuation, then performs read-only executor discovery and binds the exact write scope before product changes.
 
-The tools are project-local control mechanisms. They do not create owner goals and do not publish or release product code.
+The web Project cannot write directly to the local filesystem. One download action therefore remains. The owner never copies a long technical task, selects a local project manually, approves a routine repair or handles internal control-plane details.

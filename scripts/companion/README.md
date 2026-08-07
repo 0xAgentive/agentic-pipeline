@@ -1,17 +1,7 @@
 # Companion control tooling
 
-`companion-control.cjs` provides deterministic validation for Companion Pack 1.2.4:
+The current Companion is 1.2.8 and the current runtime is 1.2.8.
 
-```text
-validate-pack
-canonical-hash
-validate-contract
-validate-result
-route
-```
+The control plane validates exact execution authority, complete audit coverage, finding schemas, protected-review identity, material progress and fail-closed result authority. Legacy counters are compatibility data only and never authorize or block work.
 
-PowerShell wrappers are under `scripts/windows/companion/`.
-
-These tools do not migrate active projects automatically. They validate the current command inventory, freeze a phase contract, enforce a repair budget, create a fail-closed phase result and test output isolation.
-
-Runtime 1.2.3 also validates autonomous convergence contracts through `autonomous-convergence.cjs` and `tests/acceptance/autonomous-convergence-contract.cjs`.
+The Companion produces an owner-approved Action Packet. The local Action Bridge imports that packet into the correct project so the owner does not copy a long technical task into Antigravity.

@@ -137,6 +137,22 @@
         "string",
         "null"
       ]
+    },
+    "owner_decision_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "scope_or_requirement_change",
+        "destructive_or_irreversible_action",
+        "release_or_publication",
+        "credentials_private_data_or_paid_access",
+        "material_risk_acceptance",
+        "normative_protocol_change",
+        "required_capability_unavailable",
+        null
+      ]
     }
   }
 }

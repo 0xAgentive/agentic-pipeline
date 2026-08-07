@@ -1,6 +1,6 @@
-# Runtime Contract — Autonomous Audit Convergence
+# Runtime Contract — Owner-Autonomous Execution
 
-This workspace uses Agentic Pipeline runtime 1.2.3.
+This workspace uses Agentic Pipeline runtime 1.2.8.
 
 ## Authority order
 
@@ -10,21 +10,22 @@ Read before substantial work:
 - `.agy/EXECUTION_SCOPE.json`;
 - `.agy/EXECUTION_LEASE.json` before any write;
 - `.agy/STAGE_FIREWALL.json` when present;
-- `.agy/AUDIT_COVERAGE_MATRIX.json`, `FINDINGS.json` and `REPAIR_DELTA.json` during audit/repair;
-- `.agy/REVIEWER_ATTESTATION.json` for independent audit;
+- `.agy/AUDIT_COVERAGE_MATRIX.json`, `FINDINGS.json` and `REPAIR_DELTA.json` during audit and repair;
+- `.agy/PROGRESS_STATE.json` and `.agy/NEXT_ACTION.json` for automatic continuation;
+- `.agy/REVIEWER_ATTESTATION.json` for protected review;
 - `.agy/RUN_RESULT.json` and `.agy/CLOSURE_STATE.json` for closure;
-- legacy phase files only for compatibility.
+- legacy phase and repair-count files only as historical compatibility data.
 
 ## Write authority
 
-No write is authorized until the execution lease binds the owner goal, work item, epoch, exact project/worktree, branch, baseline HEAD and exact allowed paths.
-
-Expected in-scope edits do not invalidate an active lease. Wrong root, branch drift, owner-goal drift, outside-scope changes, runtime migration or a new material risk invalidate it.
+No write is authorized until the exact execution lease binds the owner goal, work item, exact project/worktree, branch, baseline HEAD, stage firewall and exact allowed paths. The project-local PreToolUse hook enforces this before the file change.
 
 ## Convergence
 
-One immutable owner brief governs the work item. GUARDED work uses one comprehensive first audit, up to three grouped repair batches and one final audit by default. Late material findings are audit-coverage misses.
+One owner-approved goal governs one immutable work item. Audit correction, implementation repair, verification retry, evidence rebuild and control-plane repair continue automatically while material progress is observed. Internal iteration state is diagnostic and never requires owner approval.
+
+Two consecutive equivalent no-progress results may stop the current work item. Ask the owner only for a real decision: changed requirements or scope, a destructive or irreversible action, release/publication, credentials/private data/paid network access, material risk acceptance, a normative protocol change, or a required capability that is genuinely unavailable.
 
 ## Verification debt
 
-When deterministic product verification passes but protected audit is unavailable, close with verification debt, keep release blocked and allow the next owner-approved product goal. Do not start a pseudo-independent audit loop.
+When deterministic product verification passes but protected review is unavailable, close with verification debt, keep release blocked and allow the next owner-approved product goal. Do not create a pseudo-independent audit loop.

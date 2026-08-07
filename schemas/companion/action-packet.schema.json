@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Companion Action Packet 1.2.8",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ecosystem_version",
+    "packet_id",
+    "project_id",
+    "capability_token",
+    "operation",
+    "route",
+    "goal",
+    "assurance_mode",
+    "owner_approved",
+    "owner_interaction_policy",
+    "scope_binding",
+    "technical_task_markdown",
+    "owner_summary_ru",
+    "created_at_utc",
+    "expires_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.2.8"
+    },
+    "ecosystem_version": {
+      "const": "1.2.8"
+    },
+    "packet_format": {
+      "const": "single_json"
+    },
+    "packet_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{8,128}$"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_root_hint": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "capability_token": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "operation": {
+      "enum": [
+        "new_work_item",
+        "continue_work_item"
+      ]
+    },
+    "route": {
+      "enum": [
+        "/nextphase",
+        "/fixcritical",
+        "/auditphase",
+        "/fastpatch",
+        "/shipcheck"
+      ]
+    },
+    "work_item_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "goal_epoch": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owner_goal_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "assurance_mode": {
+      "enum": [
+        "flow",
+        "guarded",
+        "release"
+      ]
+    },
+    "stage_profile": {
+      "enum": [
+        "general",
+        "protocol_freeze",
+        "analytical_validation",
+        "empirical_validation"
+      ]
+    },
+    "owner_approved": {
+      "const": true
+    },
+    "owner_interaction_policy": {
+      "const": "hard_stop_only"
+    },
+    "scope_binding": {
+      "enum": [
+        "executor_discovery",
+        "exact"
+      ]
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk_hints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "audit_dimensions": {
+      "type": "object"
+    },
+    "technical_task_markdown": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owner_summary_ru": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expires_at_utc": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

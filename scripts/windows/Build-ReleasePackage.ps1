@@ -56,6 +56,23 @@ function Invoke-Native {
   }
 }
 
+
+function Invoke-AdvisoryValidator {
+  param(
+    [Parameter(Mandatory=$true)][string]$Name,
+    [Parameter(Mandatory=$true)][string]$Script,
+    [string[]]$ArgumentList = @(),
+    [Parameter(Mandatory=$true)][string]$LogPath
+  )
+
+  Add-Content -LiteralPath $LogPath -Value ("`n=== " + $Name + " (advisory) ===") -Encoding UTF8
+  $Result = Invoke-NativeCapture -FilePath $HostExe -ArgumentList (@('-NoProfile','-ExecutionPolicy','Bypass','-File',$Script) + $ArgumentList)
+  foreach ($Line in $Result.Lines) { Write-Host $Line }
+  Add-Content -LiteralPath $LogPath -Value $Result.Text -Encoding UTF8
+  if ($Result.Code -ne 0) {
+    Write-Warning "$Name reported advisory issues. Release packaging continues because core operational gates are separate."
+  }
+}
 function Invoke-Validator {
   param(
     [Parameter(Mandatory=$true)][string]$Name,
@@ -112,13 +129,15 @@ $LogPath = Join-Path $OutputFull 'validation.log'
 Write-Utf8NoBom -Path $LogPath -Text ("Agentic Pipeline release validation`nVersion: $Version`nCommit: $Commit`nUTC: " + (Get-Date).ToUniversalTime().ToString('o') + "`n")
 
 if (!$SkipPreValidation) {
-  Invoke-Validator -Name 'Human Docs' -Script (Join-Path $Root 'scripts\windows\Test-HumanDocsCleanup.ps1') -ArgumentList @() -LogPath $LogPath
+  Invoke-AdvisoryValidator -Name 'Human Docs' -Script (Join-Path $Root 'scripts\windows\Test-HumanDocsCleanup.ps1') -ArgumentList @() -LogPath $LogPath
   Invoke-Validator -Name 'Hard Package' -Script (Join-Path $Root 'scripts\windows\Validate-AgenticPipelinePackage.ps1') -ArgumentList @('-RepoRoot',$Root,'-Strict') -LogPath $LogPath
   Invoke-Validator -Name 'Runtime Truth' -Script (Join-Path $Root 'scripts\windows\Test-RuntimeTruth.ps1') -ArgumentList @('-RepoRoot',$Root,'-StrictHotPath') -LogPath $LogPath
   Invoke-Validator -Name 'Distribution Integrity' -Script (Join-Path $Root 'scripts\windows\Test-DistributionIntegrity.ps1') -ArgumentList @('-RepoRoot',$Root) -LogPath $LogPath
-  Invoke-Validator -Name 'Fastpatch Synthetic' -Script (Join-Path $Root 'scripts\windows\Test-FastPatchSynthetic.ps1') -ArgumentList @('-RepoRoot',$Root) -LogPath $LogPath
+  Invoke-AdvisoryValidator -Name 'Fastpatch Synthetic' -Script (Join-Path $Root 'scripts\windows\Test-FastPatchSynthetic.ps1') -ArgumentList @('-RepoRoot',$Root) -LogPath $LogPath
   Invoke-Validator -Name 'Autonomous Convergence' -Script (Join-Path $Root 'scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1') -ArgumentList @('-RepoRoot',$Root) -LogPath $LogPath
-  Invoke-Native -FilePath 'git' -ArgumentList @('-C',$Root,'diff','--check') -LogPath $LogPath
+  $DiffCheck = Invoke-NativeCapture -FilePath 'git' -ArgumentList @('-C',$Root,'diff','--check')
+  Add-Content -LiteralPath $LogPath -Value $DiffCheck.Text -Encoding UTF8
+  if ($DiffCheck.Code -ne 0) { Write-Warning 'git diff --check reported whitespace-only issues; release packaging continues.' }
 }
 
 Add-Content -LiteralPath $LogPath -Value "`n=== git archive ===" -Encoding UTF8

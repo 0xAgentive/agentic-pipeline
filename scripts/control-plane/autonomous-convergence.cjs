@@ -65,24 +65,27 @@ function validateAuditCoverage({ workItem, matrix }) {
   const errors = [];
   const acceptance = Array.isArray(workItem?.acceptance) ? workItem.acceptance : [];
   const rows = Array.isArray(matrix?.acceptance_coverage) ? matrix.acceptance_coverage : [];
-  const ids = rows.map(r => r.coverage_id);
+  const dimensions = workItem?.audit_dimensions && typeof workItem.audit_dimensions === 'object' ? workItem.audit_dimensions : {};
+  const dimensionRows = Array.isArray(matrix?.dimension_coverage) ? matrix.dimension_coverage : [];
+  const ids = [...rows, ...dimensionRows].map(r => r.coverage_id);
   if (unique(ids).length !== ids.length) errors.push('DUPLICATE_COVERAGE_ID');
   const indexes = rows.map(r => Number(r.acceptance_index));
-  for (let i = 0; i < acceptance.length; i++) {
-    if (!indexes.includes(i)) errors.push(`ACCEPTANCE_NOT_COVERED:${i}`);
-  }
-  for (const r of rows) {
-    if (!Array.isArray(r.surfaces) || !r.surfaces.length) errors.push(`SURFACES_EMPTY:${r.coverage_id}`);
-    if (!Array.isArray(r.evidence_required) || !r.evidence_required.length) errors.push(`EVIDENCE_EMPTY:${r.coverage_id}`);
-    if (!Array.isArray(r.checks) || !r.checks.length) errors.push(`CHECKS_EMPTY:${r.coverage_id}`);
-    if (!['covered','finding_open','blocked','not_applicable'].includes(r.status) && matrix.status === 'complete') {
-      errors.push(`INCOMPLETE_COVERAGE:${r.coverage_id}`);
+  for (let i = 0; i < acceptance.length; i++) if (!indexes.includes(i)) errors.push(`ACCEPTANCE_NOT_COVERED:${i}`);
+  const dimensionKeys = new Set(dimensionRows.map(r => `${r.dimension}::${r.item_id}`));
+  for (const [dimension, items] of Object.entries(dimensions)) {
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!dimensionKeys.has(`${dimension}::${item}`)) errors.push(`DIMENSION_NOT_COVERED:${dimension}:${item}`);
     }
+  }
+  for (const row of [...rows, ...dimensionRows]) {
+    if (!Array.isArray(row.surfaces) || !row.surfaces.length) errors.push(`SURFACES_EMPTY:${row.coverage_id}`);
+    if (!Array.isArray(row.evidence_required) || !row.evidence_required.length) errors.push(`EVIDENCE_EMPTY:${row.coverage_id}`);
+    if (!Array.isArray(row.checks) || !row.checks.length) errors.push(`CHECKS_EMPTY:${row.coverage_id}`);
+    if (!['covered','finding_open','blocked','not_applicable'].includes(row.status) && matrix?.status === 'complete') errors.push(`INCOMPLETE_COVERAGE:${row.coverage_id}`);
   }
   if (matrix?.audit_cycle === 'initial_comprehensive' && matrix?.status !== 'complete') errors.push('INITIAL_AUDIT_NOT_COMPLETE');
   return result(errors.length === 0, errors.length ? 'AUDIT_COVERAGE_INVALID' : 'AUDIT_COVERAGE_VALID', { errors });
 }
-
 function classifyLateFinding({ finding, coverageMatrix }) {
   const initialComplete = coverageMatrix?.audit_cycle === 'initial_comprehensive' && coverageMatrix?.status === 'complete';
   const coverageIds = new Set((coverageMatrix?.acceptance_coverage || []).map(x => x.coverage_id));
@@ -93,21 +96,17 @@ function classifyLateFinding({ finding, coverageMatrix }) {
   return { ...finding, origin: finding.origin || 'initial_audit' };
 }
 
-function resolveRepairBudget({ assuranceMode, budget, openFindings = [] }) {
-  const defaults = {
-    flow: { initial: 0, repair: 2, final: 0 },
-    guarded: { initial: 1, repair: 3, final: 1 },
-    release: { initial: 1, repair: 3, final: 1 }
-  };
-  const d = defaults[assuranceMode] || defaults.guarded;
-  const used = Number(budget?.repair_batches_used || 0);
-  const limit = Number(budget?.repair_batch_limit ?? d.repair);
+function resolveContinuationPolicy({ assuranceMode, budget, openFindings = [], progressState = {} }) {
+  // Legacy budget-shaped input is accepted only for backward compatibility.
+  // Routing is based on material progress and real owner decisions.
   const product = openFindings.filter(f => f.lifecycle_status === 'open_confirmed' && f.materiality === 'product_blocker');
   const verification = openFindings.filter(f => f.lifecycle_status === 'open_confirmed' && ['verification_blocker','release_blocker'].includes(f.materiality));
-  if (used < limit) return { status: 'available', used, limit, action: 'continue_grouped_repair' };
-  if (product.length) return { status: 'exhausted', used, limit, action: 'hard_stop_product_blocker' };
-  if (verification.length) return { status: 'exhausted', used, limit, action: 'close_with_verification_debt' };
-  return { status: 'exhausted', used, limit, action: 'close_accepted' };
+  const stalled = progressState.status === 'stalled' || Number(progressState.consecutive_no_progress || 0) >= 2 || Number(progressState.same_failure_count || 0) >= 2;
+  if (progressState.owner_decision_required === true) return { status: 'owner_decision', used: Number(progressState.observations_count || progressState.iteration_count || 0), limit: null, action: 'human_decision_required' };
+  if (stalled) return { status: 'stalled', used: Number(progressState.observations_count || progressState.iteration_count || 0), limit: null, action: 'hard_stop_no_progress' };
+  if (product.length) return { status: 'available', used: Number(progressState.observations_count || progressState.iteration_count || 0), limit: null, action: 'continue_grouped_repair' };
+  if (verification.length) return { status: 'available', used: Number(progressState.observations_count || progressState.iteration_count || 0), limit: null, action: 'continue_verification_or_close_debt' };
+  return { status: 'available', used: Number(progressState.observations_count || progressState.iteration_count || 0), limit: null, action: 'close_accepted' };
 }
 
 function validateProtectedReviewer(a, expected = {}) {
@@ -144,7 +143,7 @@ function validateStageFirewall({ firewall, changedPaths = [] }) {
   return result(true, 'SCIENTIFIC_STAGE_FIREWALL_VALID', { blocked_paths: [] });
 }
 
-function compileClosure({ workItem, findings = [], verificationReceipt, auditResult, reviewerAttestation, budget }) {
+function compileClosure({ workItem, findings = [], verificationReceipt, auditResult, reviewerAttestation, budget, progressState = {} }) {
   const open = findings.filter(f => f.lifecycle_status === 'open_confirmed');
   const product = open.filter(f => f.materiality === 'product_blocker');
   const verification = open.filter(f => f.materiality === 'verification_blocker');
@@ -153,27 +152,30 @@ function compileClosure({ workItem, findings = [], verificationReceipt, auditRes
   const verificationPassed = requiredRuns.length > 0 && requiredRuns.every(t => Number(t.exit_code) === 0);
   const assurance = workItem?.assurance_mode || 'flow';
   const review = validateProtectedReviewer(reviewerAttestation);
-  let auditStatus = assurance === 'flow' ? 'not_required' : (review.ok && auditResult?.status === 'passed' ? 'passed' : 'unavailable');
-  let acceptanceStatus, verificationStatus, releaseStatus, nextAllowed, reason;
-  if (product.length) {
-    acceptanceStatus='rejected'; verificationStatus=verificationPassed?'partial':'failed'; releaseStatus='blocked'; nextAllowed=false; reason='open_product_blocker';
+  const auditStatus = assurance === 'flow' ? 'not_required' : (review.ok && auditResult?.status === 'passed' ? 'passed' : 'unavailable');
+  const stalled = progressState.status === 'stalled' || Number(progressState.consecutive_no_progress || 0) >= 2 || Number(progressState.same_failure_count || 0) >= 2;
+  let acceptanceStatus, implementationStatus, verificationStatus, releaseStatus, nextAllowed, nextWorkflow, reason;
+  if (product.length && !stalled) {
+    acceptanceStatus='not_evaluated'; implementationStatus='in_progress'; verificationStatus=verificationPassed?'partial':'not_run'; releaseStatus='blocked'; nextAllowed=false; nextWorkflow='/fixcritical'; reason='repair_continues_automatically';
+  } else if (product.length) {
+    acceptanceStatus='blocked'; implementationStatus='blocked'; verificationStatus=verificationPassed?'partial':'failed'; releaseStatus='blocked'; nextAllowed=false; nextWorkflow=null; reason='repeated_no_progress_with_product_blocker';
   } else if (!verificationPassed) {
-    acceptanceStatus='blocked'; verificationStatus='blocked'; releaseStatus='blocked'; nextAllowed=false; reason='required_verification_missing_or_failed';
+    acceptanceStatus='not_evaluated'; implementationStatus='completed'; verificationStatus='blocked'; releaseStatus='blocked'; nextAllowed=false; nextWorkflow='/auditphase'; reason='required_verification_missing_or_failed';
   } else if (assurance !== 'flow' && auditStatus !== 'passed') {
-    acceptanceStatus='completed_with_verification_debt'; verificationStatus='debt'; releaseStatus='blocked'; nextAllowed=true; reason='protected_audit_unavailable';
+    acceptanceStatus='completed_with_verification_debt'; implementationStatus='completed'; verificationStatus='partial'; releaseStatus='blocked'; nextAllowed=true; nextWorkflow=null; reason='protected_audit_unavailable';
   } else if (verification.length || release.length) {
-    acceptanceStatus='completed_with_verification_debt'; verificationStatus='debt'; releaseStatus='blocked'; nextAllowed=true; reason='verification_or_release_debt';
+    acceptanceStatus='completed_with_verification_debt'; implementationStatus='completed'; verificationStatus='partial'; releaseStatus='blocked'; nextAllowed=true; nextWorkflow=null; reason='verification_or_release_debt';
   } else {
-    acceptanceStatus='accepted'; verificationStatus='passed'; releaseStatus=assurance==='release'?'open':'not_applicable'; nextAllowed=true; reason='all_material_gates_passed';
+    acceptanceStatus='accepted'; implementationStatus='completed'; verificationStatus='passed'; releaseStatus=assurance==='release'?'open':'not_applicable'; nextAllowed=true; nextWorkflow=null; reason='all_material_gates_passed';
   }
   return {
-    schema_version:'1.0.0', work_item_id:workItem?.work_item_id || 'unknown', implementation_status:product.length?'partial':'completed',
+    schema_version:'1.0.0', work_item_id:workItem?.work_item_id || 'unknown', implementation_status:implementationStatus,
     verification_status:verificationStatus, audit_status:auditStatus, acceptance_status:acceptanceStatus, release_status:releaseStatus,
-    next_owner_goal_allowed:nextAllowed, closure_reason:reason, open_finding_ids:open.map(f=>f.finding_id),
-    repair_batches_used:Number(budget?.repair_batches_used || 0), generated_at_utc:new Date().toISOString()
+    next_owner_goal_allowed:nextAllowed, next_workflow:nextWorkflow, closure_reason:reason, open_finding_ids:open.map(f=>f.finding_id),
+    progress_observations:Number(progressState.observations_count || progressState.iteration_count || 0),
+    generated_at_utc:new Date().toISOString()
   };
 }
-
 function liveGit(root) {
   const gitRoot = git(root, ['rev-parse','--show-toplevel']);
   const branch = git(root, ['rev-parse','--abbrev-ref','HEAD']);
@@ -211,13 +213,13 @@ function selfTest() {
   checks.push(validateAuditCoverage({workItem,matrix}).ok);
   const late=classifyLateFinding({finding:{finding_id:'F-1',materiality:'product_blocker'},coverageMatrix:matrix});
   checks.push(late.origin==='audit_coverage_miss');
-  checks.push(resolveRepairBudget({assuranceMode:'guarded',budget:{repair_batches_used:3,repair_batch_limit:3},openFindings:[{lifecycle_status:'open_confirmed',materiality:'verification_blocker'}]}).action==='close_with_verification_debt');
+  checks.push(resolveContinuationPolicy({assuranceMode:'guarded',openFindings:[{lifecycle_status:'open_confirmed',materiality:'verification_blocker'}],progressState:{status:'progressing'}}).action==='continue_verification_or_close_debt');
   const reviewer={read_only:true,target_head:'abcdef1',implementation_context_id:'i',reviewer_context_id:'r',implementation_root:'/tmp/i',reviewer_root:'/tmp/r',predicate_origin:'protected_reviewer',reviewer_authored_implementation:false,reviewer_authored_artifact_generator:false,reviewer_authored_predicates:false,artifact_manifest_sha256:'a'.repeat(64),independence_status:'independent'};
   checks.push(validateProtectedReviewer(reviewer).ok);
   checks.push(!validateProtectedReviewer({...reviewer,reviewer_context_id:'i'}).ok);
   const fw={status:'active',stage_profile:'protocol_freeze',protected_path_patterns:['src/**/analytics/**'],algorithm_repair_authorized:false};
   checks.push(!validateStageFirewall({firewall:fw,changedPaths:['src/backend/analytics/hrv.ts']}).ok);
-  const closure=compileClosure({workItem,findings:[],verificationReceipt:{tests:[{required:true,exit_code:0}]},auditResult:{status:'blocked'},reviewerAttestation:{...reviewer,independence_status:'unavailable'},budget:{repair_batches_used:3}});
+  const closure=compileClosure({workItem,findings:[],verificationReceipt:{tests:[{required:true,exit_code:0}]},auditResult:{status:'blocked'},reviewerAttestation:{...reviewer,independence_status:'unavailable'},progressState:{status:'progressing'}});
   checks.push(closure.acceptance_status==='completed_with_verification_debt' && closure.next_owner_goal_allowed===true);
   if (checks.some(x=>!x)) throw new Error(`Self-test failed: ${JSON.stringify(checks)}`);
   return {ok:true,checks:checks.length};
@@ -235,4 +237,5 @@ if (require.main === module) {
   } catch(e) { console.error(e.stack||String(e)); process.exit(1); }
 }
 
-module.exports={stable,sha256,normalize,validateBriefContinuity,validateExecutionLease,validateAuditCoverage,classifyLateFinding,resolveRepairBudget,validateProtectedReviewer,validateStageFirewall,compileClosure,liveGit,selfTest};
+const resolveRepairBudget = resolveContinuationPolicy; // historical API alias
+module.exports={stable,sha256,normalize,validateBriefContinuity,validateExecutionLease,validateAuditCoverage,classifyLateFinding,resolveContinuationPolicy,resolveRepairBudget,validateProtectedReviewer,validateStageFirewall,compileClosure,liveGit,selfTest};

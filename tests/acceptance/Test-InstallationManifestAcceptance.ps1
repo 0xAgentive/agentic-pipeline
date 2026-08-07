@@ -25,6 +25,15 @@ function Invoke-Capture {
   }
 }
 
+
+function Get-FunctionalBash {
+  $BashCommand = Get-Command bash -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($null -eq $BashCommand) { return $null }
+  $Probe = Invoke-Capture -FilePath $BashCommand.Source -Arguments @("--version")
+  if ($Probe.Code -ne 0 -or $Probe.Text -notmatch "(?i)GNU bash") { return $null }
+  return $BashCommand.Source
+}
+
 function Assert-Equal {
   param([object]$Actual, [object]$Expected, [string]$Message)
   if ([string]$Actual -ne [string]$Expected) {
@@ -76,9 +85,9 @@ foreach ($Required in @($VersionPath, $WindowsInstaller, $BashInstaller, $Manife
 }
 
 $Version = Read-Json -Path $VersionPath
-Assert-Equal -Actual $Version.package_version -Expected "1.2.6" -Message "Acceptance requires package 1.2.6 candidate."
-Assert-Equal -Actual $Version.runtime_version -Expected "1.2.3" -Message "Acceptance requires runtime 1.2.3."
-Assert-Equal -Actual $Version.companion_version -Expected "1.2.4" -Message "Acceptance requires Companion 1.2.4."
+Assert-Equal -Actual $Version.package_version -Expected "1.2.8" -Message "Acceptance requires package 1.2.8 candidate."
+Assert-Equal -Actual $Version.runtime_version -Expected "1.2.8" -Message "Acceptance requires runtime 1.2.8."
+Assert-Equal -Actual $Version.companion_version -Expected "1.2.8" -Message "Acceptance requires Companion 1.2.8."
 
 $WindowsInstallerText = [System.IO.File]::ReadAllText($WindowsInstaller, [System.Text.Encoding]::UTF8)
 $BashInstallerText = [System.IO.File]::ReadAllText($BashInstaller, [System.Text.Encoding]::UTF8)
@@ -91,7 +100,7 @@ foreach ($InstallerContract in @(
   if (!$InstallerContract.Text.Contains("write-installation-manifest.cjs")) {
     throw "$($InstallerContract.Name) must invoke the shared manifest writer."
   }
-  foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.4"')) {
+  foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.8"')) {
     if ($InstallerContract.Text.Contains($ForbiddenLiteral)) {
       throw "$($InstallerContract.Name) hardcodes release version literal $ForbiddenLiteral."
     }
@@ -101,7 +110,7 @@ foreach ($InstallerContract in @(
 if (!$ManifestWriterText.Contains("VERSION.json")) {
   throw "Shared manifest writer must read VERSION.json."
 }
-foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.4"')) {
+foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.8"')) {
   if ($ManifestWriterText.Contains($ForbiddenLiteral)) {
     throw "Shared manifest writer hardcodes release version literal $ForbiddenLiteral."
   }
@@ -139,9 +148,9 @@ try {
   Assert-Manifest -Manifest $WindowsManifest -Version $Version -ExpectedCommit $RepoHead -Mode "new"
 
   if (!$SkipBash) {
-    $BashCommand = Get-Command bash -ErrorAction SilentlyContinue
-    if ($null -eq $BashCommand) {
-      Write-Host "Bash installer acceptance skipped locally: bash unavailable."
+    $BashExecutable = Get-FunctionalBash
+    if ([string]::IsNullOrWhiteSpace([string]$BashExecutable)) {
+      Write-Host "Bash installer acceptance skipped locally: no functional GNU Bash (WindowsApps/WSL alias is not accepted)."
     }
     else {
       $BashTarget = Join-Path $TempRoot "bash-adopt-project"
@@ -159,7 +168,7 @@ try {
         if ($GitResult.Code -ne 0) { throw "Bash fixture Git setup failed. Output=$($GitResult.Text)" }
       }
 
-      $BashResult = Invoke-Capture -FilePath $BashCommand.Source -Arguments @($BashInstaller, $BashTarget)
+      $BashResult = Invoke-Capture -FilePath $BashExecutable -Arguments @($BashInstaller, $BashTarget)
       if ($BashResult.Code -ne 0) {
         throw "Bash installer failed. Output=$($BashResult.Text)"
       }

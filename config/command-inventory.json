@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "runtime_version": "1.2.3",
+  "runtime_version": "1.2.8",
   "commands": [
     {
       "command": "/specdoc",
@@ -23,10 +23,12 @@
       "mode": "read-only",
       "workflow": ".agents/workflows/auditphase.md",
       "required_paths": [
+        "scripts/windows/companion/New-ProtectedReviewerAttestation.ps1",
         "scripts/windows/companion/Publish-AuditCoverageMatrix.ps1",
         "scripts/windows/companion/Test-AuditCoverageMatrix.ps1",
-        "scripts/windows/companion/New-ProtectedReviewerAttestation.ps1",
-        "scripts/windows/companion/Test-ProtectedReviewerAttestation.ps1"
+        "scripts/windows/companion/Test-FindingSet.ps1",
+        "scripts/windows/companion/Test-ProtectedReviewerAttestation.ps1",
+        "scripts/windows/companion/Validate-ControlPlaneState.ps1"
       ]
     },
     {
@@ -40,8 +42,13 @@
       "mode": "write",
       "workflow": ".agents/workflows/nextphase.md",
       "required_paths": [
+        "scripts/windows/companion/Bind-ExecutionScopeTransaction.ps1",
+        "scripts/windows/companion/Publish-CandidateManifest.ps1",
+        "scripts/windows/companion/Register-FindingDelta.ps1",
+        "scripts/windows/companion/Register-Progress.ps1",
+        "scripts/windows/companion/Start-WorkItemTransaction.ps1",
         "scripts/windows/companion/Test-ExecutionLease.ps1",
-        "scripts/windows/companion/Register-FindingDelta.ps1"
+        "scripts/windows/companion/Validate-ControlPlaneState.ps1"
       ]
     },
     {
@@ -121,10 +128,15 @@
       "mode": "bounded-write",
       "workflow": ".agents/workflows/fixcritical.md",
       "required_paths": [
+        "scripts/windows/companion/Bind-ExecutionScopeTransaction.ps1",
+        "scripts/windows/companion/Publish-CandidateManifest.ps1",
         "scripts/windows/companion/Publish-RepairDelta.ps1",
-        "scripts/windows/companion/Register-RepairBatch.ps1",
         "scripts/windows/companion/Register-FindingDelta.ps1",
-        "scripts/windows/companion/Test-ExecutionLease.ps1"
+        "scripts/windows/companion/Register-Progress.ps1",
+        "scripts/windows/companion/Register-RepairBatch.ps1",
+        "scripts/windows/companion/Start-WorkItemTransaction.ps1",
+        "scripts/windows/companion/Test-ExecutionLease.ps1",
+        "scripts/windows/companion/Validate-ControlPlaneState.ps1"
       ]
     },
     {

@@ -17,14 +17,15 @@ function Files([string[]]$ext=@()){
 }
 
 $required = @(
- "README.md","README.ru.md","VERSION.json","LICENSE","SECURITY.md","CONTRIBUTING.md","CHANGELOG.md",
+ "README.md","README.ru.md","VERSION.json","ECOSYSTEM_VERSION.json","LICENSE","SECURITY.md","CONTRIBUTING.md","CHANGELOG.md",
  "docs/AGENTIC_PIPELINE_PLAYBOOK.md","docs/GITHUB_PUBLICATION.md","docs/PIPELINE_VERSION_MATRIX.md",
  "config/command-inventory.json","schemas/phase-status.schema.json","schemas/command-inventory.schema.json","schemas/version.schema.json",
- "docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.4.md","docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.4.md","docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.4.md","docs/companion/14_AUTONOMOUS_CONVERGENCE_AND_AUDIT_COVERAGE.md","docs/companion/15_OWNER_OUTPUT_PRESENTATION.md",
+ "docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.8.md","docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.8.md","docs/companion/01_PROJECT_INSTRUCTIONS_v1.2.8.md","docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.8.md","docs/companion/14_AUTONOMOUS_CONVERGENCE_AND_AUDIT_COVERAGE.md","docs/companion/15_OWNER_OUTPUT_PRESENTATION.md",
  "schemas/companion/runtime-handshake.schema.json","schemas/companion/phase-contract.schema.json","schemas/companion/finding.schema.json","schemas/companion/phase-result.schema.json",
- "schemas/companion/work-item.schema.json","schemas/companion/execution-scope.schema.json","schemas/companion/run-result.schema.json","schemas/companion/flow-policy.schema.json","schemas/companion/execution-lease.schema.json","schemas/companion/audit-coverage-matrix.schema.json","schemas/companion/finding-set.schema.json","schemas/companion/repair-delta.schema.json","schemas/companion/convergence-budget.schema.json","schemas/companion/reviewer-attestation.schema.json","schemas/companion/stage-firewall.schema.json","schemas/companion/closure-state.schema.json",
- "evals/companion/golden_cases.json","evals/companion/flow_restoration_cases.json","evals/companion/autonomous_convergence_cases.json","scripts/companion/companion-control.cjs","scripts/control-plane/autonomous-convergence.cjs","tests/acceptance/autonomous-convergence-contract.cjs","scripts/windows/companion/Test-CompanionPack-v1.2.4.ps1","scripts/windows/companion/Test-FlowRestorationContracts.ps1","scripts/windows/companion/Test-AutonomousConvergenceContracts.ps1",
- "scripts/windows/Validate-AgenticPipelinePackage.ps1","scripts/windows/Test-DistributionIntegrity.ps1","scripts/windows/Test-PowerShellRuntimeContracts.ps1",
+ "schemas/companion/work-item.schema.json","schemas/companion/execution-scope.schema.json","schemas/companion/run-result.schema.json","schemas/companion/flow-policy.schema.json","schemas/companion/execution-lease.schema.json","schemas/companion/audit-coverage-matrix.schema.json","schemas/companion/finding-set.schema.json","schemas/companion/repair-delta.schema.json","schemas/companion/convergence-budget.schema.json","schemas/companion/progress-state.schema.json","schemas/companion/next-action.schema.json","schemas/companion/candidate-manifest-status.schema.json","schemas/companion/action-packet.schema.json","schemas/companion/reviewer-attestation.schema.json","schemas/companion/stage-firewall.schema.json","schemas/companion/closure-state.schema.json",
+ "evals/companion/golden_cases.json","evals/companion/flow_restoration_cases.json","evals/companion/autonomous_convergence_cases.json","scripts/companion/companion-control.cjs","scripts/control-plane/autonomous-convergence.cjs","scripts/control-plane/progress-guard.cjs","scripts/control-plane/validate-findings.cjs","scripts/control-plane/action-packet.cjs","tests/acceptance/autonomous-convergence-contract.cjs","scripts/windows/companion/Test-CompanionPack-v1.2.8.ps1","scripts/windows/companion/Test-FlowRestorationContracts.ps1","scripts/windows/companion/Test-AutonomousConvergenceContracts.ps1",
+ "scripts/windows/Test-OwnerAutonomyContracts.ps1","scripts/windows/Test-UnifiedEcosystemVersion.ps1","scripts/windows/Test-OperationalDeployment.ps1","scripts/windows/Test-KnownFailureRegressionPlaybook-v1.2.8.ps1","scripts/windows/Build-AgenticProjectRuntimeOverlay-v1.2.8.ps1","scripts/windows/Update-AgenticProjectRuntime-v1.2.8.ps1","scripts/bridge/companion_action_bridge.py","scripts/bridge/Install-CompanionActionBridge.ps1","templates/agy-project-base/.agents/hooks.json","templates/agy-project-base/.agents/hooks/agentic_runtime_hook.cjs","templates/agy-project-base/.agy/PROGRESS_POLICY.json","templates/agy-project-base/.agy/PROGRESS_STATE.json","templates/agy-project-base/.agy/NEXT_ACTION.json","templates/agy-project-base/.agy/CANDIDATE_MANIFEST_STATUS.json",
+  "scripts/windows/Validate-AgenticPipelinePackage.ps1","scripts/windows/Test-DistributionIntegrity.ps1","scripts/windows/Test-PowerShellRuntimeContracts.ps1",
  "scripts/windows/Test-StateProfiles.ps1","scripts/windows/Test-CommandInventory.ps1",
  "scripts/windows/Test-TemplateHygiene.ps1","scripts/windows/Test-ProjectLeakage.ps1",
  "scripts/windows/Test-FreshInstall.ps1","scripts/windows/Build-ReleasePackage.ps1",
@@ -74,7 +75,7 @@ foreach($f in Files @(".json")){
 foreach($f in Files @(".ps1")){
   $t=$null; $e=$null
   [System.Management.Automation.Language.Parser]::ParseFile($f.FullName,[ref]$t,[ref]$e) | Out-Null
-  if($e.Count -gt 0){ Add-Err "PowerShell parse error: $($f.FullName): $($e[0].Message)" }
+  if(@($e).Count -gt 0){ Add-Err "PowerShell parse error: $($f.FullName): $(@($e)[0].Message)" }
 }
 
 $node = Get-Command node -ErrorAction SilentlyContinue
@@ -123,7 +124,7 @@ if(Test-Path -LiteralPath $templateRoot){
   foreach($f in $generated){ Add-Err "Generated runtime artifact in template: $($f.FullName)" }
 }
 
-foreach($f in Files){
+foreach($f in @(Files)){
   if($f.Name -like "*.bak-*" -or $f.Name -like "*.bak-v*"){
     $rel = $f.FullName.Substring($Root.Length).TrimStart("\","/")
     if((($rel -replace "\\","/").StartsWith(".pipeline_patch_backup/")) -eq $false){

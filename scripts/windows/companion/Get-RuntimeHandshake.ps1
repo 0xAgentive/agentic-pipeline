@@ -868,15 +868,11 @@ $Facts = [ordered]@{
     claims_evidence_consistent = $ClaimsEvidenceConsistent
   }
   repair_facts = [ordered]@{
-    repair_budget_known = if ($Contract -and $null -ne $Contract.repair_budget) { $true } else { $false }
-    repair_budget_exhausted = if ($Phase -and $Phase.repair_budget_exhausted -eq $true) { $true } else { $false }
-    user_continue_repair_authorized = if ($Phase -and $Phase.user_continue_repair_authorized -eq $true) { $true } else { $false }
-    registered_repair_cycle_count = if ($Phase -and $null -ne $Phase.registered_repair_cycle_count) {
-      [int]$Phase.registered_repair_cycle_count
-    }
-    else {
-      0
-    }
+    repair_budget_known = $false
+    repair_budget_exhausted = $false
+    user_continue_repair_authorized = $true
+    registered_repair_cycle_count = if ($Phase -and $null -ne $Phase.registered_repair_cycle_count) { [int]$Phase.registered_repair_cycle_count } else { 0 }
+    history_only = $true
     hard_stop = if ($RunResult -and $RunResult.hard_stop -eq $true) { $true } else { $false }
     no_progress = if ($RunResult -and $RunResult.no_progress -eq $true) { $true } else { $false }
     same_failure_count = if ($Phase -and $null -ne $Phase.same_failure_count) { [int]$Phase.same_failure_count } else { 0 }

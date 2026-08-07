@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "ecosystem_version": "1.2.8",
+  "artifact": "pipeline_source_snapshot",
+  "source": "complete canonical tree",
+  "generated_at_utc": "2026-08-06T18:31:40.369841Z",
+  "operational_gate_policy": {
+    "blocking": [
+      "syntax/runtime safety",
+      "operational smoke",
+      "work-item transaction",
+      "runtime update",
+      "Action Bridge",
+      "version parity"
+    ],
+    "advisory": [
+      "documentation links",
+      "whitespace and line-ending style",
+      "historical leakage meta-checks",
+      "meta-regression presentation"
+    ]
+  },
+  "schema_contract_correction": {
+    "status": "PASS",
+    "reason": "Active work-item transaction writes schema 1.1.0 and action_packet_id; schemas now accept the active writer surface and preserve 1.0 compatibility.",
+    "regression_case": "KF-046"
+  }
+}

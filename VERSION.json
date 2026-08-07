@@ -1,11 +1,12 @@
 {
   "schema_version": "1.0.0",
-  "package_version": "1.2.6",
-  "release_name": "Autonomous Audit Convergence",
-  "playbook_version": "1.2.0",
-  "runtime_version": "1.2.3",
-  "runtime_truth_patch": "1.2.3a",
-  "documentation_cleanup": "1.2.4a",
-  "companion_version": "1.2.4",
+  "ecosystem_version": "1.2.8",
+  "package_version": "1.2.8",
+  "release_name": "Unified Owner-Autonomous Execution",
+  "playbook_version": "1.2.8",
+  "runtime_version": "1.2.8",
+  "companion_version": "1.2.8",
+  "action_bridge_version": "1.2.8",
+  "handoff_compatibility": "1.2.8",
   "status": "stable"
 }

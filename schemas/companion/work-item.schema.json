@@ -18,7 +18,10 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
     },
     "work_item_id": {
       "type": "string",
@@ -164,23 +167,39 @@
       ],
       "pattern": "^[0-9a-f]{64}$"
     },
-    "convergence_policy": {
+    "progress_policy": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "initial_audit_limit": {
-          "type": "integer",
-          "minimum": 0
+        "auto_continue_while_progress": {
+          "type": "boolean"
         },
-        "repair_batch_limit": {
+        "consecutive_no_progress_limit": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 1,
+          "maximum": 10
         },
-        "final_audit_limit": {
+        "same_failure_limit": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 1,
+          "maximum": 10
         }
       }
+    },
+    "audit_dimensions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "action_packet_id": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
 }

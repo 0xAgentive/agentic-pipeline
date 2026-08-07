@@ -42,12 +42,12 @@ function baseFacts() {
     installation_facts: {
       installation_manifest_path: '.agy/INSTALLATION_MANIFEST.json',
       installation_manifest_sha256: 'b'.repeat(64),
-      installed_project_package_version: '1.2.4',
+      installed_project_package_version: '1.2.8',
       installed_project_runtime_version: '1.2.1',
       installed_project_source_commit: 'fixture'
     },
     central_inventory_advisory: {
-      package_version: '1.2.4',
+      package_version: '1.2.8',
       runtime_version: '1.2.1',
       commands: ['/landing', '/auditphase', '/fixcritical', '/shipcheck', '/nextphase']
     },
@@ -92,10 +92,13 @@ function baseFacts() {
       claims_evidence_consistent: true
     },
     repair_facts: {
-      repair_budget_known: true,
+      repair_budget_known: false,
       repair_budget_exhausted: false,
       user_continue_repair_authorized: false,
-      registered_repair_cycle_count: 0
+      registered_repair_cycle_count: 0,
+      progress_stalled: false,
+      consecutive_no_progress: 0,
+      same_failure_count: 0
     },
     routing_policy: {
       explicit_compatibility_matrix: {}

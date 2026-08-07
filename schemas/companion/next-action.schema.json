@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Next Action v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_item_id",
+    "route",
+    "auto_continue",
+    "owner_decision_required",
+    "updated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
+    },
+    "work_item_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "route": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "auto_continue": {
+      "type": "boolean"
+    },
+    "owner_decision_required": {
+      "type": "boolean"
+    },
+    "owner_decision_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "technical_task_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "updated_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

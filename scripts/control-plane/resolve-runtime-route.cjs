@@ -401,8 +401,7 @@ function resolveRuntimeRoute(input) {
         countValue(flowPolicy.same_failure_limit || 3) &&
       repairFacts.progress_observed === false
     );
-  const budgetExhausted = repairFacts.repair_budget_exhausted === true;
-  const userOverride = repairFacts.user_continue_repair_authorized === true;
+  const progressStalled = repairFacts.progress_stalled === true || Number(repairFacts.consecutive_no_progress || 0) >= 2 || Number(repairFacts.same_failure_count || 0) >= 2;
 
   let routingMode = 'normal';
   let resolvedAllowed = [];
@@ -633,8 +632,8 @@ function resolveRuntimeRoute(input) {
         requireCommand('/auditphase', 'Audit authority is incomplete but /auditphase is not installed.');
       } else if (productBlockerCount > 0) {
         uniquePush(reasonCodes, 'CONFIRMED_BLOCKER_REQUIRES_REPAIR');
-        if (budgetExhausted && !userOverride) {
-          uniquePush(reasonCodes, 'REPAIR_BUDGET_EXHAUSTED');
+        if (progressStalled) {
+          uniquePush(reasonCodes, 'REPEATED_NO_PROGRESS');
           nextRequiredCommand = null;
           resolvedAllowed = [];
         } else {
@@ -688,7 +687,7 @@ function resolveRuntimeRoute(input) {
 
     if (nextRequiredCommand) setObjectiveAllowed(nextRequiredCommand);
 
-    if (budgetExhausted && !userOverride) {
+    if (progressStalled) {
       resolvedAllowed = resolvedAllowed.filter((command) => !PRODUCT_WRITE_COMMANDS.has(command));
       if (nextRequiredCommand && PRODUCT_WRITE_COMMANDS.has(nextRequiredCommand)) {
         nextRequiredCommand = null;
@@ -742,10 +741,10 @@ function resolveRuntimeRoute(input) {
       decision = 'fail_closed';
       errors.push(`Requested release command '${requested.root}' is blocked while governance health is degraded.`);
       hardFailure = true;
-    } else if (!workItemActive && budgetExhausted && !userOverride && PRODUCT_WRITE_COMMANDS.has(requested.root)) {
+    } else if (!workItemActive && progressStalled && PRODUCT_WRITE_COMMANDS.has(requested.root)) {
       decision = 'human_decision_required';
       ownerInteractionRequired = true;
-      uniquePush(reasonCodes, 'REPAIR_BUDGET_EXHAUSTED');
+      uniquePush(reasonCodes, 'REPEATED_NO_PROGRESS');
     } else if (resolvedAllowed.includes(requested.root)) {
       decision = 'route';
       decisionCommand = requested.root;
@@ -765,10 +764,10 @@ function resolveRuntimeRoute(input) {
     hardFailure = true;
   } else if (ownerInteractionRequired) {
     decision = 'human_decision_required';
-  } else if (!workItemActive && productBlockerCount > 0 && budgetExhausted && !userOverride) {
+  } else if (!workItemActive && productBlockerCount > 0 && progressStalled) {
     decision = 'human_decision_required';
     ownerInteractionRequired = true;
-    uniquePush(reasonCodes, 'REPAIR_BUDGET_EXHAUSTED');
+    uniquePush(reasonCodes, 'REPEATED_NO_PROGRESS');
   } else if (enforcementMode === 'shadow' && productLeaseAvailable && shadowCandidateCommand) {
     decision = 'shadow_route';
     decisionCommand = null;

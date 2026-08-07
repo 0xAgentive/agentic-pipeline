@@ -61,6 +61,7 @@ $Lease = [ordered]@{
   owner_goal_sha256 = $GoalHash
   execution_scope_sha256 = $ScopeHash
   allowed_paths = $Allowed
+  allowed_command_patterns = @($Scope.allowed_command_patterns | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
   forbidden_domains = @($Scope.forbidden_domains | ForEach-Object { [string]$_ })
   stage_profile = $StageProfile
   first_write_started = $false

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Candidate Manifest Status v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "invalidated_by",
+    "updated_at_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ]
+    },
+    "status": {
+      "enum": [
+        "not_created",
+        "current",
+        "invalidated",
+        "blocked"
+      ]
+    },
+    "manifest_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "manifest_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "invalidated_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "updated_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "candidate_file_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ambient_file_count": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

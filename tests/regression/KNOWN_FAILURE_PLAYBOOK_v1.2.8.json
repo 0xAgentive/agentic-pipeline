@@ -279,6 +279,18 @@
       "name": "Control-plane writer/schema revision parity",
       "layer": "runtime",
       "expected": "active 1.1 control-plane writers produce documents accepted by the corresponding schemas while 1.0 state remains compatible"
+    },
+    {
+      "id": "KF-047",
+      "name": "Legacy runtime handshake shape during progress-guard migration",
+      "layer": "runtime",
+      "expected": "missing installed, routing, timestamps and optional work-item fields are added safely before project deployment"
+    },
+    {
+      "id": "KF-048",
+      "name": "Documentation-only whitespace blocks operational deployment",
+      "layer": "installer",
+      "expected": "operational profile records Markdown-only whitespace as advisory while non-Markdown whitespace remains fail-closed"
     }
   ]
 }

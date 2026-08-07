@@ -59,7 +59,15 @@ function Invoke-Validator {
 }
 
 $CompanionArguments = @('-RepoRoot', $Root)
-if ($PackageMode) { $CompanionArguments += '-PackageMode' }
+if ($PackageMode) {
+  $CompanionArguments += '-PackageMode'
+}
+elseif ($Profile -eq 'operational') {
+  $CompanionArguments += @('-WorkingTreeWhitespacePolicy', 'advisory')
+}
+else {
+  $CompanionArguments += @('-WorkingTreeWhitespacePolicy', 'strict')
+}
 
 $CoreTests = @(
   [pscustomobject]@{ Name = 'companion pack and golden evals'; Path = 'scripts\windows\companion\Test-CompanionPack-v1.2.8.ps1'; Args = $CompanionArguments },
@@ -71,6 +79,7 @@ $CoreTests = @(
   [pscustomobject]@{ Name = 'fresh install'; Path = 'scripts\windows\Test-FreshInstall.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'owner autonomy'; Path = 'scripts\windows\Test-OwnerAutonomyContracts.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'unified ecosystem version'; Path = 'scripts\windows\Test-UnifiedEcosystemVersion.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'progress-guard migration compatibility'; Path = 'tests\acceptance\Test-ProgressGuardMigrationCompatibility.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'operational deployment'; Path = 'scripts\windows\Test-OperationalDeployment.ps1'; Args = @('-RepoRoot', $Root) }
 )
 

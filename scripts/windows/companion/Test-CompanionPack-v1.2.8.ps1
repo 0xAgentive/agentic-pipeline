@@ -2,7 +2,9 @@
 param(
   [string]$RepoRoot = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline",
   [switch]$RunRepositoryValidators,
-  [switch]$PackageMode
+  [switch]$PackageMode,
+  [ValidateSet('strict', 'advisory', 'skip')]
+  [string]$WorkingTreeWhitespacePolicy = 'strict'
 )
 Set-StrictMode -Version 3.0
 $ErrorActionPreference='Stop'
@@ -51,7 +53,29 @@ if($RunRepositoryValidators){
   if($LASTEXITCODE-ne0){Add-Failure "Repository validator failed: $Relative"}
  }
 }
-if(-not$PackageMode){& git -C $Root diff --check;if($LASTEXITCODE-ne0){Add-Failure 'git diff --check failed.'}}
+if (-not $PackageMode -and $WorkingTreeWhitespacePolicy -ne 'skip') {
+  $FullDiffOutput = @(& git -C $Root diff --check 2>&1)
+  $FullDiffExitCode = $LASTEXITCODE
+
+  if ($FullDiffExitCode -ne 0) {
+    if ($WorkingTreeWhitespacePolicy -eq 'advisory') {
+      $CriticalDiffOutput = @(
+        & git -C $Root diff --check -- . ':(exclude,glob)**/*.md' 2>&1
+      )
+      $CriticalDiffExitCode = $LASTEXITCODE
+
+      if ($CriticalDiffExitCode -ne 0) {
+        Add-Failure ('git diff --check found non-documentation whitespace errors: ' + ($CriticalDiffOutput -join ' | '))
+      }
+      else {
+        Write-Warning ('Documentation-only whitespace issues are advisory in operational mode: ' + ($FullDiffOutput -join ' | '))
+      }
+    }
+    else {
+      Add-Failure ('git diff --check failed: ' + ($FullDiffOutput -join ' | '))
+    }
+  }
+}
 if($Failures.Count-gt0){Write-Host 'Companion pack validation failed:';$Failures|Sort-Object -Unique|ForEach-Object{Write-Host "- $_"};exit 1}
 Write-Host 'Companion pack 1.2.8 validation passed.'
 exit 0

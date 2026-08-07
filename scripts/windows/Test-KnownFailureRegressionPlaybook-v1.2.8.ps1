@@ -224,7 +224,7 @@ catch {
 try {
   $Playbook = Read-JsonFile -RelativePath 'tests\regression\KNOWN_FAILURE_PLAYBOOK_v1.2.8.json'
   $CaseCount = @($Playbook.cases).Count
-  Add-CheckResult -Id 'KF-030' -Passed ($CaseCount -ge 46) -Details "Known cases: $CaseCount" -Severity 'advisory'
+  Add-CheckResult -Id 'KF-030' -Passed ($CaseCount -ge 48) -Details "Known cases: $CaseCount" -Severity 'advisory'
 }
 catch {
   Add-CheckResult -Id 'KF-030' -Passed $false -Details $_.Exception.Message -Severity 'advisory'
@@ -278,6 +278,41 @@ try {
 catch {
   Add-CheckResult -Id 'KF-046' -Passed $false -Details $_.Exception.Message
 }
+
+
+
+try {
+  $DistributionPolicyText = Read-TextFile -RelativePath 'scripts\windows\Test-DistributionIntegrity.ps1'
+  $CompanionPolicyText = Read-TextFile -RelativePath 'scripts\windows\companion\Test-CompanionPack-v1.2.8.ps1'
+  $WhitespacePolicyOk = (
+    $DistributionPolicyText.Contains("'-WorkingTreeWhitespacePolicy', 'advisory'") -and
+    $CompanionPolicyText.Contains("ValidateSet('strict', 'advisory', 'skip')") -and
+    $CompanionPolicyText.Contains(':(exclude,glob)**/*.md') -and
+    $CompanionPolicyText.Contains('Documentation-only whitespace issues are advisory in operational mode')
+  )
+  Add-CheckResult -Id 'KF-040' -Passed $WhitespacePolicyOk -Details 'Operational/advisory gate separation'
+  Add-CheckResult -Id 'KF-048' -Passed $WhitespacePolicyOk -Details 'Documentation-only whitespace cannot block operational deployment'
+}
+catch {
+  Add-CheckResult -Id 'KF-040' -Passed $false -Details $_.Exception.Message
+  Add-CheckResult -Id 'KF-048' -Passed $false -Details $_.Exception.Message
+}
+
+try {
+  $MigrationText = Read-TextFile -RelativePath 'scripts\windows\companion\Migrate-ActiveWorkItemToProgressGuard.ps1'
+  $DistributionText = Read-TextFile -RelativePath 'scripts\windows\Test-DistributionIntegrity.ps1'
+  $CompatibilityTest = Join-Path $Root 'tests\acceptance\Test-ProgressGuardMigrationCompatibility.ps1'
+  $MigrationCompatibilityOk = (
+    $MigrationText.Contains('LEGACY_SHAPE_SAFE_PROGRESS_GUARD_MIGRATION') -and
+    (Test-Path -LiteralPath $CompatibilityTest -PathType Leaf) -and
+    $DistributionText.Contains('progress-guard migration compatibility')
+  )
+  Add-CheckResult -Id 'KF-047' -Passed $MigrationCompatibilityOk -Details 'Legacy runtime-state migration compatibility'
+}
+catch {
+  Add-CheckResult -Id 'KF-047' -Passed $false -Details $_.Exception.Message
+}
+
 [object[]]$FailureArray = $Failures.ToArray()
 [object[]]$WarningArray = $Warnings.ToArray()
 [object[]]$PassArray = $Passes.ToArray()

@@ -105,8 +105,9 @@ try {
   $BridgePackage = Find-PackageRoot -ExtractRoot $BridgeExtract -Marker 'Install-CompanionActionBridge.ps1'
   $BridgeInstaller = Join-Path $BridgePackage 'Install-CompanionActionBridge.ps1'
   $BridgeHash = (Get-FileHash -LiteralPath $Assets.action_bridge -Algorithm SHA256).Hash.ToLowerInvariant()
-  & $BridgeInstaller -ProjectRoot $Project -ProjectId $ProjectId -LogicalName $LogicalName -ExpectedSourceCommit $SourceCommit -AssetSha256 $BridgeHash
-  & $BridgeInstaller -ProjectRoot $Project -ProjectId $ProjectId -LogicalName $LogicalName -ExpectedSourceCommit $SourceCommit -AssetSha256 $BridgeHash -Apply
+  & $BridgeInstaller -ProjectRoot $Project -ProjectId $ProjectId -LogicalName $LogicalName -ExpectedSourceCommit $SourceCommit -PackageArchivePath $Assets.action_bridge -AssetSha256 $BridgeHash
+  & $BridgeInstaller -ProjectRoot $Project -ProjectId $ProjectId -LogicalName $LogicalName -ExpectedSourceCommit $SourceCommit -PackageArchivePath $Assets.action_bridge -AssetSha256 $BridgeHash -Apply
+  & $BridgeInstaller -ProjectRoot $Project -ProjectId $ProjectId -LogicalName $LogicalName -ExpectedSourceCommit $SourceCommit -PackageArchivePath $Assets.action_bridge -AssetSha256 $BridgeHash -Apply
 
   $HandoffPackage = Find-PackageRoot -ExtractRoot $HandoffExtract -Marker 'Update-AgenticContextHandoff-v1.2.9.ps1'
   $HandoffUpdater = Join-Path $HandoffPackage 'Update-AgenticContextHandoff-v1.2.9.ps1'

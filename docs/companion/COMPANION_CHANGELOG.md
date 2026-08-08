@@ -1,5 +1,11 @@
 # Companion changelog
 
+## 1.2.10 — Lossless Legacy Runtime Migration
+
+- Keeps the 1.2.9 token-free Action Packet, local Bridge authorization and safe Context Handoff design.
+- Aligns Companion, Bridge and Context Handoff asset identity with the 1.2.10 runtime migration release.
+- Preserves exact project authority while legacy findings are migrated transactionally by the local runtime updater.
+
 ## 1.2.9 — Source-Immutable Runtime Finalization
 
 - External Action Packets no longer contain the local capability secret; authorization is injected only by the installed Bridge.

@@ -85,9 +85,9 @@ foreach ($Required in @($VersionPath, $WindowsInstaller, $BashInstaller, $Manife
 }
 
 $Version = Read-Json -Path $VersionPath
-Assert-Equal -Actual $Version.package_version -Expected "1.2.9" -Message "Acceptance requires package 1.2.9 candidate."
-Assert-Equal -Actual $Version.runtime_version -Expected "1.2.9" -Message "Acceptance requires runtime 1.2.9."
-Assert-Equal -Actual $Version.companion_version -Expected "1.2.9" -Message "Acceptance requires Companion 1.2.9."
+Assert-Equal -Actual $Version.package_version -Expected "1.2.10" -Message "Acceptance requires package 1.2.10 candidate."
+Assert-Equal -Actual $Version.runtime_version -Expected "1.2.10" -Message "Acceptance requires runtime 1.2.10."
+Assert-Equal -Actual $Version.companion_version -Expected "1.2.10" -Message "Acceptance requires Companion 1.2.10."
 
 $WindowsInstallerText = [System.IO.File]::ReadAllText($WindowsInstaller, [System.Text.Encoding]::UTF8)
 $BashInstallerText = [System.IO.File]::ReadAllText($BashInstaller, [System.Text.Encoding]::UTF8)
@@ -100,7 +100,7 @@ foreach ($InstallerContract in @(
   if (!$InstallerContract.Text.Contains("write-installation-manifest.cjs")) {
     throw "$($InstallerContract.Name) must invoke the shared manifest writer."
   }
-  foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"')) {
+  foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"')) {
     if ($InstallerContract.Text.Contains($ForbiddenLiteral)) {
       throw "$($InstallerContract.Name) hardcodes release version literal $ForbiddenLiteral."
     }
@@ -110,7 +110,7 @@ foreach ($InstallerContract in @(
 if (!$ManifestWriterText.Contains("VERSION.json")) {
   throw "Shared manifest writer must read VERSION.json."
 }
-foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"')) {
+foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"')) {
   if ($ManifestWriterText.Contains($ForbiddenLiteral)) {
     throw "Shared manifest writer hardcodes release version literal $ForbiddenLiteral."
   }

@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.9",
-  "companion_version": "1.2.9",
-  "release_name": "Source-Immutable Runtime Finalization",
-  "compatible_pipeline_package": "1.2.9",
-  "compatible_runtime": "1.2.9",
+  "ecosystem_version": "1.2.10",
+  "companion_version": "1.2.10",
+  "release_name": "Lossless Legacy Runtime Migration",
+  "compatible_pipeline_package": "1.2.10",
+  "compatible_runtime": "1.2.10",
   "action_packet_version": "1.2.9",
   "status": "stable"
 }

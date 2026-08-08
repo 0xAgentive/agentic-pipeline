@@ -7,7 +7,8 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
-$EcosystemVersion = '1.2.9'
+$EcosystemVersion = '1.2.10'
+$ActionPacketSchemaVersion = '1.2.9'
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $Python = (Get-Command python -ErrorAction Stop | Select-Object -First 1).Source
 $Node = (Get-Command node -ErrorAction Stop | Select-Object -First 1).Source
@@ -167,7 +168,7 @@ function Initialize-HermeticProject {
     version = $EcosystemVersion
   })
   Write-JsonFile -Path (Join-Path $ProjectRoot '.agy\ACTION_BRIDGE_CAPABILITY.json') -Value ([ordered]@{
-    schema_version = $EcosystemVersion
+    schema_version = $ActionPacketSchemaVersion
     ecosystem_version = $EcosystemVersion
     project_id = $ProjectId
     capability_token = $CapabilityToken
@@ -180,7 +181,8 @@ function New-ExternalPacket {
     [Parameter(Mandatory = $true)][string]$ProjectId,
     [string]$Operation = 'new_work_item',
     [string]$Route = '/nextphase',
-    [string]$SchemaVersion = $EcosystemVersion,
+    [string]$SchemaVersion = $ActionPacketSchemaVersion,
+    [string]$PacketEcosystemVersion = $EcosystemVersion,
     [string]$Goal = 'Hermetic Action Bridge owner goal',
     [AllowNull()][string]$WorkItemId = $null,
     [AllowNull()][Nullable[int]]$GoalEpoch = $null,
@@ -190,7 +192,7 @@ function New-ExternalPacket {
 
   $Packet = [ordered]@{
     schema_version = $SchemaVersion
-    ecosystem_version = $SchemaVersion
+    ecosystem_version = $PacketEcosystemVersion
     packet_format = 'single_json'
     packet_id = $PacketId
     project_id = $ProjectId
@@ -323,7 +325,7 @@ try {
   Initialize-HermeticProject -ProjectRoot $Project -ProjectId $ProjectId -CapabilityToken $CapabilityToken
   Initialize-HermeticProject -ProjectRoot $RollbackProject -ProjectId $RollbackProjectId -CapabilityToken $CapabilityToken
   Write-JsonFile -Path $RegistryPath -Value ([ordered]@{
-    schema_version = $EcosystemVersion
+    schema_version = $ActionPacketSchemaVersion
     ecosystem_version = $EcosystemVersion
     projects = @(
       [ordered]@{ project_id = $ProjectId; project_root = $Project; logical_name = 'Hermetic main'; ecosystem_version = $EcosystemVersion; capability_token = $CapabilityToken },

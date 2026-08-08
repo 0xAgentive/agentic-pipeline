@@ -3,7 +3,8 @@ from __future__ import annotations
 import argparse,datetime as dt,hashlib,hmac,json,os,re,shutil,tempfile,time,zipfile
 from pathlib import Path
 from typing import Any
-VERSION='1.2.9'
+SCHEMA_VERSION='1.2.9'
+ECOSYSTEM_VERSION='1.2.10'
 VALID_OPERATIONS={'new_work_item','continue_work_item'}
 VALID_ROUTES={'/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck'}
 HEADINGS=['## Что происходит','## Что уже сделано','## Что будет дальше','## Нужно ли что-то от владельца']
@@ -27,7 +28,7 @@ def validate_summary(text:str):
   if h not in text:raise ValueError(f'Owner summary heading missing: {h}')
  if len(text)>2400 or '```' in text:raise ValueError('Owner summary is not compact plain-language output')
 def validate_packet(packet:dict[str,Any])->dict[str,Any]:
- if packet.get('schema_version')!=VERSION or packet.get('ecosystem_version')!=VERSION:raise ValueError('Unsupported ecosystem/action packet version')
+ if packet.get('schema_version')!=SCHEMA_VERSION or packet.get('ecosystem_version')!=ECOSYSTEM_VERSION:raise ValueError('Unsupported ecosystem/action packet version')
  if packet.get('packet_format','single_json')!='single_json':raise ValueError('Unsupported packet format')
  if packet.get('owner_approved') is not True or packet.get('owner_interaction_policy')!='hard_stop_only':raise ValueError('Packet is not owner-approved')
  if packet.get('operation') not in VALID_OPERATIONS or packet.get('route') not in VALID_ROUTES:raise ValueError('Packet operation or route is invalid')
@@ -53,24 +54,24 @@ def load_packet(source:Path)->dict[str,Any]:
   packet=load_json(root/'ACTION_PACKET.json')
   if 'technical_task_markdown' not in packet:packet['technical_task_markdown']=(root/'AGENT_TASK.md').read_text(encoding='utf-8')
   if 'owner_summary_ru' not in packet:packet['owner_summary_ru']=(root/'OWNER_SUMMARY_RU.md').read_text(encoding='utf-8')
-  packet['schema_version']=VERSION;packet['ecosystem_version']=VERSION;packet['packet_format']='single_json'
+  packet['schema_version']=SCHEMA_VERSION;packet['ecosystem_version']=ECOSYSTEM_VERSION;packet['packet_format']='single_json'
   return validate_packet(packet)
 def resolve_registration(registry_path:Path,project_id:str):
  registry=load_json(registry_path)
- if registry.get('schema_version')!=VERSION or registry.get('ecosystem_version')!=VERSION:raise ValueError('Project registry ecosystem version is stale')
+ if registry.get('schema_version')!=SCHEMA_VERSION or registry.get('ecosystem_version')!=ECOSYSTEM_VERSION:raise ValueError('Project registry ecosystem version is stale')
  for item in registry.get('projects',[]):
   if item.get('project_id')==project_id:
    root=Path(os.path.expandvars(os.path.expanduser(str(item.get('project_root',''))))).resolve();token=str(item.get('capability_token',''))
    if not root.is_dir() or not (root/'.agy').is_dir() or not (root/'.agents').is_dir():raise ValueError(f'Registered root is invalid: {root}')
    if not re.fullmatch(r'[0-9a-f]{64}',token):raise ValueError('Registered capability is missing')
-   if item.get('ecosystem_version')!=VERSION:raise ValueError('Registered project version is stale')
+   if item.get('ecosystem_version')!=ECOSYSTEM_VERSION:raise ValueError('Registered project version is stale')
    capability_path=root/'.agy'/'ACTION_BRIDGE_CAPABILITY.json'
    capability=load_json(capability_path) if capability_path.is_file() else {}
    if capability.get('project_id')!=project_id or not hmac.compare_digest(str(capability.get('capability_token','')),token):raise ValueError('Local capability and project registry do not agree')
    manifest_path=root/'.agy'/'INSTALLATION_MANIFEST.json'
    if not manifest_path.is_file():raise ValueError('Installed runtime manifest is missing')
    manifest=load_json(manifest_path)
-   if manifest.get('package_version')!=VERSION or manifest.get('runtime_version')!=VERSION:raise ValueError('Installed project runtime version is stale')
+   if manifest.get('package_version')!=ECOSYSTEM_VERSION or manifest.get('runtime_version')!=ECOSYSTEM_VERSION:raise ValueError('Installed project runtime version is stale')
    return root,token
  raise ValueError(f'Unknown project_id: {project_id}')
 def validate_current_identity(packet:dict[str,Any],root:Path):
@@ -104,7 +105,7 @@ def materialize(packet:dict[str,Any],root:Path):
  files=[]
  for name in ['ACTION_PACKET.json','AGENT_TASK.md','OWNER_SUMMARY_RU.md']:
   p=root/name;files.append({'path':name,'size_bytes':p.stat().st_size,'sha256':sha256_file(p)})
- atomic_json(root/'MANIFEST.json',{'schema_version':VERSION,'ecosystem_version':VERSION,'files':files})
+ atomic_json(root/'MANIFEST.json',{'schema_version':SCHEMA_VERSION,'ecosystem_version':ECOSYSTEM_VERSION,'files':files})
 def import_packet(source:Path,registry_path:Path,state_root:Path):
  source=source.resolve();packet=load_packet(source);project_root,registered_token=resolve_registration(registry_path,str(packet['project_id']))
  validate_current_identity(packet,project_root)
@@ -126,7 +127,7 @@ def import_packet(source:Path,registry_path:Path,state_root:Path):
    if not active.exists() and history.exists():materialize(archived_packet,history);os.replace(history,active)
    raise
  else:os.replace(staged,active)
- receipt={'schema_version':VERSION,'ecosystem_version':VERSION,'packet_id':packet_id,'project_id':packet['project_id'],'operation':packet['operation'],'route':packet['route'],'status':'imported','source_file':str(source),'source_sha256':sha256_file(source),'imported_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'activated_at_utc':None,'injected_at_utc':None}
+ receipt={'schema_version':SCHEMA_VERSION,'ecosystem_version':ECOSYSTEM_VERSION,'packet_id':packet_id,'project_id':packet['project_id'],'operation':packet['operation'],'route':packet['route'],'status':'imported','source_file':str(source),'source_sha256':sha256_file(source),'imported_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'activated_at_utc':None,'injected_at_utc':None}
  atomic_json(project_root/'.agy'/'ACTION_PACKET_RECEIPT.json',receipt);append_jsonl(ledger,{'packet_id':packet_id,'project_id':packet['project_id'],'accepted_at_utc':receipt['imported_at_utc'],'source_sha256':receipt['source_sha256']})
  return{'status':'PASS','project_root':str(project_root),'packet_id':packet_id}
 def scan(inbox:Path,registry:Path,state_root:Path)->int:

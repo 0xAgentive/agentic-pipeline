@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.9",
-  "package_version": "1.2.9",
-  "release_name": "Source-Immutable Runtime Finalization",
-  "playbook_version": "1.2.9",
-  "runtime_version": "1.2.9",
-  "companion_version": "1.2.9",
-  "action_bridge_version": "1.2.9",
-  "context_handoff_version": "1.2.9",
-  "handoff_compatibility": "1.2.9",
+  "ecosystem_version": "1.2.10",
+  "package_version": "1.2.10",
+  "release_name": "Lossless Legacy Runtime Migration",
+  "playbook_version": "1.2.10",
+  "runtime_version": "1.2.10",
+  "companion_version": "1.2.10",
+  "action_bridge_version": "1.2.10",
+  "context_handoff_version": "1.2.10",
+  "handoff_compatibility": "1.2.10",
   "status": "stable"
 }

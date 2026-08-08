@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.10 — Lossless Legacy Runtime Migration
+
+- Supersedes 1.2.9 without moving or rewriting its public tag or release.
+- Adds a transactional, lossless migration for the exact legacy findings shape present in active projects.
+- Archives the original findings bytes, rejects unknown legacy variants and restores the complete pre-update state on failure.
+- Covers migration, idempotent second apply and rollback with executable Windows regressions.
+- Rebinds all five ecosystem assets and deployment receipts to one immutable 1.2.10 source commit.
+
 ## 1.2.9 — Source-Immutable Runtime Finalization
 
 - Fixed the recovery overlay that could rewrite six CRLF PowerShell checkout files after otherwise immutable validation.

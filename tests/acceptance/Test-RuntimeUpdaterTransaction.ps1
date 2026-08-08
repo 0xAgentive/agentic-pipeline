@@ -8,7 +8,7 @@ $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ('agentic-runtime-transaction-' + [Guid]::NewGuid().ToString('N'))
 $BackupRoot = Join-Path $TempRoot 'backups'
 $Pwsh = (Get-Command pwsh -ErrorAction Stop).Source
-$Updater = Join-Path $Root 'scripts\windows\Update-AgenticProjectRuntime-v1.2.9.ps1'
+$Updater = Join-Path $Root 'scripts\windows\Update-AgenticProjectRuntime-v1.2.10.ps1'
 $Utf8 = [Text.UTF8Encoding]::new($false)
 $SourceCommitProbe = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Root,'rev-parse','HEAD')
 $ExpectedRuntimeSourceCommit = if ($SourceCommitProbe.ExitCode -eq 0 -and $SourceCommitProbe.StdOut.Trim() -match '^[0-9a-fA-F]{40}$') {
@@ -116,7 +116,7 @@ function New-LegacyAuthorityFixture([string]$Name, [string]$Fault = '') {
 
 function New-StaleTransaction([string]$Project, [string]$Name, [string]$Phase, [object[]]$Paths, [object[]]$Directories) {
   $ProjectSlug = ([IO.Path]::GetFileName($Project) -replace '[^A-Za-z0-9._-]', '_')
-  $TransactionId = 'runtime-1.2.9-' + $Name
+  $TransactionId = 'runtime-1.2.10-' + $Name
   $StaleBackupRoot = Join-Path ([IO.Path]::GetFullPath($BackupRoot)) (Join-Path $ProjectSlug $TransactionId)
   $JournalPath = Join-Path $StaleBackupRoot 'journal.json'
   New-Item -ItemType Directory -Force -Path $StaleBackupRoot | Out-Null

@@ -21,8 +21,9 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $Utf8 = [Text.UTF8Encoding]::new($false)
-$EcosystemVersion = '1.2.9'
-$TaskDescriptionBase = 'Imports validated Companion 1.2.9 JSON Action Packets from Downloads into registered Agentic Pipeline projects.'
+$EcosystemVersion = '1.2.10'
+$BridgeSchemaVersion = '1.2.9'
+$TaskDescriptionBase = 'Imports validated Companion 1.2.10 JSON Action Packets from Downloads into registered Agentic Pipeline projects.'
 $CreatedDirectories = [Collections.Generic.List[string]]::new()
 
 function Get-BytesSha256 {
@@ -203,7 +204,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $ResolvedProject '.agy') -PathType C
 $InstalledManifestPath = Join-Path $ResolvedProject '.agy\INSTALLATION_MANIFEST.json'
 if (-not (Test-Path -LiteralPath $InstalledManifestPath -PathType Leaf)) { throw 'Project installation manifest is missing.' }
 $InstalledManifest = Get-Content -LiteralPath $InstalledManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-if ([string]$InstalledManifest.package_version -ne $EcosystemVersion -or [string]$InstalledManifest.runtime_version -ne $EcosystemVersion) { throw 'Action Bridge requires an installed project runtime 1.2.9.' }
+if ([string]$InstalledManifest.package_version -ne $EcosystemVersion -or [string]$InstalledManifest.runtime_version -ne $EcosystemVersion) { throw 'Action Bridge requires an installed project runtime 1.2.10.' }
 
 $Leaf = Split-Path -Leaf $ResolvedProject
 if ([string]::IsNullOrWhiteSpace($LogicalName)) { $LogicalName = $Leaf }
@@ -383,14 +384,14 @@ if ($null -ne $ExistingRegistry) {
   }
 }
 if (-not $RegistrationReplaced) { [void]$Projects.Add([ordered]@{ project_id = $ProjectId; project_root = $ResolvedProject; logical_name = $LogicalName; ecosystem_version = $EcosystemVersion; capability_token = $CapabilityToken }) }
-$RegistryOverrides = [ordered]@{ schema_version = $EcosystemVersion; ecosystem_version = $EcosystemVersion; projects = [object[]]$Projects.ToArray() }
+$RegistryOverrides = [ordered]@{ schema_version = $BridgeSchemaVersion; ecosystem_version = $EcosystemVersion; projects = [object[]]$Projects.ToArray() }
 $DesiredRegistry = ConvertTo-OrderedObjectWithOverrides -InputObject $ExistingRegistry -Overrides $RegistryOverrides
 $RegistryBytes = ConvertTo-Utf8Bytes -Text ($DesiredRegistry | ConvertTo-Json -Depth 30)
 
 $ExistingCapabilityProjectId = [string](Get-OptionalPropertyValue -InputObject $ExistingCapability -Name 'project_id')
 $ExistingCapabilityCreatedAt = [string](Get-OptionalPropertyValue -InputObject $ExistingCapability -Name 'created_at_utc')
 $CreatedAtUtc = if ($null -ne $ExistingCapability -and $ExistingCapabilityProjectId -eq $ProjectId -and -not [string]::IsNullOrWhiteSpace($ExistingCapabilityCreatedAt)) { $ExistingCapabilityCreatedAt } else { (Get-Date).ToUniversalTime().ToString('o') }
-$CapabilityOverrides = [ordered]@{ schema_version = $EcosystemVersion; ecosystem_version = $EcosystemVersion; project_id = $ProjectId; capability_token = $CapabilityToken; purpose = 'companion_action_packet_import'; created_at_utc = $CreatedAtUtc }
+$CapabilityOverrides = [ordered]@{ schema_version = $BridgeSchemaVersion; ecosystem_version = $EcosystemVersion; project_id = $ProjectId; capability_token = $CapabilityToken; purpose = 'companion_action_packet_import'; created_at_utc = $CreatedAtUtc }
 $DesiredCapability = ConvertTo-OrderedObjectWithOverrides -InputObject $(if ($null -ne $ExistingCapability -and $ExistingCapabilityProjectId -eq $ProjectId) { $ExistingCapability } else { $null }) -Overrides $CapabilityOverrides
 $CapabilityBytes = ConvertTo-Utf8Bytes -Text ($DesiredCapability | ConvertTo-Json -Depth 10)
 $InstalledCodeBytes = [IO.File]::ReadAllBytes($Source)

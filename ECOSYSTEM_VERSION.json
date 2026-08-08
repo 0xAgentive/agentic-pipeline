@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.9",
-  "release_name": "Source-Immutable Runtime Finalization",
+  "ecosystem_version": "1.2.10",
+  "release_name": "Lossless Legacy Runtime Migration",
   "components": {
-    "pipeline": "1.2.9",
-    "runtime": "1.2.9",
-    "playbook": "1.2.9",
-    "companion": "1.2.9",
-    "action_bridge": "1.2.9",
-    "context_handoff": "1.2.9"
+    "pipeline": "1.2.10",
+    "runtime": "1.2.10",
+    "playbook": "1.2.10",
+    "companion": "1.2.10",
+    "action_bridge": "1.2.10",
+    "context_handoff": "1.2.10"
   },
   "status": "stable"
 }

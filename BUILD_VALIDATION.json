@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.9",
+  "ecosystem_version": "1.2.10",
   "artifact": "pipeline_source_snapshot",
   "source": "complete canonical tree",
   "generated_at_utc": "2026-08-08T18:28:00Z",

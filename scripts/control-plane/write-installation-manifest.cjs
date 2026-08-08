@@ -84,7 +84,7 @@ function main() {
     : (hasArgumentNext ? args['next-command'] : defaultNextCommand);
 
   const manifest = {
-    schema_version: '1.2.8',
+    schema_version: '1.2.9',
     installed_at_utc: metadata.installed_at_utc || new Date().toISOString(),
     package_version: version.package_version,
     runtime_version: version.runtime_version,

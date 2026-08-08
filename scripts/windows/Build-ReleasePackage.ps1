@@ -11,6 +11,7 @@ $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $HostExe = (Get-Process -Id $PID).Path
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+. (Join-Path $PSScriptRoot 'common\NativeProcess.ps1')
 
 function Write-Utf8NoBom([string]$Path,[string]$Text) {
   $Parent = Split-Path -Parent $Path
@@ -24,20 +25,13 @@ function Invoke-NativeCapture {
     [string[]]$ArgumentList = @()
   )
 
-  $OldPreference = $ErrorActionPreference
-  try {
-    $ErrorActionPreference = "Continue"
-    $Output = @(& $FilePath @ArgumentList 2>&1)
-    $Code = $LASTEXITCODE
-  }
-  finally {
-    $ErrorActionPreference = $OldPreference
-  }
-
+  $Result = Invoke-AgenticNativeProcess -FilePath $FilePath -ArgumentList $ArgumentList
   return [pscustomobject]@{
-    Code = [int]$Code
-    Lines = @($Output)
-    Text = (@($Output) -join "`n")
+    Code = [int]$Result.ExitCode
+    Lines = @($Result.StdOutLines)
+    ErrorLines = @($Result.StdErrLines)
+    Text = [string]$Result.StdOut
+    ErrorText = [string]$Result.StdErr
   }
 }
 
@@ -50,9 +44,13 @@ function Invoke-Native {
 
   $Result = Invoke-NativeCapture -FilePath $FilePath -ArgumentList $ArgumentList
   foreach ($Line in $Result.Lines) { Write-Host $Line }
-  if ($LogPath) { Add-Content -LiteralPath $LogPath -Value $Result.Text -Encoding UTF8 }
+  foreach ($Line in $Result.ErrorLines) { Write-Host $Line }
+  if ($LogPath) {
+    Add-Content -LiteralPath $LogPath -Value $Result.Text -Encoding UTF8
+    if ($Result.ErrorText) { Add-Content -LiteralPath $LogPath -Value $Result.ErrorText -Encoding UTF8 }
+  }
   if ($Result.Code -ne 0) {
-    throw "Command failed with exit code $($Result.Code): $FilePath $($ArgumentList -join ' ')"
+    throw "Command failed with exit code $($Result.Code): $FilePath ($($Result.ErrorText.Trim()))"
   }
 }
 
@@ -68,7 +66,9 @@ function Invoke-AdvisoryValidator {
   Add-Content -LiteralPath $LogPath -Value ("`n=== " + $Name + " (advisory) ===") -Encoding UTF8
   $Result = Invoke-NativeCapture -FilePath $HostExe -ArgumentList (@('-NoProfile','-ExecutionPolicy','Bypass','-File',$Script) + $ArgumentList)
   foreach ($Line in $Result.Lines) { Write-Host $Line }
+  foreach ($Line in $Result.ErrorLines) { Write-Host $Line }
   Add-Content -LiteralPath $LogPath -Value $Result.Text -Encoding UTF8
+  if ($Result.ErrorText) { Add-Content -LiteralPath $LogPath -Value $Result.ErrorText -Encoding UTF8 }
   if ($Result.Code -ne 0) {
     Write-Warning "$Name reported advisory issues. Release packaging continues because core operational gates are separate."
   }

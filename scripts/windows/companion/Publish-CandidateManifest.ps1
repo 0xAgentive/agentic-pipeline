@@ -4,8 +4,9 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference='Stop'
 $Root=(Resolve-Path -LiteralPath $ProjectRoot).Path
 $Agy=Join-Path $Root '.agy'
+. (Join-Path $PSScriptRoot '..\common\NativeProcess.ps1')
 $Lease=Get-Content -LiteralPath (Join-Path $Agy 'EXECUTION_LEASE.json') -Raw -Encoding UTF8|ConvertFrom-Json
-function Normalize-Relative([string]$Value){return(($Value-replace'\\','/').Trim().TrimStart('./'))}
+function Normalize-Relative([string]$Value){$Normalized=($Value-replace'\\','/').Trim();while($Normalized.StartsWith('./',[StringComparison]::Ordinal)){$Normalized=$Normalized.Substring(2)};return $Normalized}
 function Matches-Allowed([string]$Relative,[object[]]$Patterns){
   foreach($PatternValue in $Patterns){
     $Pattern=Normalize-Relative ([string]$PatternValue)
@@ -14,16 +15,23 @@ function Matches-Allowed([string]$Relative,[object[]]$Patterns){
   }
   return $false
 }
-$Raw=@(& git -c core.quotepath=false -C $Root status --porcelain=v1 --untracked-files=all 2>&1)
-if($LASTEXITCODE-ne0){throw 'git status failed.'}
+$StatusResult=Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-c','core.quotepath=false','-C',$Root,'status','--porcelain=v2','-z','--untracked-files=all')
+Assert-AgenticNativeSuccess -Result $StatusResult -Description 'git status'
+$Raw=@(Split-AgenticNulList -Text $StatusResult.StdOut)
 $Changed=New-Object System.Collections.Generic.List[object]
-foreach($LineObject in $Raw){
-  $Line=[string]$LineObject
-  if($Line.Length-lt3){continue}
-  $Status=$Line.Substring(0,2)
-  $Name=$Line.Substring(3)
-  if($Name.Contains(' -> ')){$Name=($Name -split ' -> ',2)[1]}
-  $Name=$Name.Trim('"')
+for($Index=0;$Index-lt$Raw.Count;$Index++){
+  $Record=[string]$Raw[$Index]
+  $Status=$null;$Name=$null
+  if($Record.StartsWith('? ')){$Status='??';$Name=$Record.Substring(2)}
+  elseif($Record.StartsWith('1 ')){
+    $Match=[regex]::Match($Record,'^1 (?<xy>..) [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (?<path>.*)$',[Text.RegularExpressions.RegexOptions]::Singleline)
+    if($Match.Success){$Status=$Match.Groups['xy'].Value;$Name=$Match.Groups['path'].Value}
+  }
+  elseif($Record.StartsWith('2 ')){
+    $Match=[regex]::Match($Record,'^2 (?<xy>..) [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (?<path>.*)$',[Text.RegularExpressions.RegexOptions]::Singleline)
+    if($Match.Success){$Status=$Match.Groups['xy'].Value;$Name=$Match.Groups['path'].Value;$Index++}
+  }
+  if($null-eq$Name){throw "Unsupported Git porcelain v2 record: $Record"}
   $Relative=Normalize-Relative $Name
   if($Relative){$Changed.Add([ordered]@{status=$Status;path=$Relative})|Out-Null}
 }
@@ -39,7 +47,9 @@ foreach($Entry in @($Changed.ToArray() | Sort-Object path -Unique)){
 $ControlNames=@('WORK_ITEM.json','WORK_ITEM_TRANSACTION.json','EXECUTION_SCOPE.json','EXECUTION_LEASE.json','EXECUTION_AUTHORITY_TRANSACTION.json','STAGE_FIREWALL.json','RUNTIME_HANDSHAKE.json','FINDINGS.json','FINDING_DELTA.json','REPAIR_DELTA.json','PROGRESS_STATE.json','NEXT_ACTION.json','AUDIT_COVERAGE_MATRIX.json','REVIEWER_ATTESTATION.json')
 $Control=New-Object System.Collections.Generic.List[object]
 foreach($Name in $ControlNames){$Full=Join-Path $Agy $Name;if(Test-Path -LiteralPath $Full -PathType Leaf){$Item=Get-Item -LiteralPath $Full;$Control.Add([ordered]@{path='.agy/'+$Name;size_bytes=[int64]$Item.Length;sha256=(Get-FileHash -LiteralPath $Full -Algorithm SHA256).Hash.ToLowerInvariant()})|Out-Null}}
-$Head=(@(& git -C $Root rev-parse HEAD 2>&1)-join"`n").Trim();if($LASTEXITCODE-ne0){throw 'git rev-parse failed.'}
+$HeadResult=Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Root,'rev-parse','HEAD')
+Assert-AgenticNativeSuccess -Result $HeadResult -Description 'git rev-parse'
+$Head=$HeadResult.StdOut.Trim()
 $Manifest=[ordered]@{schema_version='1.1.0';work_item_id=[string]$Lease.work_item_id;lease_id=[string]$Lease.lease_id;branch=[string]$Lease.branch;head=$Head;candidate_files=$Candidate.ToArray();control_plane_files=$Control.ToArray();ambient_git_status=$Ambient.ToArray();generated_at_utc=(Get-Date).ToUniversalTime().ToString('o')}
 $Json=$Manifest|ConvertTo-Json -Depth 40
 $Bytes=[Text.Encoding]::UTF8.GetBytes($Json);$Hasher=[Security.Cryptography.SHA256]::Create();try{$Hash=([Convert]::ToHexString($Hasher.ComputeHash($Bytes))).ToLowerInvariant()}finally{$Hasher.Dispose()}

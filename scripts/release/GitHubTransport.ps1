@@ -1,4 +1,5 @@
 Set-StrictMode -Version 3.0
+. (Join-Path $PSScriptRoot '..\windows\common\NativeProcess.ps1')
 
 function Invoke-TransportNative {
   [CmdletBinding()]
@@ -9,31 +10,19 @@ function Invoke-TransportNative {
     [switch]$AllowFailure
   )
 
-  $OldPreference = $ErrorActionPreference
-  $Pushed = $false
-  try {
-    $ErrorActionPreference = 'Continue'
-    if (![string]::IsNullOrWhiteSpace($WorkingDirectory)) {
-      Push-Location -LiteralPath $WorkingDirectory
-      $Pushed = $true
-    }
-    $Lines = @(& $FilePath @ArgumentList 2>&1)
-    $Code = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
-  }
-  finally {
-    if ($Pushed) { Pop-Location }
-    $ErrorActionPreference = $OldPreference
-  }
-
-  $Text = ($Lines -join "`n")
-  if (!$AllowFailure -and $Code -ne 0) {
-    throw "Command failed ($Code): $FilePath $($ArgumentList -join ' ')`n$Text"
+  $Native = Invoke-AgenticNativeProcess -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory
+  $DiagnosticText = @($Native.StdOut, $Native.StdErr) -join ''
+  if (!$AllowFailure -and $Native.ExitCode -ne 0) {
+    throw "Command failed ($($Native.ExitCode)): $FilePath`n$DiagnosticText"
   }
 
   [pscustomobject]@{
-    Code = $Code
-    Text = $Text
-    Lines = $Lines
+    Code = [int]$Native.ExitCode
+    Text = [string]$Native.StdOut
+    Lines = @($Native.StdOutLines)
+    ErrorText = [string]$Native.StdErr
+    ErrorLines = @($Native.StdErrLines)
+    DiagnosticText = [string]$DiagnosticText
   }
 }
 
@@ -76,12 +65,12 @@ function Initialize-GitHubCredentialHelper {
 
   $Status = Invoke-TransportNative -FilePath $GhCommand.Source -ArgumentList @('auth', 'status', '--hostname', 'github.com') -AllowFailure
   if ($Status.Code -ne 0) {
-    throw "GitHub CLI authentication is not valid.`n$($Status.Text)"
+    throw "GitHub CLI authentication is not valid.`n$($Status.DiagnosticText)"
   }
 
   $Setup = Invoke-TransportNative -FilePath $GhCommand.Source -ArgumentList @('auth', 'setup-git', '--hostname', 'github.com') -AllowFailure
   if ($Setup.Code -ne 0) {
-    throw "Unable to configure Git to use the GitHub CLI credential helper.`n$($Setup.Text)"
+    throw "Unable to configure Git to use the GitHub CLI credential helper.`n$($Setup.DiagnosticText)"
   }
 
   return $GhCommand.Source
@@ -134,12 +123,12 @@ function Invoke-GitHubGit {
         Profile = $Profile.Name
         Attempt = $Attempt
         Code = $Result.Code
-        Text = $Result.Text
+        Text = $Result.DiagnosticText
       }) | Out-Null
 
-      $IsTransient = Test-TransientGitHubNetworkFailure -Text $Result.Text
+      $IsTransient = Test-TransientGitHubNetworkFailure -Text $Result.DiagnosticText
       if (!$IsTransient) {
-        $Message = "$OperationName failed with a non-transient Git error using profile '$($Profile.Name)'.`n$($Result.Text)"
+        $Message = "$OperationName failed with a non-transient Git error using profile '$($Profile.Name)'.`n$($Result.DiagnosticText)"
         if ($AllowFailure) {
           return [pscustomobject]@{
             Code = $Result.Code
@@ -171,7 +160,7 @@ function Invoke-GitHubGit {
       $DiagnosticLines.Add("GitHub API through gh is reachable, but the Git for Windows HTTPS transport failed. This normally indicates a Git/libcurl Schannel path problem rather than an authentication problem.") | Out-Null
     }
     else {
-      $DiagnosticLines.Add("GitHub API diagnostic also failed: $($Api.Text)") | Out-Null
+      $DiagnosticLines.Add("GitHub API diagnostic also failed: $($Api.DiagnosticText)") | Out-Null
     }
   }
 

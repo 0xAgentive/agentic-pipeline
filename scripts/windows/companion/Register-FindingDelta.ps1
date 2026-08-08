@@ -8,9 +8,13 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $Agy = Join-Path $Root '.agy'
+. (Join-Path $PSScriptRoot '..\common\NativeProcess.ps1')
+function Get-OptionalProperty([object]$Object,[string]$Name,[object]$Default=$null){$Property=$Object.PSObject.Properties[$Name];if($null-eq$Property){return $Default};return $Property.Value}
+function Set-OptionalProperty([object]$Object,[string]$Name,[object]$Value){$Property=$Object.PSObject.Properties[$Name];if($null-eq$Property){$Object|Add-Member -NotePropertyName $Name -NotePropertyValue $Value}else{$Property.Value=$Value}}
 $WorkItem = Get-Content -LiteralPath (Join-Path $Agy 'WORK_ITEM.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-$Head = (@(& git -C $Root rev-parse HEAD 2>&1) -join "`n").Trim()
-if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve Git HEAD.' }
+$HeadResult=Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Root,'rev-parse','HEAD')
+Assert-AgenticNativeSuccess -Result $HeadResult -Description 'git rev-parse'
+$Head=$HeadResult.StdOut.Trim()
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $InputPath = (Resolve-Path -LiteralPath $FindingInputPath).Path
 $InputRaw = Get-Content -LiteralPath $InputPath -Raw -Encoding UTF8
@@ -43,10 +47,12 @@ foreach ($Finding in $Existing) { $FindingMap[[string]$Finding.finding_id] = $Fi
 $Added = New-Object System.Collections.Generic.List[string]
 $Changed = New-Object System.Collections.Generic.List[string]
 foreach ($Finding in $FindingDocuments) {
-  if ($InitialComplete -and $Finding.materiality -eq 'product_blocker' -and (-not $Finding.coverage_id -or $CoverageIds -notcontains $Finding.coverage_id)) {
-    $Finding.origin = 'audit_coverage_miss'
-  } elseif (-not $Finding.origin) {
-    $Finding | Add-Member -NotePropertyName origin -NotePropertyValue 'initial_audit'
+  $CoverageId=Get-OptionalProperty -Object $Finding -Name 'coverage_id'
+  $Origin=Get-OptionalProperty -Object $Finding -Name 'origin'
+  if ($InitialComplete -and $Finding.materiality -eq 'product_blocker' -and ([string]::IsNullOrWhiteSpace([string]$CoverageId) -or $CoverageIds -notcontains $CoverageId)) {
+    Set-OptionalProperty -Object $Finding -Name 'origin' -Value 'audit_coverage_miss'
+  } elseif ([string]::IsNullOrWhiteSpace([string]$Origin)) {
+    Set-OptionalProperty -Object $Finding -Name 'origin' -Value 'initial_audit'
   }
   $FindingId = [string]$Finding.finding_id
   if ($FindingMap.ContainsKey($FindingId)) { $Changed.Add($FindingId) } else { $Added.Add($FindingId) }

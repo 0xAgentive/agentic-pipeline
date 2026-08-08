@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse,datetime as dt,hashlib,hmac,json,os,shutil,tempfile,time,zipfile
+import argparse,datetime as dt,hashlib,hmac,json,os,re,shutil,tempfile,time,zipfile
 from pathlib import Path
 from typing import Any
-VERSION='1.2.8'
+VERSION='1.2.9'
 VALID_OPERATIONS={'new_work_item','continue_work_item'}
 VALID_ROUTES={'/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck'}
 HEADINGS=['## Что происходит','## Что уже сделано','## Что будет дальше','## Нужно ли что-то от владельца']
@@ -32,9 +32,9 @@ def validate_packet(packet:dict[str,Any])->dict[str,Any]:
  if packet.get('owner_approved') is not True or packet.get('owner_interaction_policy')!='hard_stop_only':raise ValueError('Packet is not owner-approved')
  if packet.get('operation') not in VALID_OPERATIONS or packet.get('route') not in VALID_ROUTES:raise ValueError('Packet operation or route is invalid')
  if packet.get('operation')=='continue_work_item' and (not packet.get('work_item_id') or not isinstance(packet.get('goal_epoch'),int)):raise ValueError('Continuation packet lacks exact work-item identity')
+ if not re.fullmatch(r'[A-Za-z0-9._-]{8,128}',str(packet.get('packet_id',''))):raise ValueError('Packet ID is empty or unsafe')
  if not packet.get('project_id') or not packet.get('goal') or not str(packet.get('technical_task_markdown','')).strip():raise ValueError('Project, goal and technical task are required')
- token=str(packet.get('capability_token',''))
- if len(token)!=64 or any(c not in '0123456789abcdef' for c in token):raise ValueError('Packet capability token is invalid')
+ if 'capability_token' in packet:raise ValueError('External Action Packet must not contain a local capability')
  validate_summary(str(packet.get('owner_summary_ru','')))
  created=parse_utc(packet.get('created_at_utc'));expires=parse_utc(packet.get('expires_at_utc'));now=dt.datetime.now(dt.timezone.utc)
  if expires<=created or now>expires or created>now+dt.timedelta(minutes=5):raise ValueError('Packet time window is invalid or expired')
@@ -57,13 +57,33 @@ def load_packet(source:Path)->dict[str,Any]:
   return validate_packet(packet)
 def resolve_registration(registry_path:Path,project_id:str):
  registry=load_json(registry_path)
+ if registry.get('schema_version')!=VERSION or registry.get('ecosystem_version')!=VERSION:raise ValueError('Project registry ecosystem version is stale')
  for item in registry.get('projects',[]):
   if item.get('project_id')==project_id:
    root=Path(os.path.expandvars(os.path.expanduser(str(item.get('project_root',''))))).resolve();token=str(item.get('capability_token',''))
    if not root.is_dir() or not (root/'.agy').is_dir() or not (root/'.agents').is_dir():raise ValueError(f'Registered root is invalid: {root}')
-   if len(token)!=64:raise ValueError('Registered capability is missing')
+   if not re.fullmatch(r'[0-9a-f]{64}',token):raise ValueError('Registered capability is missing')
+   if item.get('ecosystem_version')!=VERSION:raise ValueError('Registered project version is stale')
+   capability_path=root/'.agy'/'ACTION_BRIDGE_CAPABILITY.json'
+   capability=load_json(capability_path) if capability_path.is_file() else {}
+   if capability.get('project_id')!=project_id or not hmac.compare_digest(str(capability.get('capability_token','')),token):raise ValueError('Local capability and project registry do not agree')
+   manifest_path=root/'.agy'/'INSTALLATION_MANIFEST.json'
+   if not manifest_path.is_file():raise ValueError('Installed runtime manifest is missing')
+   manifest=load_json(manifest_path)
+   if manifest.get('package_version')!=VERSION or manifest.get('runtime_version')!=VERSION:raise ValueError('Installed project runtime version is stale')
    return root,token
  raise ValueError(f'Unknown project_id: {project_id}')
+def validate_current_identity(packet:dict[str,Any],root:Path):
+ hint=packet.get('project_root_hint')
+ if hint and Path(os.path.expandvars(os.path.expanduser(str(hint)))).resolve()!=root:raise ValueError('Packet project root hint does not match the registered project')
+ if packet.get('operation')!='continue_work_item':return
+ work_path=root/'.agy'/'WORK_ITEM.json'
+ if not work_path.is_file():raise ValueError('Continuation packet requires an active work item')
+ work=load_json(work_path)
+ if str(work.get('work_item_id',''))!=str(packet.get('work_item_id','')) or work.get('goal_epoch')!=packet.get('goal_epoch'):raise ValueError('Continuation packet identity is stale')
+ if str(work.get('goal',''))!=str(packet.get('goal','')):raise ValueError('Continuation packet attempts to change the immutable owner goal')
+ expected=packet.get('owner_goal_sha256')
+ if expected and not hmac.compare_digest(str(expected),hashlib.sha256(str(work.get('goal','')).encode('utf-8')).hexdigest()):raise ValueError('Continuation owner-goal fingerprint is stale')
 def processed_ids(path:Path)->set[str]:
  if not path.is_file():return set()
  out=set()
@@ -84,12 +104,13 @@ def materialize(packet:dict[str,Any],root:Path):
  atomic_json(root/'MANIFEST.json',{'schema_version':VERSION,'ecosystem_version':VERSION,'files':files})
 def import_packet(source:Path,registry_path:Path,state_root:Path):
  source=source.resolve();packet=load_packet(source);project_root,registered_token=resolve_registration(registry_path,str(packet['project_id']))
- if not hmac.compare_digest(str(packet['capability_token']),registered_token):raise ValueError('Packet capability does not match registered project')
+ validate_current_identity(packet,project_root)
  ledger=state_root/'accepted_packets.ndjson';packet_id=str(packet['packet_id'])
  if packet_id in processed_ids(ledger):raise ValueError(f'Action packet replay rejected: {packet_id}')
  inbox=project_root/'.agy'/'inbox';active=inbox/'ACTIVE_ACTION_PACKET';staged=inbox/f'.incoming-{packet_id}';history=inbox/'history'/time.strftime('%Y%m%d_%H%M%S')
  if staged.exists():shutil.rmtree(staged)
- materialize(packet,staged)
+ local_packet=dict(packet);local_packet['capability_token']=registered_token
+ materialize(local_packet,staged)
  if active.exists():
   history.parent.mkdir(parents=True,exist_ok=True)
   if history.exists():history=history.with_name(f'{history.name}-{time.time_ns()}')

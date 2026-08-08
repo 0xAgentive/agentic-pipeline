@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.8",
-  "release_name": "Unified Owner-Autonomous Execution",
+  "ecosystem_version": "1.2.9",
+  "release_name": "Source-Immutable Runtime Finalization",
   "components": {
-    "pipeline": "1.2.8",
-    "runtime": "1.2.8",
-    "playbook": "1.2.8",
-    "companion": "1.2.8",
-    "action_bridge": "1.2.8",
-    "context_handoff": "1.2.8"
+    "pipeline": "1.2.9",
+    "runtime": "1.2.9",
+    "playbook": "1.2.9",
+    "companion": "1.2.9",
+    "action_bridge": "1.2.9",
+    "context_handoff": "1.2.9"
   },
   "status": "stable"
 }

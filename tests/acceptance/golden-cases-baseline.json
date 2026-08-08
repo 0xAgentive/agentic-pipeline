@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "source_path": "evals/companion/golden_cases.json",
-  "source_sha256": "7eb58a6f1b6a2540476f8b03b8fe116c43c2b0427d8d483e18b65c610fb42e2b",
+  "source_sha256": "624bc02345d47bbb4c3a08401f0f804035da30c7fa77592def64ccf30191452e",
   "case_count": 56,
   "case_ids": [
     "unknown_slash_command_is_rejected",
@@ -61,5 +61,5 @@
     "dirty_state_overrides_state_declared_fixcritical",
     "repeated_no_progress_stops_without_repair_override_prompt"
   ],
-  "release_baseline": "1.2.8-unified-owner-autonomous-execution"
+  "release_baseline": "1.2.9-unified-owner-autonomous-execution"
 }

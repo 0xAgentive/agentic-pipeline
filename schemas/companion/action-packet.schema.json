@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Companion Action Packet 1.2.8",
+  "title": "Companion Action Packet 1.2.9",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -8,7 +8,6 @@
     "ecosystem_version",
     "packet_id",
     "project_id",
-    "capability_token",
     "operation",
     "route",
     "goal",
@@ -23,10 +22,10 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.2.8"
+      "const": "1.2.9"
     },
     "ecosystem_version": {
-      "const": "1.2.8"
+      "const": "1.2.9"
     },
     "packet_format": {
       "const": "single_json"
@@ -47,7 +46,9 @@
     },
     "capability_token": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}$",
+      "writeOnly": true,
+      "description": "Local-only field injected by Action Bridge after external validation; never exported by Companion."
     },
     "operation": {
       "enum": [

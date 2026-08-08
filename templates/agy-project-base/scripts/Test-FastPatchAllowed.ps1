@@ -7,6 +7,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'windows\common\NativeProcess.ps1')
 
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
   $RepoRoot = Join-Path $PSScriptRoot ".."
@@ -16,22 +17,12 @@ $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 
 function Invoke-GitCapture {
   param([string[]]$GitArgs)
-
-  # AGY_NATIVE_STDERR_SAFE
-  $oldPreference = $ErrorActionPreference
-  try {
-    $ErrorActionPreference = "Continue"
-    $output = @(& git -C $Root @GitArgs 2>&1)
-    $code = $LASTEXITCODE
-  }
-  finally {
-    $ErrorActionPreference = $oldPreference
-  }
-
+  $Native = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList (@('-C', $Root) + $GitArgs)
   return [pscustomobject]@{
-    Code = $code
-    Lines = @($output)
-    Text = (@($output) -join "`n")
+    Code = [int]$Native.ExitCode
+    Lines = @($Native.StdOutLines)
+    Text = [string]$Native.StdOut
+    ErrorText = [string]$Native.StdErr
   }
 }
 
@@ -109,23 +100,28 @@ if ($policy -and $policy.blockedAddedLineRegex) {
   $blockedAddedLineRegex = @($blockedAddedLineRegex + @($policy.blockedAddedLineRegex))
 }
 
-$unstaged = Invoke-GitCapture @("diff", "--name-only", "--")
-$staged = Invoke-GitCapture @("diff", "--name-only", "--cached", "--")
-$untrackedResult = Invoke-GitCapture @("ls-files", "--others", "--exclude-standard")
+$unstaged = Invoke-GitCapture @("diff", "--name-only", "-z", "--")
+$staged = Invoke-GitCapture @("diff", "--name-only", "--cached", "-z", "--")
+$untrackedResult = Invoke-GitCapture @("ls-files", "--others", "--exclude-standard", "-z")
 
 if ($unstaged.Code -ne 0 -or $staged.Code -ne 0 -or $untrackedResult.Code -ne 0) {
   Write-Host "FASTPATCH DENIED. Git change discovery failed."
   Write-Host $unstaged.Text
+  Write-Host $unstaged.ErrorText
   Write-Host $staged.Text
+  Write-Host $staged.ErrorText
   Write-Host $untrackedResult.Text
+  Write-Host $untrackedResult.ErrorText
   exit 1
 }
 
-$untracked = @($untrackedResult.Lines | Where-Object { $_ -and $_.ToString().Trim() } | ForEach-Object { $_.ToString().Trim() })
-$changed = @($unstaged.Lines + $staged.Lines + $untracked) |
-  Where-Object { $_ -and $_.ToString().Trim() } |
-  ForEach-Object { ($_.ToString().Trim() -replace '\\','/') } |
-  Sort-Object -Unique
+$untracked = @(Split-AgenticNulList -Text $untrackedResult.Text)
+[string[]]$changed = @(
+  @((Split-AgenticNulList -Text $unstaged.Text) + (Split-AgenticNulList -Text $staged.Text) + $untracked) |
+    Where-Object { $null -ne $_ -and $_.ToString().Length -gt 0 } |
+    ForEach-Object { ($_.ToString() -replace '\\','/') } |
+    Sort-Object -Unique
+)
 
 if ($changed.Count -eq 0) {
   if ($RequireChanges) {

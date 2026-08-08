@@ -11,13 +11,20 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $Agy = Join-Path $Root '.agy'
+. (Join-Path $PSScriptRoot '..\common\NativeProcess.ps1')
 $WorkItemPath = Join-Path $Agy 'WORK_ITEM.json'
 $OutputPath = Join-Path $Agy 'AUDIT_COVERAGE_MATRIX.json'
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 if (-not (Test-Path -LiteralPath $WorkItemPath -PathType Leaf)) { throw 'WORK_ITEM.json missing.' }
 $WorkItem = Get-Content -LiteralPath $WorkItemPath -Raw -Encoding UTF8 | ConvertFrom-Json
-$Head = (@(& git -C $Root rev-parse HEAD 2>&1) -join "`n").Trim()
-if ($LASTEXITCODE -ne 0) { throw 'Git HEAD unavailable.' }
+$AcceptanceProperty=$WorkItem.PSObject.Properties['acceptance']
+$Acceptance=@()
+if($null-ne$AcceptanceProperty){$Acceptance=@($AcceptanceProperty.Value)}
+$AuditDimensionsProperty=$WorkItem.PSObject.Properties['audit_dimensions']
+$AuditDimensions=if($null-eq$AuditDimensionsProperty){$null}else{$AuditDimensionsProperty.Value}
+$HeadResult=Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Root,'rev-parse','HEAD')
+Assert-AgenticNativeSuccess -Result $HeadResult -Description 'git rev-parse'
+$Head=$HeadResult.StdOut.Trim()
 
 if ($CoverageInputPath) {
   $CoverageInput = Get-Content -LiteralPath (Resolve-Path -LiteralPath $CoverageInputPath).Path -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -30,11 +37,11 @@ if ($CoverageInputPath) {
   }
 } else {
   $AcceptanceRows = @()
-  for ($Index = 0; $Index -lt @($WorkItem.acceptance).Count; $Index++) {
+  for ($Index = 0; $Index -lt $Acceptance.Count; $Index++) {
     $AcceptanceRows += [pscustomobject]@{
       coverage_id = ('AC-{0:D3}' -f ($Index + 1))
       acceptance_index = $Index
-      requirement = [string]$WorkItem.acceptance[$Index]
+      requirement = [string]$Acceptance[$Index]
       surfaces = @('executor_discovery_required')
       evidence_required = @('actual_product_evidence')
       checks = @('product_specific_check_required')
@@ -43,8 +50,8 @@ if ($CoverageInputPath) {
     }
   }
   $DimensionRows = @()
-  if ($WorkItem.audit_dimensions) {
-    foreach ($Property in $WorkItem.audit_dimensions.PSObject.Properties) {
+  if ($null-ne$AuditDimensions) {
+    foreach ($Property in $AuditDimensions.PSObject.Properties) {
       $Counter = 0
       foreach ($Item in @($Property.Value)) {
         $Counter++
@@ -64,17 +71,17 @@ if ($CoverageInputPath) {
   }
 }
 
-if ($AcceptanceRows.Count -ne @($WorkItem.acceptance).Count) { throw 'Acceptance coverage row count does not match the immutable owner brief.' }
+if ($AcceptanceRows.Count -ne $Acceptance.Count) { throw 'Acceptance coverage row count does not match the immutable owner brief.' }
 $ExpectedDimensions = @()
-if ($WorkItem.audit_dimensions) {
-  foreach ($Property in $WorkItem.audit_dimensions.PSObject.Properties) {
+if ($null-ne$AuditDimensions) {
+  foreach ($Property in $AuditDimensions.PSObject.Properties) {
     foreach ($Item in @($Property.Value)) { $ExpectedDimensions += ('{0}::{1}' -f $Property.Name, [string]$Item) }
   }
 }
 $ActualDimensions = @($DimensionRows | ForEach-Object { '{0}::{1}' -f $_.dimension, $_.item_id })
 $MissingDimensions = @($ExpectedDimensions | Where-Object { $ActualDimensions -notcontains $_ })
 if ($MissingDimensions.Count -gt 0) { throw ('Audit dimensions are missing: ' + ($MissingDimensions -join ', ')) }
-$AllIds = @($AcceptanceRows.coverage_id) + @($DimensionRows.coverage_id)
+$AllIds = @($AcceptanceRows | ForEach-Object { [string]$_.coverage_id }) + @($DimensionRows | ForEach-Object { [string]$_.coverage_id })
 if (@($AllIds | Select-Object -Unique).Count -ne $AllIds.Count) { throw 'Duplicate coverage IDs.' }
 $UncoveredAcceptance = @($AcceptanceRows | Where-Object { $_.status -eq 'not_evaluated' } | ForEach-Object { [int]$_.acceptance_index })
 $UncoveredDimensions = @($DimensionRows | Where-Object { $_.status -eq 'not_evaluated' } | ForEach-Object { [string]$_.coverage_id })

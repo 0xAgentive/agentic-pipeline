@@ -14,6 +14,10 @@ if (-not $Python) { $Python = Get-Command python -ErrorAction Stop | Select-Obje
 if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) { throw "Project root is missing: $ProjectRoot" }
 $ResolvedProject = (Resolve-Path -LiteralPath $ProjectRoot).Path
 if (-not (Test-Path -LiteralPath (Join-Path $ResolvedProject '.agy') -PathType Container) -or -not (Test-Path -LiteralPath (Join-Path $ResolvedProject '.agents') -PathType Container)) { throw 'Project is not an installed Agentic Pipeline project.' }
+$InstalledManifestPath=Join-Path $ResolvedProject '.agy\INSTALLATION_MANIFEST.json'
+if(-not(Test-Path -LiteralPath $InstalledManifestPath -PathType Leaf)){throw 'Project installation manifest is missing.'}
+$InstalledManifest=Get-Content -LiteralPath $InstalledManifestPath -Raw -Encoding UTF8|ConvertFrom-Json
+if([string]$InstalledManifest.package_version-ne'1.2.9'-or[string]$InstalledManifest.runtime_version-ne'1.2.9'){throw 'Action Bridge requires an installed project runtime 1.2.9.'}
 $Leaf = Split-Path -Leaf $ResolvedProject
 if ([string]::IsNullOrWhiteSpace($LogicalName)) { $LogicalName = $Leaf }
 if ([string]::IsNullOrWhiteSpace($ProjectId)) {
@@ -22,6 +26,13 @@ if ([string]::IsNullOrWhiteSpace($ProjectId)) {
 }
 $Source = Join-Path $PSScriptRoot 'companion_action_bridge.py'
 if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) { throw "Bridge source is missing: $Source" }
+$PackageVersionPath=Join-Path $PSScriptRoot 'VERSION.json'
+$PackageManifestPath=Join-Path $PSScriptRoot 'MANIFEST.json'
+if(-not(Test-Path -LiteralPath $PackageVersionPath -PathType Leaf)-or-not(Test-Path -LiteralPath $PackageManifestPath -PathType Leaf)){throw 'Action Bridge package identity files are missing.'}
+$PackageVersion=Get-Content -LiteralPath $PackageVersionPath -Raw -Encoding UTF8|ConvertFrom-Json
+$PackageManifest=Get-Content -LiteralPath $PackageManifestPath -Raw -Encoding UTF8|ConvertFrom-Json
+if([string]$PackageVersion.ecosystem_version-ne'1.2.9'-or[string]$PackageManifest.ecosystem_version-ne'1.2.9'){throw 'Action Bridge package version is inconsistent.'}
+foreach($Entry in @($PackageManifest.files)){$Member=Join-Path $PSScriptRoot ([string]$Entry.path);if(-not(Test-Path -LiteralPath $Member -PathType Leaf)){throw "Package member missing: $($Entry.path)"};if((Get-FileHash -LiteralPath $Member -Algorithm SHA256).Hash.ToLowerInvariant()-ne[string]$Entry.sha256){throw "Package member hash mismatch: $($Entry.path)"}}
 $CapabilityPath = Join-Path $ResolvedProject '.agy\ACTION_BRIDGE_CAPABILITY.json'
 $CapabilityToken = $null
 if (Test-Path -LiteralPath $CapabilityPath -PathType Leaf) {
@@ -47,14 +58,14 @@ if (-not $Apply) {
 New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
 Copy-Item -LiteralPath $Source -Destination (Join-Path $InstallRoot 'companion_action_bridge.py') -Force
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $RegistryPath) | Out-Null
-$Registry = if (Test-Path -LiteralPath $RegistryPath -PathType Leaf) { Get-Content -LiteralPath $RegistryPath -Raw -Encoding UTF8 | ConvertFrom-Json } else { [pscustomobject]@{schema_version='1.2.8';ecosystem_version='1.2.8';projects=@()} }
+$Registry = if (Test-Path -LiteralPath $RegistryPath -PathType Leaf) { Get-Content -LiteralPath $RegistryPath -Raw -Encoding UTF8 | ConvertFrom-Json } else { [pscustomobject]@{schema_version='1.2.9';ecosystem_version='1.2.9';projects=@()} }
 $Projects = New-Object System.Collections.Generic.List[object]
 foreach ($Item in @($Registry.projects)) { if ([string]$Item.project_id -ne $ProjectId) { [void]$Projects.Add($Item) } }
-[void]$Projects.Add([ordered]@{project_id=$ProjectId;project_root=$ResolvedProject;logical_name=$LogicalName;capability_token=$CapabilityToken})
-$NewRegistry = [ordered]@{schema_version='1.2.8';ecosystem_version='1.2.8';projects=[object[]]$Projects.ToArray()}
+[void]$Projects.Add([ordered]@{project_id=$ProjectId;project_root=$ResolvedProject;logical_name=$LogicalName;ecosystem_version='1.2.9';capability_token=$CapabilityToken})
+$NewRegistry = [ordered]@{schema_version='1.2.9';ecosystem_version='1.2.9';projects=[object[]]$Projects.ToArray()}
 $Utf8 = [Text.UTF8Encoding]::new($false)
 [IO.File]::WriteAllText($RegistryPath,($NewRegistry|ConvertTo-Json -Depth 20),$Utf8)
-$Capability = [ordered]@{schema_version='1.2.8';ecosystem_version='1.2.8';project_id=$ProjectId;capability_token=$CapabilityToken;purpose='companion_action_packet_import';created_at_utc=(Get-Date).ToUniversalTime().ToString('o')}
+$Capability = [ordered]@{schema_version='1.2.9';ecosystem_version='1.2.9';project_id=$ProjectId;capability_token=$CapabilityToken;purpose='companion_action_packet_import';created_at_utc=(Get-Date).ToUniversalTime().ToString('o')}
 [IO.File]::WriteAllText($CapabilityPath,($Capability|ConvertTo-Json -Depth 10),$Utf8)
 $Script = Join-Path $InstallRoot 'companion_action_bridge.py'
 $StateRoot = "$env:USERPROFILE\.agentic-pipeline\action-bridge"
@@ -62,5 +73,6 @@ $Arguments = "`"$Script`" scan --inbox `"$env:USERPROFILE\Downloads`" --registry
 $Action = New-ScheduledTaskAction -Execute $Python.Source -Argument $Arguments
 $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
 $Settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName 'AgenticPipelineCompanionActionBridge' -Action $Action -Trigger $Trigger -Settings $Settings -Description 'Imports validated Companion 1.2.8 JSON Action Packets from Downloads into registered Agentic Pipeline projects.' -Force | Out-Null
+Register-ScheduledTask -TaskName 'AgenticPipelineCompanionActionBridge' -Action $Action -Trigger $Trigger -Settings $Settings -Description 'Imports validated Companion 1.2.9 JSON Action Packets from Downloads into registered Agentic Pipeline projects.' -Force | Out-Null
+[IO.File]::WriteAllText((Join-Path $InstallRoot 'INSTALLATION_RECEIPT.json'),([ordered]@{schema_version='1.0.0';ecosystem_version='1.2.9';status='PASS';project_id=$ProjectId;project_root=$ResolvedProject;installed_code_sha256=(Get-FileHash -LiteralPath $Script -Algorithm SHA256).Hash.ToLowerInvariant();source_code_sha256=(Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash.ToLowerInvariant();scheduled_task='AgenticPipelineCompanionActionBridge';background_executable=$Python.Source;installed_at_utc=(Get-Date).ToUniversalTime().ToString('o')}|ConvertTo-Json -Depth 10),$Utf8)
 Write-Host 'Companion Action Bridge installed.'

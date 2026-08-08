@@ -7,6 +7,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'windows\common\NativeProcess.ps1')
 
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
   $RepoRoot = Join-Path $PSScriptRoot ".."
@@ -16,22 +17,12 @@ $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 
 function Invoke-GitCapture {
   param([string[]]$GitArgs)
-
-  # AGY_NATIVE_STDERR_SAFE
-  $oldPreference = $ErrorActionPreference
-  try {
-    $ErrorActionPreference = "Continue"
-    $output = @(& git -C $Root @GitArgs 2>&1)
-    $code = $LASTEXITCODE
-  }
-  finally {
-    $ErrorActionPreference = $oldPreference
-  }
-
+  $Native = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList (@('-C', $Root) + $GitArgs)
   return [pscustomobject]@{
-    Code = $code
-    Lines = @($output)
-    Text = (@($output) -join "`n")
+    Code = [int]$Native.ExitCode
+    Lines = @($Native.StdOutLines)
+    Text = [string]$Native.StdOut
+    ErrorText = [string]$Native.StdErr
   }
 }
 
@@ -39,6 +30,14 @@ function Read-JsonFile {
   param([string]$Path)
   if (!(Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
   return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+}
+
+function Get-OptionalProperty {
+  param([object]$Object,[string]$Name,[object]$Default=$null)
+  if($null-eq$Object){return $Default}
+  $Property=$Object.PSObject.Properties[$Name]
+  if($null-eq$Property){return $Default}
+  return $Property.Value
 }
 
 $inside = Invoke-GitCapture @("rev-parse", "--is-inside-work-tree")
@@ -58,9 +57,9 @@ try {
 }
 
 if ($policy) {
-  if ($policy.maxChangedFiles -ne $null) { $MaxChangedFiles = [int]$policy.maxChangedFiles }
-  if ($policy.maxAddedLines -ne $null) { $MaxAddedLines = [int]$policy.maxAddedLines }
-  if ($policy.maxDeletedLines -ne $null) { $MaxDeletedLines = [int]$policy.maxDeletedLines }
+  $PolicyMaxChanged=Get-OptionalProperty $policy 'maxChangedFiles';if($null-ne$PolicyMaxChanged){$MaxChangedFiles=[int]$PolicyMaxChanged}
+  $PolicyMaxAdded=Get-OptionalProperty $policy 'maxAddedLines';if($null-ne$PolicyMaxAdded){$MaxAddedLines=[int]$PolicyMaxAdded}
+  $PolicyMaxDeleted=Get-OptionalProperty $policy 'maxDeletedLines';if($null-ne$PolicyMaxDeleted){$MaxDeletedLines=[int]$PolicyMaxDeleted}
 }
 
 $allowedPathRegex = @(
@@ -71,18 +70,18 @@ $allowedPathRegex = @(
   '^.*\.css$'
 )
 
-if ($policy -and $policy.allowedPathRegex) {
-  $allowedPathRegex = @($policy.allowedPathRegex)
+if ($policy -and (Get-OptionalProperty $policy 'allowedPathRegex')) {
+  $allowedPathRegex = @(Get-OptionalProperty $policy 'allowedPathRegex')
 }
 
 $allowNewFiles = $false
-if ($policy -and $policy.allowNewFiles -eq $true) {
+if ($policy -and (Get-OptionalProperty $policy 'allowNewFiles' $false) -eq $true) {
   $allowNewFiles = $true
 }
 
 $allowedNewPathRegex = @()
-if ($policy -and $policy.allowedNewPathRegex) {
-  $allowedNewPathRegex = @($policy.allowedNewPathRegex)
+if ($policy -and (Get-OptionalProperty $policy 'allowedNewPathRegex')) {
+  $allowedNewPathRegex = @(Get-OptionalProperty $policy 'allowedNewPathRegex')
 }
 
 $blockedAddedLineRegex = @(
@@ -105,27 +104,32 @@ $blockedAddedLineRegex = @(
   '^\+.*\bfrom\s+["'']node:fs["'']'
 )
 
-if ($policy -and $policy.blockedAddedLineRegex) {
-  $blockedAddedLineRegex = @($blockedAddedLineRegex + @($policy.blockedAddedLineRegex))
+if ($policy -and (Get-OptionalProperty $policy 'blockedAddedLineRegex')) {
+  $blockedAddedLineRegex = @($blockedAddedLineRegex + @(Get-OptionalProperty $policy 'blockedAddedLineRegex'))
 }
 
-$unstaged = Invoke-GitCapture @("diff", "--name-only", "--")
-$staged = Invoke-GitCapture @("diff", "--name-only", "--cached", "--")
-$untrackedResult = Invoke-GitCapture @("ls-files", "--others", "--exclude-standard")
+$unstaged = Invoke-GitCapture @("diff", "--name-only", "-z", "--")
+$staged = Invoke-GitCapture @("diff", "--name-only", "--cached", "-z", "--")
+$untrackedResult = Invoke-GitCapture @("ls-files", "--others", "--exclude-standard", "-z")
 
 if ($unstaged.Code -ne 0 -or $staged.Code -ne 0 -or $untrackedResult.Code -ne 0) {
   Write-Host "FASTPATCH DENIED. Git change discovery failed."
   Write-Host $unstaged.Text
+  Write-Host $unstaged.ErrorText
   Write-Host $staged.Text
+  Write-Host $staged.ErrorText
   Write-Host $untrackedResult.Text
+  Write-Host $untrackedResult.ErrorText
   exit 1
 }
 
-$untracked = @($untrackedResult.Lines | Where-Object { $_ -and $_.ToString().Trim() } | ForEach-Object { $_.ToString().Trim() })
-$changed = @($unstaged.Lines + $staged.Lines + $untracked) |
-  Where-Object { $_ -and $_.ToString().Trim() } |
-  ForEach-Object { ($_.ToString().Trim() -replace '\\','/') } |
-  Sort-Object -Unique
+$untracked = @(Split-AgenticNulList -Text $untrackedResult.Text)
+[string[]]$changed = @(
+  @((Split-AgenticNulList -Text $unstaged.Text) + (Split-AgenticNulList -Text $staged.Text) + $untracked) |
+    Where-Object { $null -ne $_ -and $_.ToString().Length -gt 0 } |
+    ForEach-Object { ($_.ToString() -replace '\\','/') } |
+    Sort-Object -Unique
+)
 
 if ($changed.Count -eq 0) {
   if ($RequireChanges) {

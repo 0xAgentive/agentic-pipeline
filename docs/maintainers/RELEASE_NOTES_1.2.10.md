@@ -15,5 +15,6 @@ This stable release supersedes 1.2.9 without rewriting it. It binds Pipeline, ru
 - The updater migrates the exact legacy findings shape used by active projects, preserves the original bytes in versioned history, rejects unknown variants and rolls back atomically.
 - Runtime migration is allowlisted, transactional, product-source preserving and verification-only on its second identical run.
 - External Action Packets are token-free. The installed Bridge resolves the exact local project and injects its capability only into local materialization.
+- Action Packet schema remains independently versioned at 1.2.9 while its ecosystem binding is 1.2.10.
 - The complete Context Handoff 4.3.4 engine is packaged under ecosystem version 1.2.10 and excludes raw Action Packets and Bridge capability files.
 - Companion deployment and restart bootstrap are exact-asset, manifest-bound and secret-free.

@@ -3,7 +3,7 @@
   "ecosystem_version": "1.2.10",
   "artifact": "pipeline_source_snapshot",
   "source": "complete canonical tree",
-  "generated_at_utc": "2026-08-08T18:28:00Z",
+  "generated_at_utc": "2026-08-08T18:21:27Z",
   "operational_gate_policy": {
     "blocking": [
       "syntax/runtime safety",
@@ -29,5 +29,10 @@
     "status": "PASS",
     "reason": "Candidate overlay skips empty or Git-blob-identical payloads and materializes changed files through Git attributes.",
     "regression_cases": ["KF-011", "KF-043", "KF-044", "KF-045", "KF-046"]
+  },
+  "legacy_findings_migration": {
+    "status": "PASS",
+    "reason": "The runtime updater archives the exact legacy findings bytes, migrates only the recognized shape, rejects unknown variants and restores the complete pre-update state on failure.",
+    "regression": "tests/acceptance/Test-RuntimeUpdaterTransaction.ps1"
   }
 }

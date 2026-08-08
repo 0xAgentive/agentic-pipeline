@@ -32,6 +32,14 @@ function Read-JsonFile {
   return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
 }
 
+function Get-OptionalProperty {
+  param([object]$Object,[string]$Name,[object]$Default=$null)
+  if($null-eq$Object){return $Default}
+  $Property=$Object.PSObject.Properties[$Name]
+  if($null-eq$Property){return $Default}
+  return $Property.Value
+}
+
 $inside = Invoke-GitCapture @("rev-parse", "--is-inside-work-tree")
 if ($inside.Code -ne 0 -or $inside.Text.Trim() -ne "true") {
   Write-Host "FASTPATCH DENIED. Not inside a Git worktree: $Root"
@@ -49,9 +57,9 @@ try {
 }
 
 if ($policy) {
-  if ($policy.maxChangedFiles -ne $null) { $MaxChangedFiles = [int]$policy.maxChangedFiles }
-  if ($policy.maxAddedLines -ne $null) { $MaxAddedLines = [int]$policy.maxAddedLines }
-  if ($policy.maxDeletedLines -ne $null) { $MaxDeletedLines = [int]$policy.maxDeletedLines }
+  $PolicyMaxChanged=Get-OptionalProperty $policy 'maxChangedFiles';if($null-ne$PolicyMaxChanged){$MaxChangedFiles=[int]$PolicyMaxChanged}
+  $PolicyMaxAdded=Get-OptionalProperty $policy 'maxAddedLines';if($null-ne$PolicyMaxAdded){$MaxAddedLines=[int]$PolicyMaxAdded}
+  $PolicyMaxDeleted=Get-OptionalProperty $policy 'maxDeletedLines';if($null-ne$PolicyMaxDeleted){$MaxDeletedLines=[int]$PolicyMaxDeleted}
 }
 
 $allowedPathRegex = @(
@@ -62,18 +70,18 @@ $allowedPathRegex = @(
   '^.*\.css$'
 )
 
-if ($policy -and $policy.allowedPathRegex) {
-  $allowedPathRegex = @($policy.allowedPathRegex)
+if ($policy -and (Get-OptionalProperty $policy 'allowedPathRegex')) {
+  $allowedPathRegex = @(Get-OptionalProperty $policy 'allowedPathRegex')
 }
 
 $allowNewFiles = $false
-if ($policy -and $policy.allowNewFiles -eq $true) {
+if ($policy -and (Get-OptionalProperty $policy 'allowNewFiles' $false) -eq $true) {
   $allowNewFiles = $true
 }
 
 $allowedNewPathRegex = @()
-if ($policy -and $policy.allowedNewPathRegex) {
-  $allowedNewPathRegex = @($policy.allowedNewPathRegex)
+if ($policy -and (Get-OptionalProperty $policy 'allowedNewPathRegex')) {
+  $allowedNewPathRegex = @(Get-OptionalProperty $policy 'allowedNewPathRegex')
 }
 
 $blockedAddedLineRegex = @(
@@ -96,8 +104,8 @@ $blockedAddedLineRegex = @(
   '^\+.*\bfrom\s+["'']node:fs["'']'
 )
 
-if ($policy -and $policy.blockedAddedLineRegex) {
-  $blockedAddedLineRegex = @($blockedAddedLineRegex + @($policy.blockedAddedLineRegex))
+if ($policy -and (Get-OptionalProperty $policy 'blockedAddedLineRegex')) {
+  $blockedAddedLineRegex = @($blockedAddedLineRegex + @(Get-OptionalProperty $policy 'blockedAddedLineRegex'))
 }
 
 $unstaged = Invoke-GitCapture @("diff", "--name-only", "-z", "--")

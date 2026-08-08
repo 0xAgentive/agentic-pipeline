@@ -1,66 +1,147 @@
 [CmdletBinding()]
 param(
-  [string]$RepoRoot="$env:USERPROFILE\Documents\antigravity\agentic-pipeline",
-  [Parameter(Mandatory=$true)][string]$ProjectRoot,
-  [string]$ProjectId='',
-  [string]$LogicalName='',
-  [string]$HandoffRoot='C:\Scripts\AntigravityProjects\companion-handoff',
-  [string]$DeploymentRoot='',
+  [string]$RepoRoot = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline",
+  [Parameter(Mandatory = $true)][string]$ProjectRoot,
+  [Parameter(Mandatory = $true)][string]$RuntimeAsset,
+  [Parameter(Mandatory = $true)][string]$ActionBridgeAsset,
+  [Parameter(Mandatory = $true)][string]$ContextHandoffAsset,
+  [Parameter(Mandatory = $true)][string]$CompanionAsset,
+  [Parameter(Mandatory = $true)][string]$HandoffArchive,
+  [string]$ProjectId = '',
+  [string]$LogicalName = '',
+  [string]$HandoffRoot = 'C:\Scripts\AntigravityProjects\companion-handoff',
+  [string]$DeploymentRoot = '',
+  [string]$RuntimeBackupRoot = "$env:USERPROFILE\Documents\antigravity\pipeline-maintenance\runtime-backups",
   [switch]$OpenFolder
 )
-Set-StrictMode -Version 3.0
-$ErrorActionPreference='Stop'
-$Repo=(Resolve-Path -LiteralPath $RepoRoot).Path
-$Project=(Resolve-Path -LiteralPath $ProjectRoot).Path
-$Leaf=Split-Path -Leaf $Project
-if([string]::IsNullOrWhiteSpace($LogicalName)){$LogicalName=$Leaf}
-if([string]::IsNullOrWhiteSpace($ProjectId)){$ProjectId=($Leaf-replace'[^A-Za-z0-9._-]','-').Trim('-')}
-if([string]::IsNullOrWhiteSpace($ProjectId)){throw 'ProjectId cannot be derived. Supply -ProjectId explicitly.'}
-if([string]::IsNullOrWhiteSpace($DeploymentRoot)){$DeploymentRoot=Join-Path $env:USERPROFILE (Join-Path 'Documents\antigravity\companion-deployments' (Join-Path $ProjectId '1.2.9'))}
-$Version=Get-Content -LiteralPath (Join-Path $Repo 'VERSION.json') -Raw -Encoding UTF8|ConvertFrom-Json
-if([string]$Version.package_version-ne'1.2.9'-or[string]$Version.runtime_version-ne'1.2.9'-or[string]$Version.companion_version-ne'1.2.9'){throw 'Canonical repository is not Pipeline 1.2.9 / runtime 1.2.9 / Companion 1.2.9.'}
-$RuntimeUpdater=Join-Path $Repo 'scripts\windows\Update-AgenticProjectRuntime-v1.2.9.ps1'
-& $RuntimeUpdater -ProjectRoot $Project -RepoRoot $Repo -Apply -AllowDirty
-if($LASTEXITCODE-ne0){throw 'Project runtime update failed.'}
-$BridgeInstaller=Join-Path $Repo 'scripts\bridge\Install-CompanionActionBridge.ps1'
-& $BridgeInstaller -ProjectId $ProjectId -ProjectRoot $Project -LogicalName $LogicalName -Apply
-if($LASTEXITCODE-ne0){throw 'Companion Action Bridge installation failed.'}
-$HandoffUpdater=Join-Path $Repo 'integrations\companion-handoff-1.2.9\Update-AgenticContextHandoff-v1.2.9.ps1'
-& $HandoffUpdater -HandoffRoot $HandoffRoot -Apply
-if($LASTEXITCODE-ne0){throw 'Companion Handoff compatibility update failed.'}
-$CompanionZip=Join-Path $Repo '.artifacts\release-kit\1.2.9\companion\agentic-companion-1.2.9.zip'
-if(-not(Test-Path -LiteralPath $CompanionZip -PathType Leaf)){& (Join-Path $Repo 'scripts\windows\companion\Build-CompanionPack-v1.2.9.ps1') -RepoRoot $Repo -OutputRoot (Split-Path -Parent $CompanionZip) -Force;if($LASTEXITCODE-ne0){throw 'Companion package build failed.'}}
-$Stamp=Get-Date -Format 'yyyyMMdd-HHmmss'
-if(Test-Path -LiteralPath $DeploymentRoot -PathType Container){Move-Item -LiteralPath $DeploymentRoot -Destination ($DeploymentRoot+'.backup-'+$Stamp)}
-New-Item -ItemType Directory -Force (Split-Path -Parent $DeploymentRoot)|Out-Null
-Expand-Archive -LiteralPath $CompanionZip -DestinationPath $DeploymentRoot -Force
-$PackSubdir=Get-ChildItem -LiteralPath $DeploymentRoot -Directory|Where-Object{$_.Name-like'agentic-companion-*'}|Select-Object -First 1
-if($PackSubdir){Get-ChildItem -LiteralPath $PackSubdir.FullName -Force|ForEach-Object{Move-Item -LiteralPath $_.FullName -Destination $DeploymentRoot -Force};Remove-Item -LiteralPath $PackSubdir.FullName -Recurse -Force}
-$Instructions = Join-Path $DeploymentRoot '01_PROJECT_INSTRUCTIONS_v1.2.9.md'
-$Knowledge = Join-Path $DeploymentRoot 'knowledge'
-$KnowledgeFiles = @(Get-ChildItem -LiteralPath $Knowledge -File -Filter '*.md')
-if (-not (Test-Path -LiteralPath $Instructions -PathType Leaf) -or $KnowledgeFiles.Count -ne 16) {
-  throw 'Prepared Companion deployment is incomplete.'
-}
-Set-Clipboard -Value (Get-Content -LiteralPath $Instructions -Raw -Encoding UTF8)
-$BootstrapScript=Join-Path $Repo 'scripts\release\Create-Companion-Restart-Bootstrap-v1.2.9.ps1'
-& $BootstrapScript -ProjectRoot $Project -PipelineRepo $Repo -OutputRoot $DeploymentRoot -HandoffRoot $HandoffRoot -LogicalName $LogicalName -ProjectId $ProjectId
-if($LASTEXITCODE-ne0){throw 'Restart bootstrap creation failed.'}
-$Bootstrap=Get-ChildItem -LiteralPath $DeploymentRoot -File -Filter 'COMPANION_RESTART_BOOTSTRAP_*.zip'|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1
-if(-not$Bootstrap){throw 'Restart bootstrap was not produced.'}
-$FirstMessage='Проанализируй приложенный COMPANION_RESTART_BOOTSTRAP по COMPANION_ENTRY.md.'
-[IO.File]::WriteAllText((Join-Path $DeploymentRoot 'NEW_CHAT_FIRST_MESSAGE.txt'),$FirstMessage,[Text.UTF8Encoding]::new($false))
-$Checklist=@"
-Companion 1.2.9 deployment is ready for project: $LogicalName
 
-1. Replace the ChatGPT Project Instructions with 01_PROJECT_INSTRUCTIONS_v1.2.9.md (already copied to clipboard).
-2. Replace Project Knowledge with one copy of every Markdown file in knowledge (00-15).
-3. Retire the old Companion chat. Create a new chat in the same Project.
-4. Upload $($Bootstrap.Name) and use NEW_CHAT_FIRST_MESSAGE.txt.
-5. Downloaded AGENTIC_ACTION_PACKET_*.json files will be imported from Downloads by the local Action Bridge.
-"@
-[IO.File]::WriteAllText((Join-Path $DeploymentRoot 'CHATGPT_PROJECT_UPDATE_CHECKLIST.txt'),$Checklist,[Text.UTF8Encoding]::new($false))
-$Result=[ordered]@{schema_version='1.2.9';status='PASS';project_id=$ProjectId;project=$LogicalName;project_root=$Project;pipeline_version='1.2.9';runtime_version='1.2.9';companion_version='1.2.9';deployment_root=$DeploymentRoot;bootstrap=$Bootstrap.FullName;generated_at_utc=(Get-Date).ToUniversalTime().ToString('o')}
-[IO.File]::WriteAllText((Join-Path $DeploymentRoot 'DEPLOYMENT_RESULT.json'),($Result|ConvertTo-Json -Depth 15),[Text.UTF8Encoding]::new($false))
-Write-Host 'PROJECT RUNTIME / ACTION BRIDGE / HANDOFF / COMPANION DEPLOYMENT: PASS' -ForegroundColor Green
-if($OpenFolder){Start-Process explorer.exe -ArgumentList "`"$DeploymentRoot`""}
+Set-StrictMode -Version 3.0
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$EcosystemVersion = '1.2.9'
+
+$Repo = (Resolve-Path -LiteralPath $RepoRoot).Path
+$Project = (Resolve-Path -LiteralPath $ProjectRoot).Path
+$Leaf = Split-Path -Leaf $Project
+if ([string]::IsNullOrWhiteSpace($LogicalName)) { $LogicalName = $Leaf }
+if ([string]::IsNullOrWhiteSpace($ProjectId)) { $ProjectId = ($Leaf -replace '[^A-Za-z0-9._-]', '-').Trim('-') }
+if ($ProjectId -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or $ProjectId -in @('.', '..')) { throw 'ProjectId must be one safe filename component.' }
+if ([string]::IsNullOrWhiteSpace($DeploymentRoot)) {
+  $DeploymentRoot = Join-Path $env:USERPROFILE (Join-Path 'Documents\antigravity\companion-deployments' (Join-Path $ProjectId $EcosystemVersion))
+}
+
+. (Join-Path $Repo 'scripts\windows\common\NativeProcess.ps1')
+$Version = Get-Content -LiteralPath (Join-Path $Repo 'VERSION.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+foreach ($Field in @('ecosystem_version','package_version','runtime_version','companion_version','action_bridge_version','context_handoff_version')) {
+  if ([string]$Version.$Field -ne $EcosystemVersion) { throw "Canonical version mismatch: $Field" }
+}
+$HeadResult = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Repo,'rev-parse','HEAD')
+Assert-AgenticNativeSuccess -Result $HeadResult -Description 'canonical HEAD'
+$SourceCommit = $HeadResult.StdOut.Trim()
+$StatusResult = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Repo,'status','--porcelain=v2','-z','--untracked-files=all')
+Assert-AgenticNativeSuccess -Result $StatusResult -Description 'canonical status'
+if ($StatusResult.StdOut.Length -gt 0) { throw 'Complete deployment requires a clean canonical source commit.' }
+
+$Assets = [ordered]@{
+  runtime = (Resolve-Path -LiteralPath $RuntimeAsset).Path
+  action_bridge = (Resolve-Path -LiteralPath $ActionBridgeAsset).Path
+  context_handoff = (Resolve-Path -LiteralPath $ContextHandoffAsset).Path
+  companion = (Resolve-Path -LiteralPath $CompanionAsset).Path
+  handoff_archive = (Resolve-Path -LiteralPath $HandoffArchive).Path
+}
+foreach ($Entry in $Assets.GetEnumerator()) {
+  if (-not (Test-Path -LiteralPath $Entry.Value -PathType Leaf) -or [IO.Path]::GetExtension($Entry.Value) -ne '.zip') { throw "Required ZIP is missing: $($Entry.Key)" }
+}
+
+function Test-SafeZip([string]$Path) {
+  $Archive = [IO.Compression.ZipFile]::OpenRead($Path)
+  try {
+    $Names = New-Object System.Collections.Generic.HashSet[string]([StringComparer]::OrdinalIgnoreCase)
+    foreach ($Entry in $Archive.Entries) {
+      $Name = $Entry.FullName.Replace('\','/')
+      if ([string]::IsNullOrWhiteSpace($Name) -or $Name.StartsWith('/') -or $Name -match '^[A-Za-z]:' -or $Name -match '(^|/)\.\.(/|$)' -or -not $Names.Add($Name)) {
+        throw "Unsafe or duplicate ZIP member in $Path"
+      }
+    }
+  }
+  finally { $Archive.Dispose() }
+}
+
+function Find-PackageRoot([string]$ExtractRoot,[string]$Marker) {
+  $PackageRootMatches = @(Get-ChildItem -LiteralPath $ExtractRoot -Recurse -File -Filter $Marker | ForEach-Object { Split-Path -Parent $_.FullName } | Sort-Object -Unique)
+  if ($PackageRootMatches.Count -ne 1) { throw "Expected exactly one $Marker package root; found $($PackageRootMatches.Count)." }
+  return $PackageRootMatches[0]
+}
+
+$TempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')
+$OperationRoot = Join-Path $TempBase ('agentic-complete-deployment-' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Force -Path $OperationRoot | Out-Null
+try {
+  foreach ($Entry in $Assets.GetEnumerator()) { Test-SafeZip $Entry.Value }
+
+  $RuntimeExtract = Join-Path $OperationRoot 'runtime'
+  $BridgeExtract = Join-Path $OperationRoot 'bridge'
+  $HandoffExtract = Join-Path $OperationRoot 'handoff'
+  Expand-Archive -LiteralPath $Assets.runtime -DestinationPath $RuntimeExtract
+  Expand-Archive -LiteralPath $Assets.action_bridge -DestinationPath $BridgeExtract
+  Expand-Archive -LiteralPath $Assets.context_handoff -DestinationPath $HandoffExtract
+
+  $RuntimePackage = Find-PackageRoot -ExtractRoot $RuntimeExtract -Marker 'RUNTIME_OVERLAY_MANIFEST.json'
+  $RuntimeUpdater = Join-Path $RuntimePackage 'scripts\windows\Update-AgenticProjectRuntime-v1.2.9.ps1'
+  $RuntimeHash = (Get-FileHash -LiteralPath $Assets.runtime -Algorithm SHA256).Hash.ToLowerInvariant()
+  $RuntimeArguments = @{
+    ProjectRoot = $Project
+    RuntimeRoot = $RuntimePackage
+    RuntimeArchivePath = $Assets.runtime
+    AssetSha256 = $RuntimeHash
+    AllowDirty = $true
+    BackupBaseRoot = $RuntimeBackupRoot
+  }
+  & $RuntimeUpdater @RuntimeArguments
+  $RuntimeArguments.Apply = $true
+  & $RuntimeUpdater @RuntimeArguments
+  & $RuntimeUpdater @RuntimeArguments
+
+  $BridgePackage = Find-PackageRoot -ExtractRoot $BridgeExtract -Marker 'Install-CompanionActionBridge.ps1'
+  $BridgeInstaller = Join-Path $BridgePackage 'Install-CompanionActionBridge.ps1'
+  $BridgeHash = (Get-FileHash -LiteralPath $Assets.action_bridge -Algorithm SHA256).Hash.ToLowerInvariant()
+  & $BridgeInstaller -ProjectRoot $Project -ProjectId $ProjectId -LogicalName $LogicalName -ExpectedSourceCommit $SourceCommit -AssetSha256 $BridgeHash
+  & $BridgeInstaller -ProjectRoot $Project -ProjectId $ProjectId -LogicalName $LogicalName -ExpectedSourceCommit $SourceCommit -AssetSha256 $BridgeHash -Apply
+
+  $HandoffPackage = Find-PackageRoot -ExtractRoot $HandoffExtract -Marker 'Update-AgenticContextHandoff-v1.2.9.ps1'
+  $HandoffUpdater = Join-Path $HandoffPackage 'Update-AgenticContextHandoff-v1.2.9.ps1'
+  & $HandoffUpdater -PackageRoot $HandoffPackage -HandoffRoot $HandoffRoot
+  & $HandoffUpdater -PackageRoot $HandoffPackage -HandoffRoot $HandoffRoot -Apply
+  & $HandoffUpdater -PackageRoot $HandoffPackage -HandoffRoot $HandoffRoot -Apply
+
+  $CompanionHash = (Get-FileHash -LiteralPath $Assets.companion -Algorithm SHA256).Hash.ToLowerInvariant()
+  $Prepare = Join-Path $Repo 'scripts\release\Prepare-AgenticPipeline-Companion-v1.2.9.ps1'
+  & $Prepare -CompanionZip $Assets.companion -OutputRoot $DeploymentRoot -CanonicalRepo $Repo -ExpectedAssetSha256 $CompanionHash -ExpectedSourceCommit $SourceCommit -Force
+  & $Prepare -CompanionZip $Assets.companion -OutputRoot $DeploymentRoot -CanonicalRepo $Repo -ExpectedAssetSha256 $CompanionHash -ExpectedSourceCommit $SourceCommit -Force
+
+  $DeploymentManifest = Join-Path ([IO.Path]::GetFullPath($DeploymentRoot)) 'DEPLOYMENT_MANIFEST.json'
+  $Bootstrap = Join-Path $Repo 'scripts\release\Create-Companion-Restart-Bootstrap-v1.2.9.ps1'
+  $BootstrapArguments = @{
+    ProjectRoot = $Project
+    PipelineRepo = $Repo
+    OutputRoot = $DeploymentRoot
+    HandoffArchive = $Assets.handoff_archive
+    CompanionAsset = $Assets.companion
+    DeploymentManifest = $DeploymentManifest
+    LogicalName = $LogicalName
+    ProjectId = $ProjectId
+  }
+  & $Bootstrap @BootstrapArguments
+  & $Bootstrap @BootstrapArguments -OpenFolder:$OpenFolder
+
+  Write-Host 'PROJECT RUNTIME / ACTION BRIDGE / CONTEXT HANDOFF / COMPANION DEPLOYMENT: PASS' -ForegroundColor Green
+}
+finally {
+  if (Test-Path -LiteralPath $OperationRoot) {
+    $ResolvedOperation = (Resolve-Path -LiteralPath $OperationRoot).Path
+    if (-not $ResolvedOperation.StartsWith($TempBase + '\',[StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $ResolvedOperation) -notlike 'agentic-complete-deployment-*') {
+      throw "Refusing unsafe temporary cleanup: $ResolvedOperation"
+    }
+    Remove-Item -LiteralPath $ResolvedOperation -Recurse -Force
+  }
+}

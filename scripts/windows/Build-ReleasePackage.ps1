@@ -35,6 +35,40 @@ function Invoke-NativeCapture {
   }
 }
 
+function Assert-SafeOutputLeaf([string]$Path,[string[]]$ProtectedPaths) {
+  if ([string]::IsNullOrWhiteSpace($Path) -or $Path.IndexOfAny([char[]]'*?[]') -ge 0) { throw "Unsafe release output path: $Path" }
+  $Full = [IO.Path]::GetFullPath($Path)
+  $VolumeRoot = [IO.Path]::GetPathRoot($Full)
+  $Parent = Split-Path -Parent $Full
+  $Leaf = Split-Path -Leaf $Full
+  if ([string]::IsNullOrWhiteSpace($Leaf) -or
+      [string]::Equals($Full.TrimEnd('\','/'),$VolumeRoot.TrimEnd('\','/'),[StringComparison]::OrdinalIgnoreCase) -or
+      [string]::Equals($Parent.TrimEnd('\','/'),$VolumeRoot.TrimEnd('\','/'),[StringComparison]::OrdinalIgnoreCase)) {
+    throw "Release output must be a narrow leaf below a non-root parent: $Full"
+  }
+  foreach ($ProtectedPath in $ProtectedPaths) {
+    if ([string]::IsNullOrWhiteSpace($ProtectedPath)) { continue }
+    $Protected = [IO.Path]::GetFullPath($ProtectedPath).TrimEnd('\','/')
+    $Candidate = $Full.TrimEnd('\','/')
+    if ([string]::Equals($Candidate,$Protected,[StringComparison]::OrdinalIgnoreCase) -or
+        $Protected.StartsWith($Candidate + '\',[StringComparison]::OrdinalIgnoreCase)) {
+      throw "Release output is a protected path or its ancestor: $Full"
+    }
+  }
+  $Probe = $Full
+  while (-not [string]::IsNullOrWhiteSpace($Probe)) {
+    if (Test-Path -LiteralPath $Probe) {
+      $Item = Get-Item -LiteralPath $Probe -Force
+      if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Release output traverses a reparse point: $Probe" }
+      if ([string]::Equals($Probe.TrimEnd('\','/'),$Full.TrimEnd('\','/'),[StringComparison]::OrdinalIgnoreCase) -and -not $Item.PSIsContainer) { throw "Release output exists and is not a directory: $Full" }
+    }
+    $Next = Split-Path -Parent $Probe
+    if ([string]::IsNullOrWhiteSpace($Next) -or $Next -eq $Probe) { break }
+    $Probe = $Next
+  }
+  return $Full
+}
+
 function Invoke-Native {
   param(
     [Parameter(Mandatory=$true)][string]$FilePath,
@@ -102,7 +136,7 @@ if ([string]::IsNullOrWhiteSpace($Version)) { throw "Release version is empty" }
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
   $OutputRoot = Join-Path $Root ('.artifacts\releases\' + $Version)
 }
-$OutputFull = [System.IO.Path]::GetFullPath($OutputRoot)
+$OutputFull = Assert-SafeOutputLeaf -Path $OutputRoot -ProtectedPaths @($Root,$env:USERPROFILE,[IO.Path]::GetPathRoot($Root))
 
 $StatusResult = Invoke-NativeCapture -FilePath 'git' -ArgumentList @('-C',$Root,'status','--porcelain=v1','--untracked-files=all')
 if ($StatusResult.Code -ne 0) { throw "git status failed: $($StatusResult.Text)" }

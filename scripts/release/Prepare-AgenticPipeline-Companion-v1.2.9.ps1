@@ -55,10 +55,16 @@ function Assert-SafeOutputLeaf {
       throw "Output path is a protected path or its ancestor: $Full"
     }
   }
-  if (Test-Path -LiteralPath $Full) {
-    $Item = Get-Item -LiteralPath $Full -Force
-    if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Output leaf must not be a reparse point: $Full" }
-    if (-not $Item.PSIsContainer) { throw "Output path exists and is not a directory: $Full" }
+  $Probe = $Full
+  while (-not [string]::IsNullOrWhiteSpace($Probe)) {
+    if (Test-Path -LiteralPath $Probe) {
+      $Item = Get-Item -LiteralPath $Probe -Force
+      if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Output path must not traverse a reparse point: $Probe" }
+      if ((Test-SamePath -Left $Probe -Right $Full) -and -not $Item.PSIsContainer) { throw "Output path exists and is not a directory: $Full" }
+    }
+    $Next = Split-Path -Parent $Probe
+    if ([string]::IsNullOrWhiteSpace($Next) -or (Test-SamePath -Left $Next -Right $Probe)) { break }
+    $Probe = $Next
   }
   return $Full
 }
@@ -132,6 +138,9 @@ function Test-PackageRoot {
   if ($Modules.Count -ne 16 -or (Compare-Object -ReferenceObject $ExpectedModules -DifferenceObject $Modules)) {
     throw 'Companion package must declare exactly one module for every number 00-15.'
   }
+  for ($Index = 0; $Index -lt $ExpectedModules.Count; $Index++) {
+    if ([string]$Modules[$Index] -cne $ExpectedModules[$Index]) { throw 'Companion knowledge upload order is not canonical.' }
+  }
   $KnowledgeFiles = @(Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'knowledge') -File -Filter '*.md' | Sort-Object Name)
   if ($KnowledgeFiles.Count -ne 16 -or (Compare-Object -ReferenceObject $ExpectedModules -DifferenceObject @($KnowledgeFiles.Name))) {
     throw 'Companion package knowledge directory differs from the exact active upload set.'
@@ -151,7 +160,19 @@ function Test-PackageRoot {
   foreach ($RequiredSupport in @('VERSION.json', 'UPLOAD_ORDER.txt', 'NEW_CHAT_FIRST_MESSAGE.txt', 'CHATGPT_PROJECT_UPDATE_CHECKLIST.txt')) {
     if (-not (Test-Path -LiteralPath (Join-Path $PackageRoot $RequiredSupport) -PathType Leaf)) { throw "Required Companion support file is missing: $RequiredSupport" }
   }
+  $ExpectedSupport = @('VERSION.json', 'UPLOAD_ORDER.txt', 'NEW_CHAT_FIRST_MESSAGE.txt', 'CHATGPT_PROJECT_UPDATE_CHECKLIST.txt')
+  if (@($Manifest.support_files).Count -ne $ExpectedSupport.Count -or
+      (Compare-Object -ReferenceObject $ExpectedSupport -DifferenceObject @($Manifest.support_files))) {
+    throw 'Companion support-file set is not exact.'
+  }
   $DeclaredFiles = @($Manifest.files)
+  $ExpectedActivePaths = @($Instruction) + @($ExpectedModules | ForEach-Object { "knowledge/$_" })
+  $ExpectedPayloadPaths = @($ExpectedActivePaths + $ExpectedSupport)
+  $DeclaredPaths = @($DeclaredFiles | ForEach-Object { [string]$_.path })
+  if ($DeclaredPaths.Count -ne $ExpectedPayloadPaths.Count -or
+      (Compare-Object -ReferenceObject $ExpectedPayloadPaths -DifferenceObject $DeclaredPaths)) {
+    throw 'Companion payload contains an undeclared role or is missing an exact required file.'
+  }
   foreach ($Declared in $DeclaredFiles) {
     $Relative = [string]$Declared.path
     if ([IO.Path]::IsPathRooted($Relative) -or $Relative.Contains('\') -or $Relative -match '(^|/)\.\.(/|$)') {
@@ -162,8 +183,20 @@ function Test-PackageRoot {
     if ((Get-Item -LiteralPath $Full).Length -ne [int64]$Declared.size_bytes -or (Get-Sha256 -Path $Full) -ne [string]$Declared.sha256) {
       throw "Companion manifest parity failure: $Relative"
     }
-    if (-not [string]::IsNullOrWhiteSpace([string]$Declared.canonical_source)) {
-      $CanonicalPath = Join-Path $CanonicalRoot ([string]$Declared.canonical_source)
+    $ExpectedRole = if ($ExpectedActivePaths -contains $Relative) { 'active_upload' } else { 'support_not_project_knowledge' }
+    if ([string]$Declared.deployment_role -cne $ExpectedRole) { throw "Companion deployment role mismatch: $Relative" }
+    $ExpectedCanonical = if ($Relative -eq $Instruction) {
+      "docs/companion/$Instruction"
+    } elseif ($Relative.StartsWith('knowledge/', [StringComparison]::Ordinal)) {
+      'docs/companion/' + (Split-Path -Leaf $Relative)
+    } elseif ($Relative -eq 'VERSION.json') {
+      'docs/companion/VERSION.json'
+    } else {
+      ''
+    }
+    if ([string]$Declared.canonical_source -cne $ExpectedCanonical) { throw "Companion canonical-source binding mismatch: $Relative" }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedCanonical)) {
+      $CanonicalPath = Join-Path $CanonicalRoot $ExpectedCanonical
       if (-not (Test-Path -LiteralPath $CanonicalPath -PathType Leaf)) { throw "Canonical Companion source is missing: $($Declared.canonical_source)" }
       if ((Get-Sha256 -Path $CanonicalPath) -ne [string]$Declared.sha256) { throw "Canonical/package parity failure: $($Declared.canonical_source)" }
     }
@@ -179,21 +212,63 @@ function Test-PackageRoot {
 function Test-PreparedDeployment {
   param(
     [Parameter(Mandatory = $true)][string]$DeploymentRoot,
-    [Parameter(Mandatory = $true)][string]$ExpectedIdentity
+    [Parameter(Mandatory = $true)][string]$ExpectedIdentity,
+    [Parameter(Mandatory = $true)]$ExpectedPackageManifest,
+    [Parameter(Mandatory = $true)][string]$ExpectedPackageManifestHash,
+    [Parameter(Mandatory = $true)][string]$ExpectedAssetHash,
+    [Parameter(Mandatory = $true)][string]$ExpectedSourceCommit
   )
   $DeploymentManifestPath = Join-Path $DeploymentRoot 'DEPLOYMENT_MANIFEST.json'
   if (-not (Test-Path -LiteralPath $DeploymentManifestPath -PathType Leaf)) { return $false }
   try { $DeploymentManifest = Get-Content -LiteralPath $DeploymentManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json }
   catch { return $false }
   if ([string]$DeploymentManifest.deployment_identity_sha256 -ne $ExpectedIdentity) { return $false }
-  foreach ($File in @($DeploymentManifest.package_files)) {
-    $Path = Join-Path $DeploymentRoot ([string]$File.path)
+  if ([string]$DeploymentManifest.source.commit -ne $ExpectedSourceCommit -or $DeploymentManifest.source.clean -ne $true -or
+      [string]$DeploymentManifest.companion_asset.sha256 -ne $ExpectedAssetHash -or
+      [string]$DeploymentManifest.companion_asset.package_manifest_sha256 -ne $ExpectedPackageManifestHash) { return $false }
+  $PackageManifestPath = Join-Path $DeploymentRoot 'MANIFEST.json'
+  if (-not (Test-Path -LiteralPath $PackageManifestPath -PathType Leaf) -or (Get-Sha256 -Path $PackageManifestPath) -ne $ExpectedPackageManifestHash) { return $false }
+  $ExpectedFiles = @($ExpectedPackageManifest.files)
+  $DeploymentFiles = @($DeploymentManifest.package_files)
+  if ($DeploymentFiles.Count -ne $ExpectedFiles.Count) { return $false }
+  foreach ($ExpectedFile in $ExpectedFiles) {
+    $Relative = [string]$ExpectedFile.path
+    $DeploymentFileMatches = @($DeploymentFiles | Where-Object { [string]$_.path -ceq $Relative })
+    if ($DeploymentFileMatches.Count -ne 1) { return $false }
+    $File = $DeploymentFileMatches[0]
+    if ([string]$File.sha256 -ne [string]$ExpectedFile.sha256 -or [int64]$File.size_bytes -ne [int64]$ExpectedFile.size_bytes -or
+        [string]$File.deployment_role -cne [string]$ExpectedFile.deployment_role -or
+        [string]$File.canonical_source -cne [string]$ExpectedFile.canonical_source) { return $false }
+    $Path = Join-Path $DeploymentRoot $Relative
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
     if ((Get-Item -LiteralPath $Path).Length -ne [int64]$File.size_bytes -or (Get-Sha256 -Path $Path) -ne [string]$File.sha256) { return $false }
   }
   $Knowledge = @(Get-ChildItem -LiteralPath (Join-Path $DeploymentRoot 'knowledge') -File -Filter '*.md' -ErrorAction SilentlyContinue)
   $Checklists = @(Get-ChildItem -LiteralPath $DeploymentRoot -File -Filter '*CHECKLIST*.txt' -ErrorAction SilentlyContinue)
-  return ($Knowledge.Count -eq 16 -and $Checklists.Count -eq 1)
+  if ($Knowledge.Count -ne 16 -or $Checklists.Count -ne 1 -or $Checklists[0].Name -cne 'CHATGPT_PROJECT_UPDATE_CHECKLIST.txt') { return $false }
+  $ChecklistSteps = @(Get-Content -LiteralPath $Checklists[0].FullName -Encoding UTF8 | Where-Object { $_ -match '^\d+\.\s' })
+  if ($ChecklistSteps.Count -ne 3) { return $false }
+  $AllowedPaths = @($ExpectedFiles.path) + @('MANIFEST.json', 'DEPLOYMENT_MANIFEST.json')
+  if ($null -ne $DeploymentManifest.restart_bootstrap) {
+    $RestartFile = [string]$DeploymentManifest.restart_bootstrap.file
+    $RestartResult = [string]$DeploymentManifest.restart_bootstrap.result_file
+    if ([string]::IsNullOrWhiteSpace($RestartFile) -or [string]::IsNullOrWhiteSpace($RestartResult) -or
+        [IO.Path]::GetFileName($RestartFile) -cne $RestartFile -or [IO.Path]::GetFileName($RestartResult) -cne $RestartResult) { return $false }
+    $RestartPath = Join-Path $DeploymentRoot $RestartFile
+    $ResultPath = Join-Path $DeploymentRoot $RestartResult
+    if (-not (Test-Path -LiteralPath $RestartPath -PathType Leaf) -or -not (Test-Path -LiteralPath $ResultPath -PathType Leaf) -or
+        (Get-Sha256 -Path $RestartPath) -ne [string]$DeploymentManifest.restart_bootstrap.sha256) { return $false }
+    try { $RestartReceipt = Get-Content -LiteralPath $ResultPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { return $false }
+    if ([string]$RestartReceipt.zip_sha256 -ne [string]$DeploymentManifest.restart_bootstrap.sha256 -or
+        [string]$RestartReceipt.input_identity_sha256 -ne [string]$DeploymentManifest.restart_bootstrap.input_identity_sha256 -or
+        [string]$RestartReceipt.deployment_identity_sha256 -ne $ExpectedIdentity) { return $false }
+    $AllowedPaths += @($RestartFile, $RestartResult)
+  }
+  $ActualPaths = @(Get-ChildItem -LiteralPath $DeploymentRoot -Recurse -File | ForEach-Object {
+      [IO.Path]::GetRelativePath($DeploymentRoot, $_.FullName).Replace('\', '/')
+    })
+  if ($ActualPaths.Count -ne $AllowedPaths.Count -or (Compare-Object -ReferenceObject $AllowedPaths -DifferenceObject $ActualPaths)) { return $false }
+  return $true
 }
 
 if ([string]::IsNullOrWhiteSpace($CanonicalRepo)) {
@@ -262,7 +337,9 @@ try {
   }
   $DeploymentIdentity = Get-StringSha256 -Text ($IdentityDocument | ConvertTo-Json -Depth 20 -Compress)
 
-  if ((Test-Path -LiteralPath $OutputFull -PathType Container) -and (Test-PreparedDeployment -DeploymentRoot $OutputFull -ExpectedIdentity $DeploymentIdentity)) {
+  if ((Test-Path -LiteralPath $OutputFull -PathType Container) -and
+      (Test-PreparedDeployment -DeploymentRoot $OutputFull -ExpectedIdentity $DeploymentIdentity -ExpectedPackageManifest $PackageManifest `
+        -ExpectedPackageManifestHash $PackageManifestHash -ExpectedAssetHash $AssetHash -ExpectedSourceCommit ([string]$PackageManifest.source.commit))) {
     $InstructionsPath = Join-Path $OutputFull '01_PROJECT_INSTRUCTIONS_v1.2.9.md'
     if (-not $SkipClipboard) { Set-Clipboard -Value (Get-Content -LiteralPath $InstructionsPath -Raw -Encoding UTF8) }
     Write-Host "Companion deployment already matches the exact asset: $OutputFull"
@@ -310,7 +387,10 @@ try {
     prepared_at_utc = (Get-Date).ToUniversalTime().ToString('o')
   }
   Write-Utf8File -Path (Join-Path $Stage 'DEPLOYMENT_MANIFEST.json') -Text ($DeploymentManifest | ConvertTo-Json -Depth 30)
-  if (-not (Test-PreparedDeployment -DeploymentRoot $Stage -ExpectedIdentity $DeploymentIdentity)) { throw 'Prepared Companion deployment failed final parity validation.' }
+  if (-not (Test-PreparedDeployment -DeploymentRoot $Stage -ExpectedIdentity $DeploymentIdentity -ExpectedPackageManifest $PackageManifest `
+      -ExpectedPackageManifestHash $PackageManifestHash -ExpectedAssetHash $AssetHash -ExpectedSourceCommit ([string]$PackageManifest.source.commit))) {
+    throw 'Prepared Companion deployment failed final parity validation.'
+  }
 
   if (Test-Path -LiteralPath $OutputFull) { Move-Item -LiteralPath $OutputFull -Destination $Rollback; $MovedAside = $true }
   Move-Item -LiteralPath $Stage -Destination $OutputFull

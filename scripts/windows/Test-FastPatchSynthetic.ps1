@@ -51,6 +51,7 @@ function Invoke-Gate {
     [Parameter(Mandatory=$true)][string]$SyntheticRoot,
     [Parameter(Mandatory=$true)][string]$TestName,
     [Parameter(Mandatory=$true)][bool]$ShouldPass,
+    [string]$ExpectedOutputPattern = '',
     [switch]$RequireChanges,
     [int]$MaxChangedFiles = 3,
     [int]$MaxAddedLines = 80,
@@ -77,7 +78,8 @@ function Invoke-Gate {
   $oldPreference = $ErrorActionPreference
   try {
     $ErrorActionPreference = "Continue"
-    & $shell @GateArguments 2>&1 | ForEach-Object { Write-Host $_ }
+    $GateOutput = @(& $shell @GateArguments 2>&1)
+    $GateOutput | ForEach-Object { Write-Host $_ }
     $code = $LASTEXITCODE
   }
   finally {
@@ -89,6 +91,9 @@ function Invoke-Gate {
   }
   if (!$ShouldPass -and $code -eq 0) {
     throw "Expected FAIL: $TestName; exit=0"
+  }
+  if (-not [string]::IsNullOrWhiteSpace($ExpectedOutputPattern) -and (($GateOutput | Out-String) -notmatch $ExpectedOutputPattern)) {
+    throw "Expected diagnostic was not emitted: $TestName; pattern=$ExpectedOutputPattern"
   }
 
   Write-Host "Synthetic test OK: $TestName"
@@ -120,7 +125,7 @@ foreach ($gate in $GateSources) {
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "commit", "-m", "baseline")
 
     Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): clean preflight passes" -ShouldPass $true
-    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): clean RequireChanges fails" -ShouldPass $false -RequireChanges
+    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): clean RequireChanges fails" -ShouldPass $false -RequireChanges -ExpectedOutputPattern 'RequireChanges'
 
     Add-Content -LiteralPath (Join-Path $tmp "src\frontend\components\AppSelect.tsx") -Value "// harmless UI change"
     Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): harmless UI change passes" -ShouldPass $true -RequireChanges
@@ -128,26 +133,26 @@ foreach ($gate in $GateSources) {
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "clean", "-fd")
 
     Add-Content -LiteralPath (Join-Path $tmp "src\frontend\components\AppSelect.tsx") -Value 'fetch("https://example.com");'
-    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): fetch blocked" -ShouldPass $false -RequireChanges
+    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): fetch blocked" -ShouldPass $false -RequireChanges -ExpectedOutputPattern 'Dangerous added content'
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "reset", "--hard", "HEAD")
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "clean", "-fd")
 
     Add-Content -LiteralPath (Join-Path $tmp "src\frontend\components\AppSelect.tsx") -Value 'localStorage.setItem("x","y");'
-    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): localStorage blocked" -ShouldPass $false -RequireChanges
+    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): localStorage blocked" -ShouldPass $false -RequireChanges -ExpectedOutputPattern 'Dangerous added content'
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "reset", "--hard", "HEAD")
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "clean", "-fd")
 
     Add-Content -LiteralPath (Join-Path $tmp "src\frontend\components\OverlayRoot.tsx") -Value 'import { secret } from "../../backend/secret";'
-    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): backend import blocked" -ShouldPass $false -RequireChanges
+    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): backend import blocked" -ShouldPass $false -RequireChanges -ExpectedOutputPattern 'Dangerous added content'
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "reset", "--hard", "HEAD")
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "clean", "-fd")
 
     Set-Content -LiteralPath (Join-Path $tmp "src\backend\newUnsafe.ts") -Value "export const x = 1;" -Encoding UTF8
-    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): untracked backend file blocked" -ShouldPass $false -RequireChanges
+    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): untracked backend file blocked" -ShouldPass $false -RequireChanges -ExpectedOutputPattern 'outside approved allowlist'
     Remove-Item -LiteralPath (Join-Path $tmp "src\backend\newUnsafe.ts") -Force
 
     Set-Content -LiteralPath (Join-Path $tmp "src\frontend\components\NewWidget.tsx") -Value "export const NewWidget = 1;" -Encoding UTF8
-    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): new UI file blocked by default" -ShouldPass $false -RequireChanges
+    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): new UI file blocked by default" -ShouldPass $false -RequireChanges -ExpectedOutputPattern 'New files are blocked'
     Remove-Item -LiteralPath (Join-Path $tmp "src\frontend\components\NewWidget.tsx") -Force
 
     Add-Content -LiteralPath (Join-Path $tmp "src\frontend\components\AppSelect.tsx") -Value "// one"
@@ -157,12 +162,12 @@ foreach ($gate in $GateSources) {
     # AGY_SYNTHETIC_POLICY_DIR
     New-Item -ItemType Directory -Force (Join-Path $tmp ".agy") | Out-Null
     Set-Content -LiteralPath (Join-Path $tmp ".agy\FASTPATCH_POLICY.json") -Value '{"allowNewFiles":true}' -Encoding UTF8
-    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): max file count enforced" -ShouldPass $false -RequireChanges -MaxChangedFiles 3
+    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): max file count enforced" -ShouldPass $false -RequireChanges -MaxChangedFiles 3 -ExpectedOutputPattern 'Too many changed files'
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "reset", "--hard", "HEAD")
     Invoke-NativeChecked -Exe "git" -ArgumentList @("-C", $tmp, "clean", "-fd")
 
     1..6 | ForEach-Object { Add-Content -LiteralPath (Join-Path $tmp "src\frontend\components\AppSelect.tsx") -Value ("// line " + $_) }
-    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): added line limit enforced" -ShouldPass $false -RequireChanges -MaxAddedLines 5
+    Invoke-Gate -GatePath $gate.Path -SyntheticRoot $tmp -TestName "$($gate.Name): added line limit enforced" -ShouldPass $false -RequireChanges -MaxAddedLines 5 -ExpectedOutputPattern 'Added lines'
 
     Write-Host "Fastpatch synthetic suite passed for $($gate.Name)."
   }

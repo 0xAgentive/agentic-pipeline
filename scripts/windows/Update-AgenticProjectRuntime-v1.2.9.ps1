@@ -63,6 +63,12 @@ function Get-Sha256([string]$Path) {
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Get-BytesSha256([byte[]]$Bytes) {
+  $Hasher = [System.Security.Cryptography.SHA256]::Create()
+  try { return ([Convert]::ToHexString($Hasher.ComputeHash($Bytes))).ToLowerInvariant() }
+  finally { $Hasher.Dispose() }
+}
+
 function Get-TextSha256([string]$Text) {
   $Hasher = [System.Security.Cryptography.SHA256]::Create()
   try { return ([Convert]::ToHexString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text)))).ToLowerInvariant() }
@@ -124,10 +130,25 @@ if ($SourceCommit -notmatch '^[0-9a-fA-F]{40}$') { throw 'Runtime source commit 
 
 if ($null -ne $OverlayManifest) {
   if ([string]::IsNullOrWhiteSpace($RuntimeArchivePath) -or -not (Test-Path -LiteralPath $RuntimeArchivePath -PathType Leaf)) { throw 'RuntimeArchivePath is required when installing an extracted release asset.' }
+  if ($AssetSha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'A verified 64-hex AssetSha256 is required for an extracted release asset.' }
   $ArchiveFull = (Resolve-Path -LiteralPath $RuntimeArchivePath).Path
   $ActualAssetSha = (Get-FileHash -LiteralPath $ArchiveFull -Algorithm SHA256).Hash.ToLowerInvariant()
-  if (-not [string]::IsNullOrWhiteSpace($AssetSha256) -and $AssetSha256.ToLowerInvariant() -ne $ActualAssetSha) { throw 'Runtime archive SHA-256 does not match AssetSha256.' }
+  if ($AssetSha256.ToLowerInvariant() -ne $ActualAssetSha) { throw 'Runtime archive SHA-256 does not match AssetSha256.' }
   $AssetSha256 = $ActualAssetSha
+  $Archive = [IO.Compression.ZipFile]::OpenRead($ArchiveFull)
+  try {
+    $ManifestEntries = @($Archive.Entries | Where-Object { $_.FullName.Replace('\','/') -match '(^|/)RUNTIME_OVERLAY_MANIFEST\.json$' })
+    if ($ManifestEntries.Count -ne 1) { throw "Runtime archive must contain exactly one overlay manifest; found $($ManifestEntries.Count)." }
+    $ManifestStream = $ManifestEntries[0].Open()
+    try {
+      $ManifestBytes = [IO.MemoryStream]::new()
+      try { $ManifestStream.CopyTo($ManifestBytes); $ArchiveManifestSha = Get-BytesSha256 $ManifestBytes.ToArray() }
+      finally { $ManifestBytes.Dispose() }
+    }
+    finally { $ManifestStream.Dispose() }
+  }
+  finally { $Archive.Dispose() }
+  if ((Get-Sha256 $ManifestPath) -ne $ArchiveManifestSha) { throw 'Extracted runtime manifest does not match the exact verified archive.' }
   foreach ($Member in @((Get-OptionalProperty $OverlayManifest 'files' @()))) {
     $Relative = Normalize-Relative ([string]$Member.path)
     $MemberPath = Resolve-ConfinedPath -Root $SourceRoot -Relative $Relative
@@ -149,7 +170,7 @@ $WorkflowTargets = @($Inventory.commands | ForEach-Object { Normalize-Relative (
 if ($WorkflowTargets.Count -ne 20 -or @($WorkflowTargets | Where-Object { $_ -notmatch '^\.agents/workflows/[a-z0-9-]+\.md$' }).Count -gt 0) { throw 'Runtime command inventory must declare exactly 20 confined workflow targets.' }
 $StateTargets = @('.agy/CONVERGENCE_POLICY.json','.agy/PROGRESS_POLICY.json','.agy/PROGRESS_STATE.json','.agy/NEXT_ACTION.json','.agy/CANDIDATE_MANIFEST_STATUS.json','.agy/STAGE_FIREWALL.json','.agy/GITHUB_PROFILE.json')
 $AllowedDeploymentTargets = @($BaseReplaceTargets + $WorkflowTargets + $StateTargets | Sort-Object -Unique)
-if ($AllowedDeploymentTargets.Count -ne 79) { throw "Internal runtime allowlist is incomplete: $($AllowedDeploymentTargets.Count) targets." }
+if ($AllowedDeploymentTargets.Count -ne 80) { throw "Internal runtime allowlist is incomplete: $($AllowedDeploymentTargets.Count) targets." }
 $DirectTargets = @('scripts/Test-FastPatchAllowed.ps1','scripts/cbm-index-current-rpc.cjs','scripts/github/Prepare-GitHubPackage.ps1','scripts/github/Sync-GitHub.ps1')
 function Get-ExpectedSource([string]$Target) { if ($Target -in $DirectTargets) { return $Target }; return 'templates/agy-project-base/' + $Target }
 function Get-ExpectedMode([string]$Target) { if ($Target -eq '.agents/hooks.json') { return 'activate_last' }; if ($Target -in @('.agy/CONVERGENCE_POLICY.json','.agy/PROGRESS_POLICY.json')) { return 'policy_replace' }; if ($Target.StartsWith('.agy/')) { return 'create_if_missing' }; return 'replace' }
@@ -219,7 +240,195 @@ function Get-SnapshotIdentity([object[]]$Rows) {
   return Get-TextSha256 ((@($Rows | ForEach-Object { "$($_.path)`0$($_.size_bytes)`0$($_.sha256)" }) -join "`n"))
 }
 
-$StatusResult = Invoke-Git @('status', '--porcelain=v2', '-z', '--untracked-files=all')
+function Test-SamePath([string]$Left, [string]$Right) {
+  if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) { return $false }
+  return [IO.Path]::GetFullPath($Left).TrimEnd('\').Equals([IO.Path]::GetFullPath($Right).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Test-LegacyAuthorityPreconditions {
+  if ($SkipActiveWorkItemMigration) { return $null }
+  $Agy = Join-Path $Project '.agy'
+  $WorkItemPath = Join-Path $Agy 'WORK_ITEM.json'
+  if (-not (Test-Path -LiteralPath $WorkItemPath -PathType Leaf)) { return $null }
+
+  $ScopePath = Join-Path $Agy 'EXECUTION_SCOPE.json'
+  $LeasePath = Join-Path $Agy 'EXECUTION_LEASE.json'
+  $FirewallPath = Join-Path $Agy 'STAGE_FIREWALL.json'
+  foreach ($Required in @($ScopePath, $LeasePath, $FirewallPath)) {
+    if (-not (Test-Path -LiteralPath $Required -PathType Leaf)) { throw "Active authority file missing: $Required" }
+  }
+
+  $WorkItem = Get-Content -LiteralPath $WorkItemPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $Scope = Get-Content -LiteralPath $ScopePath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $Lease = Get-Content -LiteralPath $LeasePath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $Firewall = Get-Content -LiteralPath $FirewallPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  if ((Get-OptionalProperty $WorkItem 'owner_approved' $false) -ne $true) { throw 'Active work item is not owner-approved; authority adoption refused.' }
+  $WorkItemId = [string](Get-OptionalProperty $WorkItem 'work_item_id' '')
+  $GoalEpoch = [int](Get-OptionalProperty $WorkItem 'goal_epoch' -1)
+  $Goal = [string](Get-OptionalProperty $WorkItem 'goal' '')
+  if ([string]::IsNullOrWhiteSpace($WorkItemId) -or $GoalEpoch -lt 0 -or [string]::IsNullOrWhiteSpace($Goal)) { throw 'Active work-item identity is incomplete.' }
+  if ([string](Get-OptionalProperty $Scope 'work_item_id' '') -ne $WorkItemId -or [string](Get-OptionalProperty $Lease 'work_item_id' '') -ne $WorkItemId -or [string](Get-OptionalProperty $Firewall 'work_item_id' '') -ne $WorkItemId) { throw 'Legacy authority does not match the active work item.' }
+  if ([int](Get-OptionalProperty $Lease 'goal_epoch' -1) -ne $GoalEpoch) { throw 'Legacy lease goal epoch does not match the active work item.' }
+  if ([string](Get-OptionalProperty $Lease 'status' '') -ne 'active') { throw 'Legacy execution lease is not active.' }
+
+  $GitRoot = (Invoke-Git @('rev-parse', '--show-toplevel')).StdOut.Trim()
+  $Branch = (Invoke-Git @('branch', '--show-current')).StdOut.Trim()
+  $Head = (Invoke-Git @('rev-parse', 'HEAD')).StdOut.Trim()
+  if (-not (Test-SamePath $GitRoot $Project)) { throw 'Target project root is not the exact Git worktree root.' }
+  if (-not (Test-SamePath ([string](Get-OptionalProperty $Lease 'project_root' '')) $Project) -or -not (Test-SamePath ([string](Get-OptionalProperty $Lease 'worktree_root' '')) $Project)) { throw 'Legacy lease is bound to a different project/worktree root.' }
+  $ScopeProjectRoot = [string](Get-OptionalProperty $Scope 'project_root' '')
+  if (-not [string]::IsNullOrWhiteSpace($ScopeProjectRoot) -and -not (Test-SamePath $ScopeProjectRoot $Project)) { throw 'Legacy execution scope is bound to a different project root.' }
+  if ([string](Get-OptionalProperty $Lease 'branch' '') -cne $Branch) { throw 'Legacy execution lease is bound to a different branch.' }
+
+  $ScopeStatus = [string](Get-OptionalProperty $Scope 'status' '')
+  $FirewallStatus = [string](Get-OptionalProperty $Firewall 'status' '')
+  if ($ScopeStatus -notin @('', 'exact')) { throw 'Legacy execution scope status is contradictory.' }
+  if ($FirewallStatus -notin @('', 'active')) { throw 'Legacy stage firewall status is contradictory.' }
+
+  $WorkTransactionPath = Join-Path $Agy 'WORK_ITEM_TRANSACTION.json'
+  $AuthorityTransactionPath = Join-Path $Agy 'EXECUTION_AUTHORITY_TRANSACTION.json'
+  $HasWorkTransaction = Test-Path -LiteralPath $WorkTransactionPath -PathType Leaf
+  $HasAuthorityTransaction = Test-Path -LiteralPath $AuthorityTransactionPath -PathType Leaf
+  $NeedsAdoption = -not $HasWorkTransaction -or -not $HasAuthorityTransaction -or [string]::IsNullOrWhiteSpace($ScopeStatus) -or [string]::IsNullOrWhiteSpace($FirewallStatus) -or [string]::IsNullOrWhiteSpace($ScopeProjectRoot)
+  if ($NeedsAdoption -and [string](Get-OptionalProperty $Lease 'baseline_head' '') -cne $Head) { throw 'Legacy execution lease baseline HEAD does not match the current worktree HEAD.' }
+  if (-not $NeedsAdoption -and (Get-OptionalProperty $Lease 'first_write_started' $false) -ne $true -and [string](Get-OptionalProperty $Lease 'baseline_head' '') -cne $Head) { throw 'Execution lease baseline HEAD does not match the current worktree HEAD.' }
+  if ([string](Get-OptionalProperty $Lease 'owner_goal_sha256' '') -cne (Get-TextSha256 $Goal)) { throw 'Legacy execution lease owner-goal fingerprint is stale.' }
+  $ScopeHash = Get-Sha256 $ScopePath
+  $FirewallHash = Get-Sha256 $FirewallPath
+  if ([string](Get-OptionalProperty $Lease 'execution_scope_sha256' '') -cne $ScopeHash) { throw 'Legacy execution lease scope fingerprint is stale.' }
+
+  $AllowedPaths = @((Get-OptionalProperty $Scope 'allowed_paths' @()))
+  $LeaseAllowedPaths = @((Get-OptionalProperty $Lease 'allowed_paths' @()))
+  if ($AllowedPaths.Count -eq 0 -or $AllowedPaths.Count -ne $LeaseAllowedPaths.Count -or ($AllowedPaths -join "`0") -cne ($LeaseAllowedPaths -join "`0")) { throw 'Legacy scope and lease allowed paths do not match exactly.' }
+  $LeaseId = [string](Get-OptionalProperty $Lease 'lease_id' '')
+  if ([string]::IsNullOrWhiteSpace($LeaseId)) { throw 'Legacy active lease has no lease_id.' }
+
+  $WorkTransaction = $null
+  if ($HasWorkTransaction) {
+    $WorkTransaction = Get-Content -LiteralPath $WorkTransactionPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string](Get-OptionalProperty $WorkTransaction 'status' '') -ne 'committed' -or [string](Get-OptionalProperty $WorkTransaction 'work_item_id' '') -ne $WorkItemId -or [int](Get-OptionalProperty $WorkTransaction 'goal_epoch' -1) -ne $GoalEpoch -or [string]::IsNullOrWhiteSpace([string](Get-OptionalProperty $WorkTransaction 'transaction_id' ''))) { throw 'Existing work-item transaction is not committed and identity-matching.' }
+  }
+  $AuthorityTransaction = $null
+  if ($HasAuthorityTransaction) {
+    $AuthorityTransaction = Get-Content -LiteralPath $AuthorityTransactionPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $AuthorityFiles = Get-OptionalProperty $AuthorityTransaction 'files'
+    $AuthorityScope = Get-OptionalProperty $AuthorityFiles 'EXECUTION_SCOPE.json'
+    $AuthorityFirewall = Get-OptionalProperty $AuthorityFiles 'STAGE_FIREWALL.json'
+    if ([string](Get-OptionalProperty $AuthorityTransaction 'status' '') -ne 'committed' -or [string](Get-OptionalProperty $AuthorityTransaction 'work_item_id' '') -ne $WorkItemId -or [int](Get-OptionalProperty $AuthorityTransaction 'goal_epoch' -1) -ne $GoalEpoch -or [string](Get-OptionalProperty $AuthorityTransaction 'lease_id' '') -ne $LeaseId -or [string](Get-OptionalProperty $AuthorityScope 'sha256' '') -cne $ScopeHash -or [string](Get-OptionalProperty $AuthorityFirewall 'sha256' '') -cne $FirewallHash) { throw 'Existing execution-authority transaction is not committed and identity-matching.' }
+  }
+
+  return [pscustomobject]@{
+    work_item = $WorkItem; scope = $Scope; lease = $Lease; firewall = $Firewall
+    work_transaction = $WorkTransaction; authority_transaction = $AuthorityTransaction
+    work_item_id = $WorkItemId; goal_epoch = $GoalEpoch; lease_id = $LeaseId
+    allowed_paths = $AllowedPaths; branch = $Branch; head = $Head; needs_adoption = $NeedsAdoption
+  }
+}
+
+$ProjectSlug = ([IO.Path]::GetFileName($Project) -replace '[^A-Za-z0-9._-]', '_')
+$BackupBaseFull = [IO.Path]::GetFullPath($BackupBaseRoot).TrimEnd('\')
+$TransactionId = 'runtime-1.2.9-' + [Guid]::NewGuid().ToString('N')
+$BackupRoot = Join-Path $BackupBaseFull (Join-Path $ProjectSlug $TransactionId)
+$JournalPath = Join-Path $BackupRoot 'journal.json'
+$LockRoot = Join-Path $BackupBaseFull '.locks'
+$LockPath = Join-Path $LockRoot ((Get-TextSha256 $Project).Substring(0, 24) + '.lock')
+$LockStream = $null
+$LockOwned = $false
+$RetainLock = $false
+$BackupIndex = New-Object System.Collections.Generic.List[object]
+$DirectoryBaseline = @{}
+$MutationStarted = $false
+$JournalWritten = $false
+$CreatedOrReplaced = New-Object System.Collections.Generic.List[string]
+$Skipped = New-Object System.Collections.Generic.List[string]
+$WriteCount = 0
+
+function Assert-BackupConfined([string]$Path, [string]$Description) {
+  $Full = [IO.Path]::GetFullPath($Path)
+  if (-not $Full.StartsWith($BackupBaseFull + '\', [StringComparison]::OrdinalIgnoreCase)) { throw "$Description escapes the runtime backup root." }
+  return $Full
+}
+
+function Read-LockMetadata([IO.FileStream]$Stream) {
+  $Stream.Position = 0
+  $Reader = [IO.StreamReader]::new($Stream, [Text.Encoding]::UTF8, $true, 1024, $true)
+  try { $Text = $Reader.ReadToEnd() } finally { $Reader.Dispose() }
+  if ([string]::IsNullOrWhiteSpace($Text)) { throw 'Stale runtime lock has no recovery metadata.' }
+  try { return $Text | ConvertFrom-Json } catch { throw 'Stale runtime lock metadata is invalid.' }
+}
+
+function Write-LockMetadata([IO.FileStream]$Stream, [object]$Metadata) {
+  $Bytes = $Utf8NoBom.GetBytes(($Metadata | ConvertTo-Json -Depth 20))
+  $Stream.SetLength(0); $Stream.Position = 0
+  $Stream.Write($Bytes, 0, $Bytes.Length)
+  $Stream.Flush($true)
+}
+
+function Restore-StaleJournal([object]$Journal, [string]$StaleBackupRoot, [string]$StaleJournalPath) {
+  if ([string](Get-OptionalProperty $Journal 'project_root' '') -eq '' -or -not (Test-SamePath ([string]$Journal.project_root) $Project)) { throw 'Stale runtime journal belongs to a different project.' }
+  $Phase = [string](Get-OptionalProperty $Journal 'phase' '')
+  if ($Phase -in @('committed', 'rolled_back')) { Write-Warning "Cleaned stale $Phase runtime lock without changing the project."; return }
+  if ($Phase -ne 'backed_up') { throw "Stale runtime journal has unsupported recovery phase: $Phase" }
+
+  foreach ($Entry in @((Get-OptionalProperty $Journal 'paths' @())) | Sort-Object { ([string]$_.relative).Length } -Descending) {
+    $Relative = Normalize-Relative ([string]$Entry.relative)
+    if (-not $FrameworkSet.ContainsKey($Relative.ToLowerInvariant())) { throw "Stale runtime journal contains a path outside the framework allowlist: $Relative" }
+    $Destination = Resolve-ConfinedPath -Root $Project -Relative $Relative
+    if ((Get-OptionalProperty $Entry 'existed' $false) -eq $true) {
+      $Backup = Resolve-ConfinedPath -Root $StaleBackupRoot -Relative ('files/' + $Relative)
+      if (-not (Test-Path -LiteralPath $Backup -PathType Leaf)) { throw "Stale runtime backup is missing: $Relative" }
+      $Expected = [string](Get-OptionalProperty $Entry 'sha256' '')
+      if ($Expected -notmatch '^[0-9a-fA-F]{64}$' -or (Get-Sha256 $Backup) -cne $Expected.ToLowerInvariant()) { throw "Stale runtime backup hash mismatch: $Relative" }
+      Write-BytesAtomic -Path $Destination -Bytes ([IO.File]::ReadAllBytes($Backup))
+    }
+    elseif (Test-Path -LiteralPath $Destination -PathType Leaf) { Remove-Item -LiteralPath $Destination -Force }
+  }
+  foreach ($DirectoryEntry in @((Get-OptionalProperty $Journal 'directories' @())) | Sort-Object { ([string]$_.relative).Length } -Descending) {
+    if ((Get-OptionalProperty $DirectoryEntry 'existed' $false) -eq $true) { continue }
+    $Relative = Normalize-Relative ([string]$DirectoryEntry.relative)
+    $Directory = Resolve-ConfinedPath -Root $Project -Relative $Relative
+    if ((Test-Path -LiteralPath $Directory -PathType Container) -and $null -eq (Get-ChildItem -LiteralPath $Directory -Force | Select-Object -First 1)) { Remove-Item -LiteralPath $Directory -Force }
+  }
+  Set-JsonProperty $Journal 'phase' 'rolled_back'
+  Set-JsonProperty $Journal 'recovered_at_utc' ((Get-Date).ToUniversalTime().ToString('o'))
+  Write-JsonAtomic -Path $StaleJournalPath -Value $Journal -Depth 40
+  Write-Warning "Recovered interrupted runtime transaction from: $StaleBackupRoot"
+}
+
+try {
+  New-Item -ItemType Directory -Force -Path $LockRoot | Out-Null
+  $StaleLock = $false
+  try { $LockStream = [IO.File]::Open($LockPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None) }
+  catch {
+    if (-not (Test-Path -LiteralPath $LockPath -PathType Leaf)) { throw "Unable to create runtime transaction lock: $LockPath" }
+    try { $LockStream = [IO.File]::Open($LockPath, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None); $StaleLock = $true }
+    catch { throw "Another runtime transaction is active for this project: $LockPath" }
+  }
+  $LockOwned = $true
+  if ($StaleLock) {
+    try {
+      if ($LockStream.Length -eq 0) {
+        Write-Warning 'Recovered an empty stale pre-mutation runtime lock.'
+      }
+      else {
+        $StaleMetadata = Read-LockMetadata $LockStream
+        if ([string](Get-OptionalProperty $StaleMetadata 'project_root' '') -eq '' -or -not (Test-SamePath ([string]$StaleMetadata.project_root) $Project)) { throw 'Stale runtime lock belongs to a different project.' }
+        $StaleBackupRoot = Assert-BackupConfined ([string](Get-OptionalProperty $StaleMetadata 'backup_root' '')) 'Stale backup root'
+        $StaleJournalPath = Assert-BackupConfined ([string](Get-OptionalProperty $StaleMetadata 'journal_path' '')) 'Stale journal path'
+        if (-not (Test-SamePath $StaleJournalPath (Join-Path $StaleBackupRoot 'journal.json'))) { throw 'Stale runtime lock journal path is inconsistent.' }
+        if (Test-Path -LiteralPath $StaleJournalPath -PathType Leaf) {
+          $StaleJournal = Get-Content -LiteralPath $StaleJournalPath -Raw -Encoding UTF8 | ConvertFrom-Json
+          Restore-StaleJournal -Journal $StaleJournal -StaleBackupRoot $StaleBackupRoot -StaleJournalPath $StaleJournalPath
+        }
+        elseif ([string](Get-OptionalProperty $StaleMetadata 'phase' '') -ne 'planning') { throw 'Stale runtime lock has no recoverable journal.' }
+        else { Write-Warning 'Cleaned a stale pre-mutation runtime lock.' }
+      }
+    }
+    catch { $RetainLock = $true; throw }
+  }
+  Write-LockMetadata -Stream $LockStream -Metadata ([ordered]@{ schema_version = '1.0.0'; phase = 'planning'; project_root = $Project; transaction_id = $TransactionId; backup_root = $BackupRoot; journal_path = $JournalPath; created_at_utc = (Get-Date).ToUniversalTime().ToString('o') })
+
+  $StatusResult = Invoke-Git @('status', '--porcelain=v2', '-z', '--untracked-files=all')
 if ($StatusResult.StdOut.Length -gt 0 -and -not $AllowDirty) { throw 'Target project is dirty. Use -AllowDirty only after reviewing the exact runtime deployment plan.' }
 $ProductBefore = @(Get-ProductSnapshot)
 $ProductBeforeIdentity = Get-SnapshotIdentity $ProductBefore
@@ -232,6 +441,7 @@ foreach ($Item in $Map) {
   $Action = if ($Item.mode -eq 'create_if_missing' -and $null -ne $CurrentHash) { 'preserve' } elseif ($CurrentHash -eq ([string]$Item.sha256).ToLowerInvariant()) { 'current' } else { if ($null -eq $CurrentHash) { 'create' } else { 'replace' } }
   [void]$Plan.Add([pscustomobject]@{ target = $Item.target; mode = $Item.mode; action = $Action; current_sha256 = $CurrentHash; incoming_sha256 = ([string]$Item.sha256).ToLowerInvariant() })
 }
+$LegacyAuthorityPreflight = Test-LegacyAuthorityPreconditions
 
 $MigrationResultPath = Join-Path $Project '.agy\OWNER_AUTONOMY_MIGRATION_RESULT.json'
 $InstallationPath = Join-Path $Project '.agy\INSTALLATION_MANIFEST.json'
@@ -280,23 +490,15 @@ if ($AlreadyCurrent) {
   return
 }
 
-$ProjectSlug = ([IO.Path]::GetFileName($Project) -replace '[^A-Za-z0-9._-]', '_')
-$TransactionId = 'runtime-1.2.9-' + [Guid]::NewGuid().ToString('N')
-$BackupRoot = Join-Path ([IO.Path]::GetFullPath($BackupBaseRoot)) (Join-Path $ProjectSlug $TransactionId)
-$LockRoot = Join-Path ([IO.Path]::GetFullPath($BackupBaseRoot)) '.locks'
-New-Item -ItemType Directory -Force -Path $LockRoot | Out-Null
-$LockPath = Join-Path $LockRoot ((Get-TextSha256 $Project).Substring(0, 24) + '.lock')
-$LockStream = $null
-$BackupIndex = New-Object System.Collections.Generic.List[object]
-$MutationStarted = $false
-$CreatedOrReplaced = New-Object System.Collections.Generic.List[string]
-$Skipped = New-Object System.Collections.Generic.List[string]
-$WriteCount = 0
-
 function Backup-Path([string]$Relative) {
   $Normalized = Normalize-Relative $Relative
   if (@($BackupIndex | Where-Object { $_.relative -eq $Normalized }).Count -gt 0) { return }
   $Destination = Resolve-ConfinedPath -Root $Project -Relative $Normalized
+  $Directory = Split-Path -Parent $Destination
+  while ($Directory.Length -gt $Project.Length -and $Directory.StartsWith($Project + '\', [StringComparison]::OrdinalIgnoreCase)) {
+    if (-not $DirectoryBaseline.ContainsKey($Directory)) { $DirectoryBaseline[$Directory] = Test-Path -LiteralPath $Directory -PathType Container }
+    $Directory = Split-Path -Parent $Directory
+  }
   $Entry = [ordered]@{ relative = $Normalized; existed = (Test-Path -LiteralPath $Destination -PathType Leaf); sha256 = $null; backup = $null }
   if ($Entry.existed) {
     $Entry.sha256 = Get-Sha256 $Destination
@@ -307,11 +509,33 @@ function Backup-Path([string]$Relative) {
   [void]$BackupIndex.Add([pscustomobject]$Entry)
 }
 
+function Get-DirectoryJournalRows {
+  return @($DirectoryBaseline.Keys | ForEach-Object {
+    [pscustomobject]@{ relative = $_.Substring($Project.Length).TrimStart('\').Replace('\', '/'); existed = [bool]$DirectoryBaseline[$_] }
+  } | Sort-Object relative)
+}
+
+function Write-CurrentJournal([string]$Phase, [string]$ProductAfterIdentity = '') {
+  $Value = [ordered]@{
+    schema_version = '1.1.0'; transaction_id = $TransactionId; phase = $Phase
+    source_commit = $SourceCommit; project_root = $Project
+    product_baseline_before_sha256 = $ProductBeforeIdentity
+    paths = $BackupIndex.ToArray(); directories = @(Get-DirectoryJournalRows)
+  }
+  if (-not [string]::IsNullOrWhiteSpace($ProductAfterIdentity)) { $Value.product_baseline_after_sha256 = $ProductAfterIdentity }
+  Write-JsonAtomic -Path $JournalPath -Value $Value -Depth 40
+}
+
 function Restore-Transaction {
   foreach ($Entry in @($BackupIndex.ToArray() | Sort-Object { $_.relative.Length } -Descending)) {
     $Destination = Resolve-ConfinedPath -Root $Project -Relative $Entry.relative
     if ($Entry.existed) { Write-BytesAtomic -Path $Destination -Bytes ([IO.File]::ReadAllBytes([string]$Entry.backup)) }
     elseif (Test-Path -LiteralPath $Destination -PathType Leaf) { Remove-Item -LiteralPath $Destination -Force }
+  }
+  foreach ($Directory in @($DirectoryBaseline.Keys | Where-Object { -not $DirectoryBaseline[$_] } | Sort-Object Length -Descending)) {
+    if ((Test-Path -LiteralPath $Directory -PathType Container) -and $null -eq (Get-ChildItem -LiteralPath $Directory -Force | Select-Object -First 1)) {
+      Remove-Item -LiteralPath $Directory -Force
+    }
   }
 }
 
@@ -329,11 +553,11 @@ function Copy-MapItem([object]$Item) {
 }
 
 try {
-  try { $LockStream = [IO.File]::Open($LockPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None) }
-  catch { throw "Another runtime transaction is active for this project: $LockPath" }
+  $LegacyAuthorityPreflight = Test-LegacyAuthorityPreconditions
   New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
   foreach ($Relative in @($Map.target) + $ConditionalState | Sort-Object -Unique) { Backup-Path $Relative }
-  Write-JsonAtomic -Path (Join-Path $BackupRoot 'journal.json') -Value ([ordered]@{ schema_version = '1.0.0'; transaction_id = $TransactionId; phase = 'backed_up'; source_commit = $SourceCommit; project_root = $Project; product_baseline_sha256 = $ProductBeforeIdentity; paths = $BackupIndex.ToArray() }) -Depth 30
+  Write-CurrentJournal -Phase 'backed_up'
+  $JournalWritten = $true
 
   foreach ($Item in @($Map | Where-Object { $_.mode -ne 'activate_last' })) { Copy-MapItem $Item }
 
@@ -341,12 +565,19 @@ try {
     $Agy = Join-Path $Project '.agy'
     $WorkItemPath = Join-Path $Agy 'WORK_ITEM.json'
     if (Test-Path -LiteralPath $WorkItemPath -PathType Leaf) {
+      $LegacyAuthority = Test-LegacyAuthorityPreconditions
+      if ($null -eq $LegacyAuthority) { throw 'Active legacy authority preflight did not return an adoption candidate.' }
       $MutationStarted = $true
-      $WorkItem = Get-Content -LiteralPath $WorkItemPath -Raw -Encoding UTF8 | ConvertFrom-Json
-      if ((Get-OptionalProperty $WorkItem 'owner_approved' $false) -ne $true) { throw 'Active work item is not owner-approved; authority adoption refused.' }
-      $WorkItemId = [string](Get-OptionalProperty $WorkItem 'work_item_id' '')
-      $GoalEpoch = [int](Get-OptionalProperty $WorkItem 'goal_epoch' -1)
-      if ([string]::IsNullOrWhiteSpace($WorkItemId) -or $GoalEpoch -lt 0) { throw 'Active work-item identity is incomplete.' }
+      $WorkItem = $LegacyAuthority.work_item
+      $Scope = $LegacyAuthority.scope
+      $Lease = $LegacyAuthority.lease
+      $Firewall = $LegacyAuthority.firewall
+      $WorkItemId = [string]$LegacyAuthority.work_item_id
+      $GoalEpoch = [int]$LegacyAuthority.goal_epoch
+      $LeaseId = [string]$LegacyAuthority.lease_id
+      $AllowedPaths = @($LegacyAuthority.allowed_paths)
+      $Branch = [string]$LegacyAuthority.branch
+      $Head = [string]$LegacyAuthority.head
       foreach ($Name in @('convergence_policy', 'repair_budget', 'repair_batches_used', 'repair_batch_limit')) { Remove-JsonProperty $WorkItem $Name }
       Set-JsonProperty $WorkItem 'progress_policy' ([ordered]@{ auto_continue_while_progress = $true; consecutive_no_progress_limit = 2; same_failure_limit = 2 })
       Write-JsonAtomic $WorkItemPath $WorkItem
@@ -368,20 +599,10 @@ try {
       Write-JsonAtomic $NextPath $Next
 
       $ScopePath = Join-Path $Agy 'EXECUTION_SCOPE.json'; $LeasePath = Join-Path $Agy 'EXECUTION_LEASE.json'; $FirewallPath = Join-Path $Agy 'STAGE_FIREWALL.json'
-      foreach ($Required in @($ScopePath, $LeasePath, $FirewallPath)) { if (-not (Test-Path -LiteralPath $Required -PathType Leaf)) { throw "Active authority file missing: $Required" } }
-      $Scope = Get-Content -LiteralPath $ScopePath -Raw -Encoding UTF8 | ConvertFrom-Json
-      $Lease = Get-Content -LiteralPath $LeasePath -Raw -Encoding UTF8 | ConvertFrom-Json
-      $Firewall = Get-Content -LiteralPath $FirewallPath -Raw -Encoding UTF8 | ConvertFrom-Json
-      if ([string](Get-OptionalProperty $Scope 'work_item_id' '') -ne $WorkItemId -or [string](Get-OptionalProperty $Lease 'work_item_id' '') -ne $WorkItemId -or [string](Get-OptionalProperty $Firewall 'work_item_id' '') -ne $WorkItemId) { throw 'Legacy authority does not match the active work item.' }
-      if ([int](Get-OptionalProperty $Lease 'goal_epoch' -1) -ne $GoalEpoch) { throw 'Legacy lease goal epoch does not match the active work item.' }
-      $AllowedPaths = @((Get-OptionalProperty $Scope 'allowed_paths' @()))
-      if ($AllowedPaths.Count -eq 0) { throw 'Legacy execution scope has no allowed paths.' }
       Set-JsonProperty $Scope 'status' 'exact'; Set-JsonProperty $Scope 'project_root' $Project; Set-JsonProperty $Scope 'route' $Route
       Write-JsonAtomic $ScopePath $Scope
       $ScopeHash = Get-Sha256 $ScopePath
 
-      $Branch = (Invoke-Git @('branch', '--show-current')).StdOut.Trim(); $Head = (Invoke-Git @('rev-parse', 'HEAD')).StdOut.Trim(); $GitRoot = (Invoke-Git @('rev-parse', '--show-toplevel')).StdOut.Trim()
-      if ([IO.Path]::GetFullPath($GitRoot).TrimEnd('\') -ne [IO.Path]::GetFullPath($Project).TrimEnd('\')) { throw 'Target project root is not the exact Git worktree root.' }
       Set-JsonProperty $Lease 'status' 'active'; Set-JsonProperty $Lease 'project_root' $Project; Set-JsonProperty $Lease 'worktree_root' $Project; Set-JsonProperty $Lease 'branch' $Branch
       Set-JsonProperty $Lease 'owner_goal_sha256' (Get-TextSha256 ([string]$WorkItem.goal)); Set-JsonProperty $Lease 'execution_scope_sha256' $ScopeHash; Set-JsonProperty $Lease 'allowed_paths' $AllowedPaths; Set-JsonProperty $Lease 'route' $Route
       Write-JsonAtomic $LeasePath $Lease
@@ -393,13 +614,18 @@ try {
       Write-JsonAtomic $FirewallPath $Firewall
 
       $WorkTransactionPath = Join-Path $Agy 'WORK_ITEM_TRANSACTION.json'
-      $WorkTransaction = if (Test-Path -LiteralPath $WorkTransactionPath -PathType Leaf) { Get-Content -LiteralPath $WorkTransactionPath -Raw -Encoding UTF8 | ConvertFrom-Json } else { [pscustomobject]@{} }
-      Set-JsonProperty $WorkTransaction 'schema_version' '1.1.0'; Set-JsonProperty $WorkTransaction 'status' 'committed'; Set-JsonProperty $WorkTransaction 'transaction_id' ('adopted-work-item-' + (Get-TextSha256 $WorkItemId).Substring(0, 20)); Set-JsonProperty $WorkTransaction 'work_item_id' $WorkItemId; Set-JsonProperty $WorkTransaction 'goal_epoch' $GoalEpoch; Set-JsonProperty $WorkTransaction 'committed_at_utc' (Get-OptionalProperty $WorkTransaction 'committed_at_utc' $MigrationTime)
+      $WorkTransaction = if ($null -ne $LegacyAuthority.work_transaction) { $LegacyAuthority.work_transaction } else { [pscustomobject]@{} }
+      Set-JsonProperty $WorkTransaction 'schema_version' '1.1.0'; Set-JsonProperty $WorkTransaction 'status' 'committed'
+      if ([string]::IsNullOrWhiteSpace([string](Get-OptionalProperty $WorkTransaction 'transaction_id' ''))) { Set-JsonProperty $WorkTransaction 'transaction_id' ('adopted-work-item-' + (Get-TextSha256 $WorkItemId).Substring(0, 20)) }
+      Set-JsonProperty $WorkTransaction 'work_item_id' $WorkItemId; Set-JsonProperty $WorkTransaction 'goal_epoch' $GoalEpoch; Set-JsonProperty $WorkTransaction 'committed_at_utc' (Get-OptionalProperty $WorkTransaction 'committed_at_utc' $MigrationTime)
       Write-JsonAtomic $WorkTransactionPath $WorkTransaction
 
-      $LeaseId = [string](Get-OptionalProperty $Lease 'lease_id' '')
-      if ([string]::IsNullOrWhiteSpace($LeaseId)) { throw 'Legacy active lease has no lease_id.' }
-      $AuthorityTransaction = [ordered]@{ schema_version = '1.1.0'; status = 'committed'; transaction_id = 'adopted-authority-' + (Get-TextSha256 $LeaseId).Substring(0, 20); work_item_id = $WorkItemId; goal_epoch = $GoalEpoch; lease_id = $LeaseId; branch = $Branch; baseline_head = [string](Get-OptionalProperty $Lease 'baseline_head' $Head); route = $Route; files = [ordered]@{ 'EXECUTION_SCOPE.json' = [ordered]@{ sha256 = Get-Sha256 $ScopePath }; 'STAGE_FIREWALL.json' = [ordered]@{ sha256 = Get-Sha256 $FirewallPath } }; committed_at_utc = $MigrationTime }
+      $AuthorityTransaction = if ($null -ne $LegacyAuthority.authority_transaction) { $LegacyAuthority.authority_transaction } else { [pscustomobject]@{} }
+      Set-JsonProperty $AuthorityTransaction 'schema_version' '1.1.0'; Set-JsonProperty $AuthorityTransaction 'status' 'committed'
+      if ([string]::IsNullOrWhiteSpace([string](Get-OptionalProperty $AuthorityTransaction 'transaction_id' ''))) { Set-JsonProperty $AuthorityTransaction 'transaction_id' ('adopted-authority-' + (Get-TextSha256 $LeaseId).Substring(0, 20)) }
+      Set-JsonProperty $AuthorityTransaction 'work_item_id' $WorkItemId; Set-JsonProperty $AuthorityTransaction 'goal_epoch' $GoalEpoch; Set-JsonProperty $AuthorityTransaction 'lease_id' $LeaseId; Set-JsonProperty $AuthorityTransaction 'branch' $Branch; Set-JsonProperty $AuthorityTransaction 'baseline_head' ([string](Get-OptionalProperty $Lease 'baseline_head' $Head)); Set-JsonProperty $AuthorityTransaction 'route' $Route
+      Set-JsonProperty $AuthorityTransaction 'files' ([ordered]@{ 'EXECUTION_SCOPE.json' = [ordered]@{ sha256 = Get-Sha256 $ScopePath }; 'STAGE_FIREWALL.json' = [ordered]@{ sha256 = Get-Sha256 $FirewallPath } })
+      Set-JsonProperty $AuthorityTransaction 'committed_at_utc' (Get-OptionalProperty $AuthorityTransaction 'committed_at_utc' $MigrationTime)
       Write-JsonAtomic (Join-Path $Agy 'EXECUTION_AUTHORITY_TRANSACTION.json') $AuthorityTransaction
 
       $InventoryHash = Get-Sha256 (Join-Path $Project '.agents\COMMAND_INVENTORY.json')
@@ -422,6 +648,8 @@ try {
     }
   }
 
+  if ($FaultInjectionAfterMigration) { throw 'Injected runtime update failure after migration.' }
+
   $HookScript = Join-Path $Project '.agents\hooks\agentic_runtime_hook.cjs'
   $ForbiddenCanary = Join-Path $Project '.agentic-runtime-forbidden-canary.tmp'
   $CanaryPayload = @{ workspacePaths = @($Project); toolCall = @{ args = @{ TargetFile = $ForbiddenCanary } } } | ConvertTo-Json -Depth 10 -Compress
@@ -441,18 +669,27 @@ try {
   Write-JsonAtomic $InstallationPath $Installed
   $Result = [ordered]@{ schema_version = '1.2.9'; ecosystem_version = $EcosystemVersion; status = 'PASS'; project_root = $Project; package_version = $EcosystemVersion; runtime_version = $EcosystemVersion; companion_version = $EcosystemVersion; source_commit = $SourceCommit; release_asset_sha256 = if ($AssetSha256) { $AssetSha256.ToLowerInvariant() } else { $null }; copied = $CreatedOrReplaced.ToArray(); skipped = $Skipped.ToArray(); backup_root = $BackupRoot; product_source_modified = ($ProductAfterIdentity -ne $ProductBeforeIdentity); product_baseline_sha256 = $ProductAfterIdentity; active_work_item_migrated = (-not $SkipActiveWorkItemMigration); prewrite_guard_canary = 'PASS'; generated_at_utc = $InstallTime }
   Write-JsonAtomic $RuntimeResultPath $Result
-  Write-JsonAtomic -Path (Join-Path $BackupRoot 'journal.json') -Value ([ordered]@{ schema_version = '1.0.0'; transaction_id = $TransactionId; phase = 'committed'; source_commit = $SourceCommit; project_root = $Project; product_baseline_before_sha256 = $ProductBeforeIdentity; product_baseline_after_sha256 = $ProductAfterIdentity; paths = $BackupIndex.ToArray() }) -Depth 30
+  Write-CurrentJournal -Phase 'committed' -ProductAfterIdentity $ProductAfterIdentity
   Write-Host 'PROJECT RUNTIME 1.2.9 UPDATE COMPLETED.' -ForegroundColor Green
 }
 catch {
-  if ($MutationStarted) {
-    Write-Warning 'Runtime update failed. Restoring every journaled framework-owned path.'
-    Restore-Transaction
-    Write-Warning "Rollback completed from: $BackupRoot"
+  $Failure = $_
+  if ($JournalWritten) {
+    try {
+      Write-Warning 'Runtime update failed. Restoring every journaled framework-owned path.'
+      Restore-Transaction
+      Write-CurrentJournal -Phase 'rolled_back'
+      Write-Warning "Rollback completed from: $BackupRoot"
+    }
+    catch {
+      $RetainLock = $true
+      throw "Runtime rollback failed and the recovery lock was retained. Original failure: $($Failure.Exception.Message). Rollback failure: $($_.Exception.Message)"
+    }
   }
-  throw
+  throw $Failure
+}
 }
 finally {
   if ($null -ne $LockStream) { $LockStream.Dispose() }
-  Remove-Item -LiteralPath $LockPath -Force -ErrorAction SilentlyContinue
+  if ($LockOwned -and -not $RetainLock) { Remove-Item -LiteralPath $LockPath -Force -ErrorAction SilentlyContinue }
 }

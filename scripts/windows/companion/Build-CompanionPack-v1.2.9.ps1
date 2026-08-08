@@ -52,12 +52,20 @@ function Assert-SafeOutputLeaf {
       throw "Output path is a protected path or its ancestor: $Full"
     }
   }
-  if (Test-Path -LiteralPath $Full) {
-    $Item = Get-Item -LiteralPath $Full -Force
-    if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-      throw "Output leaf must not be a reparse point: $Full"
+  $Probe = $Full
+  while (-not [string]::IsNullOrWhiteSpace($Probe)) {
+    if (Test-Path -LiteralPath $Probe) {
+      $Item = Get-Item -LiteralPath $Probe -Force
+      if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Output path must not traverse a reparse point: $Probe"
+      }
+      if ((Test-SamePath -Left $Probe -Right $Full) -and -not $Item.PSIsContainer) {
+        throw "Output path exists and is not a directory: $Full"
+      }
     }
-    if (-not $Item.PSIsContainer) { throw "Output path exists and is not a directory: $Full" }
+    $Next = Split-Path -Parent $Probe
+    if ([string]::IsNullOrWhiteSpace($Next) -or (Test-SamePath -Left $Next -Right $Probe)) { break }
+    $Probe = $Next
   }
   return $Full
 }

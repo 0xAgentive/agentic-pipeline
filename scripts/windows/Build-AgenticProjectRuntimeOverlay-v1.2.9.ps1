@@ -145,7 +145,7 @@ try {
   $Readme = @'
 # Agentic Project Runtime 1.2.9 Overlay
 
-Use `scripts/windows/Update-AgenticProjectRuntime-v1.2.9.ps1` first without `-Apply`, then with `-Apply -AllowDirty` after review. The updater changes only the explicit framework-owned allowlist, creates backups, never cleans/reset product source, migrates legacy counter-based routing to progress history, and activates project-local Antigravity hooks.
+Extract this exact release archive, calculate its SHA-256, and run `scripts/windows/Update-AgenticProjectRuntime-v1.2.9.ps1` from the extracted root with `-RuntimeArchivePath` and `-AssetSha256`: first without `-Apply`, then with `-Apply -AllowDirty` after review. The updater cryptographically binds the extracted manifest to the archive, changes only the explicit framework-owned allowlist, creates transactional backups, never cleans/resets product source, migrates legacy counter-based routing to progress history, and activates project-local Antigravity hooks last.
 '@
   [IO.File]::WriteAllText((Join-Path $PackageRoot 'README_RU.md'), $Readme, $Utf8NoBom)
   $DeploymentMap = New-Object System.Collections.Generic.List[object]
@@ -163,7 +163,7 @@ Use `scripts/windows/Update-AgenticProjectRuntime-v1.2.9.ps1` first without `-Ap
       [void]$DeploymentMap.Add([ordered]@{ source = $SourcePath; target = $TargetPath; mode = $Mode; size_bytes = $Entry.size_bytes; sha256 = $Entry.sha256 })
     }
   }
-  if ($DeploymentMap.Count -lt 72) { throw "Generated runtime deployment map is incomplete: $($DeploymentMap.Count)" }
+  if ($DeploymentMap.Count -ne 80) { throw "Generated runtime deployment map must contain exactly 80 targets; found $($DeploymentMap.Count)." }
   $Manifest = [ordered]@{
     schema_version = '1.0.0'
     ecosystem_version = '1.2.9'

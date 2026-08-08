@@ -1,4 +1,4 @@
-# Companion v1.2.9 — Unified Owner-Autonomous Execution
+# Companion v1.2.9 — Source-Immutable Runtime Finalization
 
 # Agentic Pipeline Companion — Project Instructions v1.2.9
 

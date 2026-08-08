@@ -13,7 +13,7 @@ def sha256_file(path:Path)->str:
   for b in iter(lambda:f.read(1024*1024),b''):h.update(b)
  return h.hexdigest()
 def atomic_json(path:Path,value:Any):
- path.parent.mkdir(parents=True,exist_ok=True);tmp=path.with_name(f'{path.name}.tmp-{os.getpid()}-{time.time_ns()}');tmp.write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n',encoding='utf-8');os.replace(tmp,path)
+ path.parent.mkdir(parents=True,exist_ok=True);tmp=path.with_name(f'{path.name}.tmp-{os.getpid()}-{time.time_ns()}');tmp.write_bytes((json.dumps(value,ensure_ascii=False,indent=2)+'\n').encode('utf-8'));os.replace(tmp,path)
 def append_jsonl(path:Path,value:Any):
  path.parent.mkdir(parents=True,exist_ok=True)
  with path.open('a',encoding='utf-8') as f:f.write(json.dumps(value,ensure_ascii=False)+'\n')
@@ -93,11 +93,14 @@ def processed_ids(path:Path)->set[str]:
    if v.get('packet_id'):out.add(str(v['packet_id']))
   except json.JSONDecodeError:pass
  return out
+def canonical_markdown(value:Any)->str:
+ return str(value).replace('\r\n','\n').replace('\r','\n').rstrip()+'\n'
 def materialize(packet:dict[str,Any],root:Path):
  root.mkdir(parents=True,exist_ok=True)
- atomic_json(root/'ACTION_PACKET.json',packet)
- (root/'AGENT_TASK.md').write_text(str(packet['technical_task_markdown']).rstrip()+'\n',encoding='utf-8')
- (root/'OWNER_SUMMARY_RU.md').write_text(str(packet['owner_summary_ru']).rstrip()+'\n',encoding='utf-8')
+ materialized=dict(packet);materialized['technical_task_markdown']=canonical_markdown(packet['technical_task_markdown']);materialized['owner_summary_ru']=canonical_markdown(packet['owner_summary_ru'])
+ atomic_json(root/'ACTION_PACKET.json',materialized)
+ (root/'AGENT_TASK.md').write_bytes(materialized['technical_task_markdown'].encode('utf-8'))
+ (root/'OWNER_SUMMARY_RU.md').write_bytes(materialized['owner_summary_ru'].encode('utf-8'))
  files=[]
  for name in ['ACTION_PACKET.json','AGENT_TASK.md','OWNER_SUMMARY_RU.md']:
   p=root/name;files.append({'path':name,'size_bytes':p.stat().st_size,'sha256':sha256_file(p)})
@@ -114,8 +117,15 @@ def import_packet(source:Path,registry_path:Path,state_root:Path):
  if active.exists():
   history.parent.mkdir(parents=True,exist_ok=True)
   if history.exists():history=history.with_name(f'{history.name}-{time.time_ns()}')
+  archived_packet=load_json(active/'ACTION_PACKET.json')
   os.replace(active,history)
- os.replace(staged,active)
+  try:
+   redacted_packet=dict(archived_packet);redacted_packet.pop('capability_token',None);materialize(redacted_packet,history)
+   os.replace(staged,active)
+  except Exception:
+   if not active.exists() and history.exists():materialize(archived_packet,history);os.replace(history,active)
+   raise
+ else:os.replace(staged,active)
  receipt={'schema_version':VERSION,'ecosystem_version':VERSION,'packet_id':packet_id,'project_id':packet['project_id'],'operation':packet['operation'],'route':packet['route'],'status':'imported','source_file':str(source),'source_sha256':sha256_file(source),'imported_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'activated_at_utc':None,'injected_at_utc':None}
  atomic_json(project_root/'.agy'/'ACTION_PACKET_RECEIPT.json',receipt);append_jsonl(ledger,{'packet_id':packet_id,'project_id':packet['project_id'],'accepted_at_utc':receipt['imported_at_utc'],'source_sha256':receipt['source_sha256']})
  return{'status':'PASS','project_root':str(project_root),'packet_id':packet_id}

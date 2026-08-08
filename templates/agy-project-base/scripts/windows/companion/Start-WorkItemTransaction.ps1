@@ -2,7 +2,8 @@
 param(
   [string]$ProjectRoot = '.',
   [Parameter(Mandatory = $true)][string]$ActionPacketPath,
-  [switch]$Apply
+  [switch]$Apply,
+  [Parameter(DontShow = $true)][ValidateRange(0, 5)][int]$FaultInjectionAfterPublishes = 0
 )
 
 Set-StrictMode -Version 3.0
@@ -37,6 +38,24 @@ function Get-TextSha256 {
 function Get-FileSha256 {
   param([Parameter(Mandatory = $true)][string]$Path)
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Set-AtomicFileFromPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$Source,
+    [Parameter(Mandatory = $true)][string]$Destination
+  )
+
+  $Parent = Split-Path -Parent $Destination
+  New-Item -ItemType Directory -Force -Path $Parent | Out-Null
+  $Temporary = Join-Path $Parent ('.' + (Split-Path -Leaf $Destination) + '.tmp-' + [Guid]::NewGuid().ToString('N'))
+  [System.IO.File]::WriteAllBytes($Temporary, [System.IO.File]::ReadAllBytes($Source))
+  try {
+    [System.IO.File]::Move($Temporary, $Destination, $true)
+  }
+  finally {
+    if (Test-Path -LiteralPath $Temporary -PathType Leaf) { Remove-Item -LiteralPath $Temporary -Force }
+  }
 }
 
 $Root = (Resolve-Path -LiteralPath $ProjectRoot).Path
@@ -182,11 +201,16 @@ if (-not $Apply) {
 
 New-Item -ItemType Directory -Force -Path $AgyRoot | Out-Null
 $TransactionRoot = Join-Path $AgyRoot ('.transaction-' + [Guid]::NewGuid().ToString('N'))
-$HistoryRoot = Join-Path $AgyRoot ('history\work-item-transactions\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
-New-Item -ItemType Directory -Force -Path $TransactionRoot | Out-Null
+$StagedRoot = Join-Path $TransactionRoot 'staged'
+$BackupRoot = Join-Path $TransactionRoot 'original'
 $Names = @('WORK_ITEM.json', 'STAGE_FIREWALL.json', 'PROGRESS_STATE.json', 'NEXT_ACTION.json')
+$AllNames = @($Names + @('WORK_ITEM_TRANSACTION.json'))
+$PreExisting = @{}
+$PreStateCaptured = $false
+$HistoryRoot = $null
 
 try {
+  New-Item -ItemType Directory -Force -Path $StagedRoot, $BackupRoot | Out-Null
   $Payloads = @(
     @('WORK_ITEM.json', $WorkItem),
     @('STAGE_FIREWALL.json', $Firewall),
@@ -196,7 +220,7 @@ try {
 
   foreach ($Pair in $Payloads) {
     [System.IO.File]::WriteAllText(
-      (Join-Path $TransactionRoot $Pair[0]),
+      (Join-Path $StagedRoot $Pair[0]),
       ($Pair[1] | ConvertTo-Json -Depth 40),
       $Utf8NoBom
     )
@@ -204,7 +228,7 @@ try {
 
   $Files = [ordered]@{}
   foreach ($Name in $Names) {
-    $Files[$Name] = [ordered]@{ sha256 = Get-FileSha256 -Path (Join-Path $TransactionRoot $Name) }
+    $Files[$Name] = [ordered]@{ sha256 = Get-FileSha256 -Path (Join-Path $StagedRoot $Name) }
   }
 
   $Receipt = [ordered]@{
@@ -220,25 +244,68 @@ try {
   }
 
   [System.IO.File]::WriteAllText(
-    (Join-Path $TransactionRoot 'WORK_ITEM_TRANSACTION.json'),
+    (Join-Path $StagedRoot 'WORK_ITEM_TRANSACTION.json'),
     ($Receipt | ConvertTo-Json -Depth 20),
     $Utf8NoBom
   )
 
-  New-Item -ItemType Directory -Force -Path $HistoryRoot | Out-Null
-  foreach ($Name in ($Names + @('WORK_ITEM_TRANSACTION.json'))) {
+  foreach ($Name in $AllNames) {
     $Current = Join-Path $AgyRoot $Name
-    if (Test-Path -LiteralPath $Current -PathType Leaf) {
-      Copy-Item -LiteralPath $Current -Destination (Join-Path $HistoryRoot $Name) -Force
+    $Exists = Test-Path -LiteralPath $Current -PathType Leaf
+    $PreExisting[$Name] = $Exists
+    if ($Exists) {
+      Copy-Item -LiteralPath $Current -Destination (Join-Path $BackupRoot $Name) -Force
+    }
+  }
+  $PreStateCaptured = $true
+
+  $PublishedCount = 0
+  foreach ($Name in $AllNames) {
+    Set-AtomicFileFromPath -Source (Join-Path $StagedRoot $Name) -Destination (Join-Path $AgyRoot $Name)
+    $PublishedCount++
+    if ($FaultInjectionAfterPublishes -gt 0 -and $PublishedCount -eq $FaultInjectionAfterPublishes) {
+      throw "SIMULATED_WORK_ITEM_TRANSACTION_FAILURE_AFTER_$PublishedCount"
     }
   }
 
-  foreach ($Name in $Names) {
-    Move-Item -LiteralPath (Join-Path $TransactionRoot $Name) -Destination (Join-Path $AgyRoot $Name) -Force
+  $HistoricalNames = @($AllNames | Where-Object { [bool]$PreExisting[$_] })
+  if ($HistoricalNames.Count -gt 0) {
+    $HistoryRoot = Join-Path $AgyRoot ('history\work-item-transactions\' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $HistoryRoot | Out-Null
+    foreach ($Name in $HistoricalNames) {
+      Copy-Item -LiteralPath (Join-Path $BackupRoot $Name) -Destination (Join-Path $HistoryRoot $Name) -Force
+    }
   }
-  Move-Item -LiteralPath (Join-Path $TransactionRoot 'WORK_ITEM_TRANSACTION.json') -Destination (Join-Path $AgyRoot 'WORK_ITEM_TRANSACTION.json') -Force
 
   Write-Host "Work item transaction activated: $WorkItemId. Read-only discovery and exact scope binding are next."
+}
+catch {
+  $Failure = $_
+  $RollbackErrors = [System.Collections.Generic.List[string]]::new()
+  if ($PreStateCaptured) {
+    foreach ($Name in $AllNames) {
+      try {
+        $Current = Join-Path $AgyRoot $Name
+        if ([bool]$PreExisting[$Name]) {
+          Set-AtomicFileFromPath -Source (Join-Path $BackupRoot $Name) -Destination $Current
+        }
+        elseif (Test-Path -LiteralPath $Current -PathType Leaf) {
+          Remove-Item -LiteralPath $Current -Force
+        }
+      }
+      catch {
+        [void]$RollbackErrors.Add("$Name`: $($_.Exception.Message)")
+      }
+    }
+  }
+  if ($HistoryRoot -and (Test-Path -LiteralPath $HistoryRoot -PathType Container)) {
+    try { Remove-Item -LiteralPath $HistoryRoot -Recurse -Force }
+    catch { [void]$RollbackErrors.Add("history: $($_.Exception.Message)") }
+  }
+  if ($RollbackErrors.Count -gt 0) {
+    throw "Work-item transaction failed: $($Failure.Exception.Message). Exact rollback also failed: $($RollbackErrors -join ' | ')"
+  }
+  throw $Failure
 }
 finally {
   Remove-Item -LiteralPath $TransactionRoot -Recurse -Force -ErrorAction SilentlyContinue

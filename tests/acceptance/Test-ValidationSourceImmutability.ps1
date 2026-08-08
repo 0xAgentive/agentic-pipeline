@@ -76,7 +76,7 @@ try {
     [pscustomobject]@{ name='compatibility'; file=$Pwsh; args=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Candidate 'tests\acceptance\Test-ProgressGuardMigrationCompatibility.ps1'),'-RepoRoot',$Candidate) },
     [pscustomobject]@{ name='powershell-runtime'; file=$Pwsh; args=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Candidate 'scripts\windows\Test-PowerShellRuntimeContracts.ps1'),'-RepoRoot',$Candidate) },
     [pscustomobject]@{ name='operational-deployment'; file=$Pwsh; args=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Candidate 'scripts\windows\Test-OperationalDeployment.ps1'),'-RepoRoot',$Candidate) },
-    [pscustomobject]@{ name='distribution-integrity'; file=$Pwsh; args=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Candidate 'scripts\windows\Test-DistributionIntegrity.ps1'),'-RepoRoot',$Candidate,'-WorkingTreeWhitespacePolicy','advisory') },
+    [pscustomobject]@{ name='distribution-integrity'; file=$Pwsh; args=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Candidate 'scripts\windows\Test-DistributionIntegrity.ps1'),'-RepoRoot',$Candidate,'-Profile','operational') },
     [pscustomobject]@{ name='hard-package'; file=$Pwsh; args=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Candidate 'scripts\windows\Validate-AgenticPipelinePackage.ps1'),'-RepoRoot',$Candidate,'-Strict') },
     [pscustomobject]@{ name='known-failure-node'; file=$Node; args=@((Join-Path $Candidate 'tests\regression\known-failure-regression.cjs'),$Candidate) },
     [pscustomobject]@{ name='diff-check'; file='git'; args=@('-C',$Candidate,'diff','--check') }

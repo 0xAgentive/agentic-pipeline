@@ -3,6 +3,7 @@ param(
   [Parameter(Mandatory=$true)][string]$ProjectRoot,
   [string]$RepoRoot = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline",
   [string]$RuntimeZip = "",
+  [string]$RuntimeSha256 = "",
   [switch]$Apply,
   [switch]$AllowDirty,
   [switch]$SkipValidation
@@ -22,6 +23,10 @@ try {
   $EffectiveRepoRoot = $RepoRoot
   if (![string]::IsNullOrWhiteSpace($RuntimeZip)) {
     if (!(Test-Path -LiteralPath $RuntimeZip -PathType Leaf)) { throw "Runtime overlay ZIP not found: $RuntimeZip" }
+    $RuntimeZip = (Resolve-Path -LiteralPath $RuntimeZip).Path
+    $ActualRuntimeSha256 = (Get-FileHash -LiteralPath $RuntimeZip -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (-not [string]::IsNullOrWhiteSpace($RuntimeSha256) -and $RuntimeSha256.ToLowerInvariant() -ne $ActualRuntimeSha256) { throw 'Runtime ZIP SHA-256 does not match RuntimeSha256.' }
+    $RuntimeSha256 = $ActualRuntimeSha256
     $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ('agentic-project-runtime-1.2.9-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $TempRoot -Force | Out-Null
     Expand-Archive -LiteralPath $RuntimeZip -DestinationPath $TempRoot -Force
@@ -38,12 +43,21 @@ try {
   $Updater = Join-Path $EffectiveRepoRoot 'scripts\windows\Update-AgenticProjectRuntime-v1.2.9.ps1'
   if (!(Test-Path -LiteralPath $Updater -PathType Leaf)) { throw "Runtime updater not found: $Updater" }
 
-  & $Updater `
-    -ProjectRoot $ProjectRoot `
-    -RepoRoot $EffectiveRepoRoot `
-    -Apply:$Apply `
-    -AllowDirty:$AllowDirty `
-    -SkipValidation:$SkipValidation
+  $UpdaterArguments = @{
+    ProjectRoot = $ProjectRoot
+    Apply = $Apply
+    AllowDirty = $AllowDirty
+    SkipValidation = $SkipValidation
+  }
+  if (-not [string]::IsNullOrWhiteSpace($RuntimeZip)) {
+    $UpdaterArguments.RuntimeRoot = $EffectiveRepoRoot
+    $UpdaterArguments.RuntimeArchivePath = $RuntimeZip
+    $UpdaterArguments.AssetSha256 = $RuntimeSha256
+  }
+  else {
+    $UpdaterArguments.RepoRoot = $EffectiveRepoRoot
+  }
+  & $Updater @UpdaterArguments
 
   if ($Apply) {
     Write-Host 'PROJECT RUNTIME 1.2.9 UPDATE COMPLETED.' -ForegroundColor Green

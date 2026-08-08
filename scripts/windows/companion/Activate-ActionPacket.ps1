@@ -1,5 +1,10 @@
 [CmdletBinding()]
-param([string]$ProjectRoot='.',[string]$PacketDirectory='',[switch]$Apply)
+param(
+  [string]$ProjectRoot='.',
+  [string]$PacketDirectory='',
+  [switch]$Apply,
+  [Parameter(DontShow=$true)][ValidateRange(0,5)][int]$FaultInjectionAfterPublishes=0
+)
 Set-StrictMode -Version 3.0
 $ErrorActionPreference='Stop'
 $Root=(Resolve-Path -LiteralPath $ProjectRoot).Path
@@ -10,8 +15,9 @@ $ReceiptPath=Join-Path $Agy 'ACTION_PACKET_RECEIPT.json'
 if(-not(Test-Path -LiteralPath $PacketPath -PathType Leaf)){throw 'No active Action Packet is available.'}
 $Node=(Get-Command node -ErrorAction Stop).Source
 $Validator=Join-Path $Root 'scripts\control-plane\action-packet.cjs'
-& $Node $Validator $PacketRoot | Out-Host
-if($LASTEXITCODE -ne 0){throw 'Action Packet validation failed.'}
+$ValidationOutput=@(& $Node $Validator $PacketRoot 2>&1)
+$ValidationExitCode=$LASTEXITCODE
+if($ValidationExitCode -ne 0){throw 'Action Packet validation failed.'}
 $Packet=Get-Content -LiteralPath $PacketPath -Raw -Encoding UTF8|ConvertFrom-Json
 $WorkItemProperty=$Packet.PSObject.Properties['work_item_id']
 $ActivatedWorkItemId=if($null-ne$WorkItemProperty){[string]$WorkItemProperty.Value}else{$null}
@@ -20,8 +26,9 @@ if([string]$Receipt.packet_id -ne [string]$Packet.packet_id){throw 'Action Packe
 $Capability=Get-Content -LiteralPath (Join-Path $Agy 'ACTION_BRIDGE_CAPABILITY.json') -Raw -Encoding UTF8|ConvertFrom-Json
 if([string]$Capability.capability_token -ne [string]$Packet.capability_token){throw 'Action Packet capability mismatch.'}
 if([string]$Packet.operation -eq 'new_work_item'){
-  if($Apply){& (Join-Path $Root 'scripts\windows\companion\Start-WorkItemTransaction.ps1') -ProjectRoot $Root -ActionPacketPath $PacketPath -Apply;if($LASTEXITCODE -ne 0){throw 'Work-item activation failed.'};$ActivatedWorkItemId=[string](Get-Content -LiteralPath (Join-Path $Agy 'WORK_ITEM.json') -Raw -Encoding UTF8|ConvertFrom-Json).work_item_id}
+  if($Apply){$StartArgs=@{ProjectRoot=$Root;ActionPacketPath=$PacketPath;Apply=$true};if($FaultInjectionAfterPublishes-gt 0){$StartArgs.FaultInjectionAfterPublishes=$FaultInjectionAfterPublishes};& (Join-Path $Root 'scripts\windows\companion\Start-WorkItemTransaction.ps1') @StartArgs;if($LASTEXITCODE -ne 0){throw 'Work-item activation failed.'};$ActivatedWorkItemId=[string](Get-Content -LiteralPath (Join-Path $Agy 'WORK_ITEM.json') -Raw -Encoding UTF8|ConvertFrom-Json).work_item_id}
 }else{
+  if($FaultInjectionAfterPublishes-gt 0){throw 'Activation fault injection is supported only for new_work_item.'}
   $WorkItemPath=Join-Path $Agy 'WORK_ITEM.json'
   if(-not(Test-Path -LiteralPath $WorkItemPath -PathType Leaf)){throw 'Continuation packet requires an active work item.'}
   $WorkItem=Get-Content -LiteralPath $WorkItemPath -Raw -Encoding UTF8|ConvertFrom-Json

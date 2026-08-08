@@ -7,6 +7,11 @@ param(
   [string]$LogicalName = '',
   [string]$DeploymentRoot = '',
   [string]$HandoffRoot = 'C:\Scripts\AntigravityProjects\companion-handoff',
+  [string]$RuntimeAsset = '',
+  [string]$ActionBridgeAsset = '',
+  [string]$ContextHandoffAsset = '',
+  [string]$CompanionAsset = '',
+  [string]$HandoffArchive = '',
   [switch]$SkipPull,
   [switch]$SkipProjectDeployment,
   [switch]$OpenFolder
@@ -47,5 +52,21 @@ catch {
   throw
 }
 
-if(-not$SkipProjectDeployment){if([string]::IsNullOrWhiteSpace($ProjectRoot)){throw 'Project deployment requires -ProjectRoot or use -SkipProjectDeployment.'};$DeployScript=Join-Path $RepoRoot 'scripts\release\Complete-AgenticPipeline-v1.2.9-Deployment.ps1';$DeployArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$DeployScript,'-RepoRoot',$RepoRoot,'-ProjectRoot',$ProjectRoot,'-HandoffRoot',$HandoffRoot);if(-not[string]::IsNullOrWhiteSpace($ProjectId)){$DeployArgs+=@('-ProjectId',$ProjectId)};if(-not[string]::IsNullOrWhiteSpace($LogicalName)){$DeployArgs+=@('-LogicalName',$LogicalName)};if(-not[string]::IsNullOrWhiteSpace($DeploymentRoot)){$DeployArgs+=@('-DeploymentRoot',$DeploymentRoot)};if($OpenFolder){$DeployArgs+='-OpenFolder'};$DeployResult=Invoke-TransportNative -FilePath $PwshExe -ArgumentList $DeployArgs;$DeployResult.Lines|ForEach-Object{Write-Host $_}}
+if(-not$SkipProjectDeployment){
+  if([string]::IsNullOrWhiteSpace($ProjectRoot)){throw 'Project deployment requires -ProjectRoot or use -SkipProjectDeployment.'}
+  $ArtifactRoot=Join-Path $RepoRoot '.artifacts\release-kit\1.2.9'
+  if([string]::IsNullOrWhiteSpace($RuntimeAsset)){$RuntimeAsset=Join-Path $ArtifactRoot 'runtime\agentic-project-runtime-1.2.9.zip'}
+  if([string]::IsNullOrWhiteSpace($ActionBridgeAsset)){$ActionBridgeAsset=Join-Path $ArtifactRoot 'action-bridge\agentic-action-bridge-1.2.9.zip'}
+  if([string]::IsNullOrWhiteSpace($ContextHandoffAsset)){$ContextHandoffAsset=Join-Path $ArtifactRoot 'handoff-compatibility\agentic-context-handoff-1.2.9.zip'}
+  if([string]::IsNullOrWhiteSpace($CompanionAsset)){$CompanionAsset=Join-Path $ArtifactRoot 'companion\agentic-companion-1.2.9.zip'}
+  if([string]::IsNullOrWhiteSpace($HandoffArchive)){throw 'Project deployment requires the exact exporter HandoffArchive produced after the final Stop.'}
+  $DeployScript=Join-Path $RepoRoot 'scripts\release\Complete-AgenticPipeline-v1.2.9-Deployment.ps1'
+  $DeployArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$DeployScript,'-RepoRoot',$RepoRoot,'-ProjectRoot',$ProjectRoot,'-HandoffRoot',$HandoffRoot,'-RuntimeAsset',$RuntimeAsset,'-ActionBridgeAsset',$ActionBridgeAsset,'-ContextHandoffAsset',$ContextHandoffAsset,'-CompanionAsset',$CompanionAsset,'-HandoffArchive',$HandoffArchive)
+  if(-not[string]::IsNullOrWhiteSpace($ProjectId)){$DeployArgs+=@('-ProjectId',$ProjectId)}
+  if(-not[string]::IsNullOrWhiteSpace($LogicalName)){$DeployArgs+=@('-LogicalName',$LogicalName)}
+  if(-not[string]::IsNullOrWhiteSpace($DeploymentRoot)){$DeployArgs+=@('-DeploymentRoot',$DeploymentRoot)}
+  if($OpenFolder){$DeployArgs+='-OpenFolder'}
+  $DeployResult=Invoke-TransportNative -FilePath $PwshExe -ArgumentList $DeployArgs
+  $DeployResult.Lines|ForEach-Object{Write-Host $_}
+}
 Write-Host 'AGENTIC PIPELINE 1.2.9 GLOBAL FIX COMPLETED.' -ForegroundColor Green

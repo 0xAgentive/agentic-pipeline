@@ -41,6 +41,7 @@ $Dirty = (Invoke-Native -FilePath git -ArgumentList @('-C',$Repo,'status','--por
 if ($Dirty.Count -gt 0) { throw 'Repository must be clean before GitHub publication.' }
 $Version = Get-Content -LiteralPath (Join-Path $Repo 'VERSION.json') -Raw | ConvertFrom-Json
 if ([string]($Version.package_version) -ne '1.2.9') { throw 'Local repository is not version 1.2.9.' }
+$ReleaseTitle = "Agentic Pipeline 1.2.9 - $([string]$Version.release_name)"
 
 $Head = (Invoke-Native -FilePath git -ArgumentList @('-C',$Repo,'rev-parse','HEAD')).Text.Trim()
 $Fetch = Invoke-GitHubGit -WorkingDirectory $Repo -GitArguments @('fetch','origin','--tags','--prune') -OperationName 'Fetch origin before publication'
@@ -74,7 +75,7 @@ else {
     if ($LocalTagCommit -ne $Head) { throw "Local tag $Tag already resolves to another commit: $LocalTagCommit" }
   }
   else {
-    Invoke-Native -FilePath git -ArgumentList @('-C',$Repo,'tag','-a',$Tag,'-m','Agentic Pipeline 1.2.9 - Owner-Autonomous Execution') | Out-Null
+    Invoke-Native -FilePath git -ArgumentList @('-C',$Repo,'tag','-a',$Tag,'-m',$ReleaseTitle) | Out-Null
   }
   Invoke-GitHubGit -WorkingDirectory $Repo -GitArguments @('push','origin',$Tag) -OperationName "Push tag $Tag" | Out-Null
 }
@@ -107,31 +108,16 @@ foreach ($Artifact in $ReleaseArtifacts) {
 }
 
 $Notes = Join-Path $ArtifactRoot 'RELEASE_NOTES_1.2.9.md'
-@'
-# Agentic Pipeline 1.2.9 - Owner-Autonomous Execution
-
-- exact pre-write execution lease;
-- one comprehensive first audit for GUARDED work;
-- stable finding IDs and machine repair deltas;
-- progress-based automatic repair without numerical quotas;
-- audit-coverage-miss lifecycle;
-- protected read-only reviewer enforcement;
-- scientific stage firewall;
-- one compiled result and closure authority;
-- Companion 1.2.9 with compact finding/repair delta output;
-- standalone Antigravity runtime 1.2.9 overlay;
-- active pre-write and command hooks;
-- Action Bridge 1.2.9 for downloaded Companion packets;
-- Auto Context Handoff compatibility 1.2.9;
-- plain-language owner interaction with automatic progress-based continuation.
-'@ | Set-Content -LiteralPath $Notes -Encoding UTF8
+$CanonicalNotes = Join-Path $Repo 'docs\maintainers\RELEASE_NOTES_1.2.9.md'
+if (-not (Test-Path -LiteralPath $CanonicalNotes -PathType Leaf)) { throw "Canonical release notes are missing: $CanonicalNotes" }
+Copy-Item -LiteralPath $CanonicalNotes -Destination $Notes -Force
 
 $Existing = Invoke-Native -FilePath $Gh -ArgumentList @('release','view',$Tag,'--repo','0xAgentive/agentic-pipeline') -AllowFailure
 if ($Existing.Code -ne 0) {
   Invoke-Native -FilePath $Gh -ArgumentList @(
     'release','create',$Tag,
     '--repo','0xAgentive/agentic-pipeline',
-    '--title','Agentic Pipeline 1.2.9 - Owner-Autonomous Execution',
+    '--title',$ReleaseTitle,
     '--notes-file',$Notes,
     $ReleaseZip,$CompanionZip,$RuntimeZip,$ActionBridgeZip,$HandoffCompatibilityZip
   ) | Out-Null
@@ -142,14 +128,14 @@ else {
   Invoke-Native -FilePath $Gh -ArgumentList @(
     'release','edit',$Tag,
     '--repo','0xAgentive/agentic-pipeline',
-    '--title','Agentic Pipeline 1.2.9 - Owner-Autonomous Execution',
+    '--title',$ReleaseTitle,
     '--notes-file',$Notes
   ) | Out-Null
 }
 
 $ReleaseCheck = Invoke-Native -FilePath $Gh -ArgumentList @('release','view',$Tag,'--repo','0xAgentive/agentic-pipeline','--json','tagName,name,isDraft,isPrerelease')
 $ReleaseData = $ReleaseCheck.Text | ConvertFrom-Json
-if ([string]$ReleaseData.tagName -ne $Tag -or [bool]$ReleaseData.isDraft) { throw 'GitHub Release verification failed.' }
+if ([string]$ReleaseData.tagName -ne $Tag -or [bool]$ReleaseData.isDraft -or [bool]$ReleaseData.isPrerelease) { throw 'GitHub Release verification failed.' }
 
 Write-Host 'GITHUB PUBLICATION COMPLETED.' -ForegroundColor Green
 Write-Host 'Repository: 0xAgentive/agentic-pipeline'

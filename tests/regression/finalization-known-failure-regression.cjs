@@ -121,7 +121,9 @@ check('KF-042', 'legacy optional properties use explicit get/upsert helpers', ()
   contains('scripts/windows/companion/Register-FindingDelta.ps1', 'Get-OptionalProperty', 'Set-OptionalProperty') &&
   contains('scripts/windows/companion/Bind-ExecutionScopeTransaction.ps1', 'Set-JsonProperty'));
 check('KF-043', 'candidate overlay compares Git blobs and materializes checkout attributes', () =>
-  contains('scripts/release/Apply-CandidateOverlay.ps1', 'hash-object', 'checkout-index') && exists('tests/acceptance/Test-CandidateOverlayEolSafety.ps1'));
+  contains('scripts/release/Apply-CandidateOverlay.ps1', 'hash-object', 'checkout-index') &&
+  contains('scripts/release/Run-AgenticPipeline-v1.2.9-Upgrade-Local.ps1', 'Apply-CandidateOverlay.ps1', '-ExpectedPaths') &&
+  exists('tests/acceptance/Test-CandidateOverlayEolSafety.ps1'));
 check('KF-044', 'Git path consumers use NUL lists without trimming the first path byte', () =>
   contains('scripts/Test-FastPatchAllowed.ps1', '"--name-only", "-z"', 'Split-AgenticNulList') &&
   contains('scripts/windows/Test-FinalizationWindowsRegressions.ps1', 'docs-first-entry.txt'));

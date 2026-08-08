@@ -64,12 +64,16 @@ function Invoke-RepositoryScript {
 
 function Copy-OverlayToRepository {
   param([Parameter(Mandatory=$true)][string]$RepositoryRoot)
-  Get-ChildItem -LiteralPath $OverlayRoot -Recurse -File | ForEach-Object {
-    $Relative=[IO.Path]::GetRelativePath($OverlayRoot,$_.FullName)
-    $Destination=Join-Path $RepositoryRoot $Relative
-    New-Item -ItemType Directory -Force (Split-Path -Parent $Destination) | Out-Null
-    Copy-Item -LiteralPath $_.FullName -Destination $Destination -Force
+  $OverlayApplyScript = Join-Path $OverlayRoot 'scripts\release\Apply-CandidateOverlay.ps1'
+  if (-not (Test-Path -LiteralPath $OverlayApplyScript -PathType Leaf)) { throw "Attribute-aware overlay helper is missing: $OverlayApplyScript" }
+  [string[]]$ExpectedPaths = @(Get-ChildItem -LiteralPath $OverlayRoot -Recurse -File | ForEach-Object {
+    [IO.Path]::GetRelativePath($OverlayRoot,$_.FullName).Replace('\','/')
+  } | Sort-Object -Unique)
+  if ($ExpectedPaths.Count -eq 0) {
+    Write-Host 'Overlay has no expected paths; candidate bytes remain untouched.'
+    return
   }
+  & $OverlayApplyScript -CandidateRoot $RepositoryRoot -PayloadRoot $OverlayRoot -ExpectedPaths $ExpectedPaths -Apply | Out-Host
 }
 
 function Test-RepositoryTree {
@@ -184,7 +188,7 @@ if ([string]($BeforeVersion.package_version) -eq '1.2.6' -or $ForceReapply) {
       Invoke-RepositoryScript -RepositoryRoot $CandidateRoot -RelativePath 'scripts\windows\companion\Build-CompanionPack-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$CandidateRoot,'-OutputRoot',(Join-Path $CandidateArtifactRoot 'companion'),'-Force') -DisplayName 'isolated build Companion pack' | Out-Null
       Invoke-RepositoryScript -RepositoryRoot $CandidateRoot -RelativePath 'scripts\windows\Build-AgenticProjectRuntimeOverlay-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$CandidateRoot,'-OutputRoot',(Join-Path $CandidateArtifactRoot 'runtime'),'-Force') -DisplayName 'isolated build Antigravity runtime overlay' | Out-Null
       Invoke-RepositoryScript -RepositoryRoot $CandidateRoot -RelativePath 'scripts\bridge\Build-CompanionActionBridgePackage-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$CandidateRoot,'-OutputRoot',(Join-Path $CandidateArtifactRoot 'action-bridge'),'-Force') -DisplayName 'isolated build Action Bridge package' | Out-Null
-      Invoke-RepositoryScript -RepositoryRoot $CandidateRoot -RelativePath 'integrations\companion-handoff-1.2.9\Build-CompanionHandoffCompatibilityPackage-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$CandidateRoot,'-OutputRoot',(Join-Path $CandidateArtifactRoot 'handoff-compatibility'),'-Force') -DisplayName 'isolated build Handoff compatibility package' | Out-Null
+      Invoke-RepositoryScript -RepositoryRoot $CandidateRoot -RelativePath 'integrations\companion-handoff-1.2.9\Build-AgenticContextHandoffPackage-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$CandidateRoot,'-OutputRoot',(Join-Path $CandidateArtifactRoot 'handoff-compatibility'),'-Force') -DisplayName 'isolated build Context Handoff package' | Out-Null
 
       Test-ZipArtifactSafety -ArchivePath (Join-Path $CandidateArtifactRoot 'pipeline\agentic-pipeline-1.2.9.zip') -Label 'Isolated Pipeline release ZIP'
       Test-ZipArtifactSafety -ArchivePath (Join-Path $CandidateArtifactRoot 'companion\agentic-companion-1.2.9.zip') -Label 'Isolated Companion ZIP'
@@ -229,7 +233,7 @@ try {
   $Changes=(Invoke-Native -FilePath git -ArgumentList @('-C',$Repo,'status','--porcelain=v1','--untracked-files=all')).Lines
   if ($Changes.Count -gt 0) {
     Invoke-Native -FilePath git -ArgumentList @('-C',$Repo,'add','--all') | Out-Null
-    Invoke-Native -FilePath git -ArgumentList @('-C',$Repo,'commit','-m','release: Agentic Pipeline 1.2.9 owner-autonomous execution') | Out-Null
+    Invoke-Native -FilePath git -ArgumentList @('-C',$Repo,'commit','-m','release: Agentic Pipeline 1.2.9 source-immutable finalization') | Out-Null
   }
 
   $Version=Get-Content -LiteralPath $VersionPath -Raw | ConvertFrom-Json
@@ -246,7 +250,7 @@ try {
   Invoke-RepositoryScript -RepositoryRoot $Repo -RelativePath 'scripts\windows\companion\Build-CompanionPack-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$Repo,'-OutputRoot',(Join-Path $ArtifactRoot 'companion'),'-Force') -DisplayName 'build Companion pack' | Out-Null
   Invoke-RepositoryScript -RepositoryRoot $Repo -RelativePath 'scripts\windows\Build-AgenticProjectRuntimeOverlay-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$Repo,'-OutputRoot',(Join-Path $ArtifactRoot 'runtime'),'-Force') -DisplayName 'build Antigravity runtime overlay' | Out-Null
   Invoke-RepositoryScript -RepositoryRoot $Repo -RelativePath 'scripts\bridge\Build-CompanionActionBridgePackage-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$Repo,'-OutputRoot',(Join-Path $ArtifactRoot 'action-bridge'),'-Force') -DisplayName 'build Action Bridge package' | Out-Null
-  Invoke-RepositoryScript -RepositoryRoot $Repo -RelativePath 'integrations\companion-handoff-1.2.9\Build-CompanionHandoffCompatibilityPackage-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$Repo,'-OutputRoot',(Join-Path $ArtifactRoot 'handoff-compatibility'),'-Force') -DisplayName 'build Handoff compatibility package' | Out-Null
+  Invoke-RepositoryScript -RepositoryRoot $Repo -RelativePath 'integrations\companion-handoff-1.2.9\Build-AgenticContextHandoffPackage-v1.2.9.ps1' -ArgumentList @('-RepoRoot',$Repo,'-OutputRoot',(Join-Path $ArtifactRoot 'handoff-compatibility'),'-Force') -DisplayName 'build Context Handoff package' | Out-Null
 
   $Result=[ordered]@{
     schema_version='1.2.9';status='PASS';operation='local_upgrade';repo_root=$Repo;origin=$Origin;branch='main';head=$Head

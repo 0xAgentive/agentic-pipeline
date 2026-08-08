@@ -436,11 +436,49 @@ function Test-TaskDefinitionMatches {
     [string]$Action.Arguments -ceq [string]$Descriptor.arguments -and
     [string]$Action.WorkingDirectory -ieq [string]$Descriptor.working_directory -and
     [string]$Trigger.Repetition.Interval -eq 'PT1M' -and
+    [bool]$Task.Settings.Enabled -and
     [bool]$Task.Settings.Hidden -and
     [string]$Task.Settings.MultipleInstances -eq 'IgnoreNew' -and
     [string]$Task.Settings.ExecutionTimeLimit -eq 'PT5M' -and
     [bool]$Task.Settings.StartWhenAvailable
   )
+}
+
+function Wait-TaskQuiesced {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [int]$TimeoutSeconds = 30
+  )
+  $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    $Task = Get-ScheduledTask -TaskName $Name -ErrorAction Stop
+    $State = [string]$Task.State
+    if (-not [bool]$Task.Settings.Enabled -and $State -notin @('Running', 'Queued')) { return $Task }
+    Start-Sleep -Milliseconds 100
+  } while ((Get-Date) -lt $Deadline)
+  throw "Scheduled task did not quiesce before Context Handoff writes: $Name state=$State enabled=$([bool]$Task.Settings.Enabled)"
+}
+
+function Assert-TaskQuiescedBeforeWrite {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][bool]$ExistedAtSnapshot
+  )
+  $Task = Get-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
+  if (-not $ExistedAtSnapshot) {
+    if ($null -ne $Task) { throw "Scheduled task appeared after the transaction snapshot: $Name" }
+    return
+  }
+  if ($null -eq $Task) { throw "Scheduled task disappeared after the transaction snapshot: $Name" }
+  $State = [string]$Task.State
+  if ([bool]$Task.Settings.Enabled -or $State -in @('Running', 'Queued')) {
+    throw "Scheduled task is not quiesced before Context Handoff writes: $Name state=$State enabled=$([bool]$Task.Settings.Enabled)"
+  }
+}
+
+function Get-NormalizedTaskXml {
+  param([Parameter(Mandatory = $true)][string]$Xml)
+  return $Xml.Replace("`r`n", "`n").Trim()
 }
 
 if ([string]::IsNullOrWhiteSpace($PackageRoot)) { $PackageRoot = $PSScriptRoot }
@@ -666,6 +704,11 @@ if (-not $Apply) {
 $BackupPath = $null
 $TaskExisted = $false
 $TaskXml = $null
+$TaskSnapshotCaptured = $false
+$TaskOriginalEnabled = $false
+$TaskOriginalState = $null
+$TaskWasRunning = $false
+$TaskQuiesced = $false
 $PreImmutable = @($CurrentImmutable)
 $PreDeploymentFiles = @()
 $PreConfigExisted = Test-Path -LiteralPath $InstalledConfigPath -PathType Leaf
@@ -724,10 +767,21 @@ function Restore-Transaction {
   }
   catch { [void]$RollbackErrors.Add("hooks:$($_.Exception.Message)") }
 
-  if ($TaskMode -eq 'Register') {
+  if ($TaskMode -eq 'Register' -and $TaskSnapshotCaptured) {
     try {
       if ($TaskExisted -and -not [string]::IsNullOrWhiteSpace($TaskXml)) {
         Register-ScheduledTask -TaskName $TaskName -Xml $TaskXml -Force | Out-Null
+        if ($TaskOriginalEnabled) { Enable-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null }
+        else { Disable-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null }
+        if ($TaskWasRunning) { Start-ScheduledTask -TaskName $TaskName -ErrorAction Stop }
+        $RestoredTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+        if ([bool]$RestoredTask.Settings.Enabled -ne $TaskOriginalEnabled) {
+          throw "Scheduled task enabled state was not restored: $TaskName"
+        }
+        $RestoredXml = Export-ScheduledTask -TaskName $TaskName
+        if ((Get-NormalizedTaskXml -Xml $RestoredXml) -cne (Get-NormalizedTaskXml -Xml $TaskXml)) {
+          throw "Scheduled task XML was not restored exactly: $TaskName"
+        }
       }
       else {
         Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -777,6 +831,34 @@ try {
   if (Test-PathWithin -Root $ResolvedHandoffRoot -Candidate $BackupPath) { throw 'Transaction backup resolved inside HandoffRoot.' }
   New-Item -ItemType Directory -Force -Path (Join-Path $BackupPath 'original\installation') | Out-Null
 
+  if ($TaskMode -eq 'Register') {
+    $ExistingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    $TaskExisted = $null -ne $ExistingTask
+    if ($TaskExisted) {
+      $TaskXml = Export-ScheduledTask -TaskName $TaskName
+      $TaskOriginalEnabled = [bool]$ExistingTask.Settings.Enabled
+      $TaskOriginalState = [string]$ExistingTask.State
+      $TaskWasRunning = $TaskOriginalState -eq 'Running'
+      [IO.File]::WriteAllText((Join-Path $BackupPath 'original\task.xml'), $TaskXml, $Utf8NoBom)
+    }
+    Write-AtomicText -Path (Join-Path $BackupPath 'original\task_state.json') -Text (ConvertTo-Utf8JsonText -Value ([ordered]@{
+      task_existed = $TaskExisted
+      enabled = if ($TaskExisted) { $TaskOriginalEnabled } else { $null }
+      state = $TaskOriginalState
+    }))
+    $TaskSnapshotCaptured = $true
+    if ($TaskExisted) {
+      Disable-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null
+      $DisabledTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+      if ([string]$DisabledTask.State -in @('Running', 'Queued')) {
+        Stop-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+      }
+      $null = Wait-TaskQuiesced -Name $TaskName
+    }
+    $TaskQuiesced = $true
+    $PreImmutable = @(Get-InstalledImmutableFiles -Root $ResolvedHandoffRoot -DirectoryNames $ImmutableDirectoryNames -RootFileNames $ImmutableRootFileNames)
+  }
+
   foreach ($File in $PreImmutable) {
     $Destination = Join-Path $BackupPath ('original\installation\' + ([string]$File.path).Replace('/', '\'))
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Destination) | Out-Null
@@ -796,14 +878,6 @@ try {
     New-Item -ItemType Directory -Force -Path (Join-Path $BackupPath 'original') | Out-Null
     Copy-Item -LiteralPath $ResolvedHooksPath -Destination (Join-Path $BackupPath 'original\hooks.json')
   }
-  if ($TaskMode -eq 'Register') {
-    $ExistingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    $TaskExisted = $null -ne $ExistingTask
-    if ($TaskExisted) {
-      $TaskXml = Export-ScheduledTask -TaskName $TaskName
-      [IO.File]::WriteAllText((Join-Path $BackupPath 'original\task.xml'), $TaskXml, $Utf8NoBom)
-    }
-  }
   $PreState = [ordered]@{
     schema_version = '1.0.0'
     ecosystem_version = $EcosystemVersion
@@ -811,11 +885,17 @@ try {
     config_existed = $PreConfigExisted
     hooks_existed = $PreHooksExisted
     task_existed = $TaskExisted
+    task_enabled = if ($TaskExisted) { $TaskOriginalEnabled } else { $null }
+    task_state = $TaskOriginalState
+    task_quiesced_before_write = $TaskQuiesced
     immutable_files = @($PreImmutable | ForEach-Object { [ordered]@{ path = $_.path; size_bytes = $_.size_bytes; sha256 = $_.sha256 } })
     deployment_files = @($PreDeploymentFiles | ForEach-Object { Get-RelativeForwardPath -BasePath $DeploymentRoot -Path $_.FullName })
   }
   [IO.File]::WriteAllText((Join-Path $BackupPath 'PRE_STATE.json'), (ConvertTo-Utf8JsonText -Value $PreState), $Utf8NoBom)
 
+  if ($TaskMode -eq 'Register') {
+    Assert-TaskQuiescedBeforeWrite -Name $TaskName -ExistedAtSnapshot $TaskExisted
+  }
   New-Item -ItemType Directory -Force -Path $ResolvedHandoffRoot | Out-Null
   foreach ($Expected in $ExpectedSourceRecords) {
     $Source = Join-Path $PackageRoot ([string]$Expected.package_path).Replace('/', '\')
@@ -855,9 +935,14 @@ try {
       $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
       $Settings = New-ScheduledTaskSettingsSet -Hidden -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew -StartWhenAvailable
       Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Description "Agentic Context Handoff $EcosystemVersion queue worker (hidden)." -Force | Out-Null
+      Enable-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null
     }
     if (-not (Test-TaskDefinitionMatches -Name $TaskName -Descriptor ([pscustomobject]$TaskDescriptor))) {
       throw 'Scheduled task definition does not match the installed Context Handoff source.'
+    }
+    $DesiredTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+    if (-not [bool]$DesiredTask.Settings.Enabled -or [string]$DesiredTask.State -ne 'Ready') {
+      throw "Scheduled task is not enabled and Ready after Context Handoff activation. State=$($DesiredTask.State) Enabled=$([bool]$DesiredTask.Settings.Enabled)"
     }
     if (-not $SkipTaskCanary) {
       Start-ScheduledTask -TaskName $TaskName
@@ -897,6 +982,7 @@ try {
     hook_command_sha256 = Get-BytesSha256 -Bytes $Utf8NoBom.GetBytes($HookCommand)
     task_name = $TaskName
     task_mode = $TaskMode
+    task_quiesced_before_write = $TaskQuiesced
     task_action = $Wscript
     task_arguments = $TaskDescriptor.arguments
     safe_authority_paths = $SafeAuthorityPaths
@@ -923,6 +1009,7 @@ try {
     validation_runs = 2
     idempotent = $false
     task_mode = $TaskMode
+    task_quiesced_before_write = $TaskQuiesced
   } | ConvertTo-Json -Depth 20 -Compress
 }
 catch {

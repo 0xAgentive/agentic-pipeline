@@ -225,6 +225,12 @@ try {
   $ExtraArchiveSha = Get-Sha256 -Path $ExtraArchive
   Assert-Rejected -Result (Invoke-Updater -PackageRoot $PackageRoot -ExtraArguments @('-PackageArchivePath',$ExtraArchive,'-AssetSha256',$ExtraArchiveSha,'-ExpectedSourceCommit',$Commit)) -Pattern 'exact global manifest-bound member set' -Label 'Undeclared global archive member'
 
+  $UpdaterText = Get-Content -LiteralPath $CanonicalUpdater -Raw -Encoding UTF8
+  Assert-True -Condition ($UpdaterText -match '(?s)\$TaskSnapshotCaptured\s*=\s*\$true.*?Disable-ScheduledTask.*?Wait-TaskQuiesced.*?Assert-TaskQuiescedBeforeWrite.*?New-Item\s+-ItemType\s+Directory\s+-Force\s+-Path\s+\$ResolvedHandoffRoot') -Message 'Context Handoff updater does not quiesce the snapshotted task before the first installation write.'
+  Assert-True -Condition ($UpdaterText -match '(?s)function\s+Wait-TaskQuiesced.*?Settings\.Enabled.*?Running.*?Queued.*?Scheduled task did not quiesce') -Message 'Context Handoff updater lacks a fail-closed enabled/running/queued quiescence wait.'
+  Assert-True -Condition ($UpdaterText -match '(?s)function\s+Restore-Transaction.*?Register-ScheduledTask\s+-TaskName\s+\$TaskName\s+-Xml\s+\$TaskXml.*?\$TaskOriginalEnabled.*?Get-NormalizedTaskXml') -Message 'Context Handoff rollback does not restore and verify the exact scheduled-task snapshot.'
+  Assert-True -Condition ($UpdaterText -match '(?s)Register-ScheduledTask\s+-TaskName\s+\$TaskName.*?Enable-ScheduledTask.*?Test-TaskDefinitionMatches.*?Scheduled task is not enabled and Ready') -Message 'Context Handoff activation does not prove the replacement task is enabled and Ready.'
+
   $CompleteText = Get-Content -LiteralPath $CompleteScript -Raw -Encoding UTF8
   Assert-True -Condition ($CompleteText -match '(?s)RuntimeArguments\s*=.*?ExpectedSourceCommit\s*=\s*\$SourceCommit') -Message 'Complete does not bind the runtime updater to final SourceCommit.'
   Assert-True -Condition ($CompleteText -match '(?s)HandoffArguments\s*=.*?PackageArchivePath\s*=\s*\$Assets\.context_handoff.*?AssetSha256\s*=\s*\$HandoffHash.*?ExpectedSourceCommit\s*=\s*\$SourceCommit') -Message 'Complete does not construct exact Context Handoff asset binding arguments.'

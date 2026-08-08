@@ -22,6 +22,7 @@ $ErrorActionPreference = 'Stop'
 $EcosystemVersion = '1.2.11'
 $EngineSchemaVersion = '4.3.4'
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
+$Utf16LeBom = [Text.UnicodeEncoding]::new($false, $true)
 $SafeAuthorityPaths = @(
   '.agy/ACTION_PACKET_RECEIPT.json',
   '.agy/PROGRESS_POLICY.json',
@@ -51,6 +52,33 @@ function Get-BytesSha256 {
   $Hasher = [Security.Cryptography.SHA256]::Create()
   try { return ([Convert]::ToHexString($Hasher.ComputeHash($Bytes))).ToLowerInvariant() }
   finally { $Hasher.Dispose() }
+}
+
+function ConvertTo-EncodedTextBytes {
+  param(
+    [Parameter(Mandatory = $true)][string]$Text,
+    [Parameter(Mandatory = $true)][Text.Encoding]$Encoding
+  )
+  $Preamble = $Encoding.GetPreamble()
+  $Body = $Encoding.GetBytes($Text)
+  $Bytes = [byte[]]::new($Preamble.Length + $Body.Length)
+  if ($Preamble.Length -gt 0) { [Buffer]::BlockCopy($Preamble, 0, $Bytes, 0, $Preamble.Length) }
+  if ($Body.Length -gt 0) { [Buffer]::BlockCopy($Body, 0, $Bytes, $Preamble.Length, $Body.Length) }
+  return ,$Bytes
+}
+
+function Test-FileBytesEqual {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][byte[]]$ExpectedBytes
+  )
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+  $ActualBytes = [IO.File]::ReadAllBytes($Path)
+  if ($ActualBytes.Length -ne $ExpectedBytes.Length) { return $false }
+  for ($Index = 0; $Index -lt $ExpectedBytes.Length; $Index++) {
+    if ($ActualBytes[$Index] -ne $ExpectedBytes[$Index]) { return $false }
+  }
+  return $true
 }
 
 function Get-StreamSha256 {
@@ -598,6 +626,7 @@ exitCode = shell.Run(commandLine, 0, True)
 WScript.Quit exitCode
 "@
 $DesiredLauncherText = $DesiredLauncherText.Replace("`r`n", "`n")
+$DesiredLauncherBytes = ConvertTo-EncodedTextBytes -Text $DesiredLauncherText -Encoding $Utf16LeBom
 
 $TaskDescriptor = [ordered]@{
   schema_version = '1.0.0'
@@ -665,7 +694,6 @@ foreach ($Current in $CurrentImmutable) {
 
 $DesiredTextFiles = [ordered]@{
   $InstalledConfigPath = $DesiredConfigText
-  $LauncherPath = $DesiredLauncherText
   $TaskDescriptorPath = $DesiredTaskDescriptorText
   $InstalledSourceManifestPath = $DesiredSourceManifestText
   $ResolvedHooksPath = $DesiredHooksText
@@ -673,6 +701,9 @@ $DesiredTextFiles = [ordered]@{
 foreach ($Pair in $DesiredTextFiles.GetEnumerator()) {
   $CurrentText = if (Test-Path -LiteralPath $Pair.Key -PathType Leaf) { Get-Content -LiteralPath $Pair.Key -Raw -Encoding UTF8 } else { $null }
   if ($null -eq $CurrentText -or $CurrentText -cne [string]$Pair.Value) { [void]$Changes.Add("text:$($Pair.Key)") }
+}
+if (-not (Test-FileBytesEqual -Path $LauncherPath -ExpectedBytes $DesiredLauncherBytes)) {
+  [void]$Changes.Add("bytes:$LauncherPath")
 }
 if ($TaskMode -eq 'Register' -and -not (Test-TaskDefinitionMatches -Name $TaskName -Descriptor ([pscustomobject]$TaskDescriptor))) {
   [void]$Changes.Add("task:$TaskName")
@@ -912,7 +943,7 @@ try {
     }
   }
   Write-AtomicText -Path $InstalledConfigPath -Text $DesiredConfigText
-  Write-AtomicText -Path $LauncherPath -Text $DesiredLauncherText
+  Write-AtomicBytes -Path $LauncherPath -Bytes $DesiredLauncherBytes
   Write-AtomicText -Path $TaskDescriptorPath -Text $DesiredTaskDescriptorText
   Write-AtomicText -Path $InstalledSourceManifestPath -Text $DesiredSourceManifestText
 

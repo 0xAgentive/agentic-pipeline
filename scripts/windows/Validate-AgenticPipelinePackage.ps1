@@ -17,7 +17,7 @@ function Files([string[]]$ext=@()){
 }
 
 $required = @(
- "README.md","README.ru.md","VERSION.json","ECOSYSTEM_VERSION.json","LICENSE","SECURITY.md","CONTRIBUTING.md","CHANGELOG.md",
+ "README.md","README.ru.md","VERSION.json","ECOSYSTEM_VERSION.json","SOURCE_IDENTITY.json","LICENSE","SECURITY.md","CONTRIBUTING.md","CHANGELOG.md",
  "docs/AGENTIC_PIPELINE_PLAYBOOK.md","docs/GITHUB_PUBLICATION.md","docs/PIPELINE_VERSION_MATRIX.md",
  "config/command-inventory.json","schemas/phase-status.schema.json","schemas/command-inventory.schema.json","schemas/version.schema.json",
  "docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.9.md","docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.9.md","docs/companion/01_PROJECT_INSTRUCTIONS_v1.2.9.md","docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.9.md","docs/companion/14_AUTONOMOUS_CONVERGENCE_AND_AUDIT_COVERAGE.md","docs/companion/15_OWNER_OUTPUT_PRESENTATION.md",

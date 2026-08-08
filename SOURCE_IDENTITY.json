@@ -1,0 +1,5 @@
+{
+  "schema_version": "1.0.0",
+  "source_commit": "$Format:%H$",
+  "identity_transport": "git_archive_export_subst"
+}

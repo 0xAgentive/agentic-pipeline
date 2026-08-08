@@ -126,6 +126,14 @@ if ([string]::IsNullOrWhiteSpace($SourceCommit)) {
   $SourceGit = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C', $SourceRoot, 'rev-parse', 'HEAD')
   if ($SourceGit.ExitCode -eq 0) { $SourceCommit = $SourceGit.StdOut.Trim() }
 }
+if ($SourceCommit -notmatch '^[0-9a-fA-F]{40}$') {
+  $SourceIdentityPath = Join-Path $SourceRoot 'SOURCE_IDENTITY.json'
+  if (Test-Path -LiteralPath $SourceIdentityPath -PathType Leaf) {
+    $SourceIdentity = Get-Content -LiteralPath $SourceIdentityPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $ArchivedCommit = [string](Get-OptionalProperty $SourceIdentity 'source_commit' '')
+    if ($ArchivedCommit -match '^[0-9a-fA-F]{40}$') { $SourceCommit = $ArchivedCommit }
+  }
+}
 if ($SourceCommit -notmatch '^[0-9a-fA-F]{40}$') { throw 'Runtime source commit is missing or invalid.' }
 
 if ($null -ne $OverlayManifest) {

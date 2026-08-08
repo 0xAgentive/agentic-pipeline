@@ -79,6 +79,24 @@ try {
   Invoke-Checked -FilePath $Pwsh -Arguments @('-NoProfile', '-File', (Join-Path $Root 'tests\acceptance\Test-CandidateOverlayEolSafety.ps1'), '-RepoRoot', $Root) -Description 'CRLF overlay regression' | Out-Null
   Add-Pass 'KF-043/KF-046' 'Blob-identical overlay leaves CRLF checkout bytes unchanged.'
 
+  $SourceIdentityPath = Join-Path $Root 'SOURCE_IDENTITY.json'
+  if (-not (Test-Path -LiteralPath $SourceIdentityPath -PathType Leaf)) { throw 'SOURCE_IDENTITY.json is missing.' }
+  $GitProbe = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C', $Root, 'rev-parse', '--is-inside-work-tree')
+  if ($GitProbe.ExitCode -eq 0 -and $GitProbe.StdOut.Trim() -eq 'true') {
+    $IdentityArchive = Join-Path $TempRoot 'source-identity.zip'
+    $IdentityExtract = Join-Path $TempRoot 'source-identity-extract'
+    Invoke-Checked -FilePath 'git' -Arguments @('-C', $Root, 'archive', '--format=zip', '-o', $IdentityArchive, 'HEAD', 'SOURCE_IDENTITY.json') -Description 'source identity git archive' | Out-Null
+    Expand-Archive -LiteralPath $IdentityArchive -DestinationPath $IdentityExtract
+    $ArchivedIdentity = Get-Content -LiteralPath (Join-Path $IdentityExtract 'SOURCE_IDENTITY.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $ExpectedArchiveCommit = (Invoke-Checked -FilePath 'git' -Arguments @('-C', $Root, 'rev-parse', 'HEAD') -Description 'source identity expected commit').StdOut.Trim()
+    if ([string]$ArchivedIdentity.source_commit -cne $ExpectedArchiveCommit) { throw 'git archive did not bind SOURCE_IDENTITY.json to HEAD.' }
+  }
+  else {
+    $ArchivedIdentity = Get-Content -LiteralPath $SourceIdentityPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]$ArchivedIdentity.source_commit -notmatch '^[0-9a-fA-F]{40}$') { throw 'Extracted package source identity is not commit-bound.' }
+  }
+  Add-Pass 'RELEASE-SOURCE-IDENTITY' 'Git archive and extracted package preserve an exact 40-hex source commit.'
+
   $LegacyRepo = Join-Path $TempRoot 'legacy state fixture'
   New-Item -ItemType Directory -Force -Path (Join-Path $LegacyRepo '.agy'), (Join-Path $LegacyRepo 'scripts\control-plane') | Out-Null
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\control-plane\validate-findings.cjs') -Destination (Join-Path $LegacyRepo 'scripts\control-plane\validate-findings.cjs')

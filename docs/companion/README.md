@@ -1,8 +1,8 @@
-# Agentic Pipeline Companion 1.2.11
+# Agentic Pipeline Companion 1.2.12
 
-Active project pack: modules `00–15`, Project Instructions 1.2.11.
+Active project pack: modules `00–15`, Project Instructions 1.2.12.
 
-All owner-visible components use ecosystem version 1.2.11. The Companion creates one immutable brief and then emits single-file JSON Action Packets. Runtime 1.2.11 enforces exact pre-write authority, fail-closed findings, progress-based continuation, protected review and compact owner output.
+All owner-visible components use ecosystem version 1.2.12. The Companion creates one immutable brief and then emits single-file JSON Action Packets. Runtime 1.2.12 enforces exact pre-write authority, fail-closed findings, progress-based continuation, protected review and compact owner output.
 
-Build with `scripts/windows/companion/Build-CompanionPack-v1.2.11.ps1`.
-Validate with `scripts/windows/companion/Test-CompanionPack-v1.2.11.ps1`.
+Build with `scripts/windows/companion/Build-CompanionPack-v1.2.12.ps1`.
+Validate with `scripts/windows/companion/Test-CompanionPack-v1.2.12.ps1`.

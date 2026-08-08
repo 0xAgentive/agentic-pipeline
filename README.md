@@ -1,3 +1,3 @@
-# Agentic Pipeline 1.2.11
+# Agentic Pipeline 1.2.12
 
-Unified ecosystem version: `1.2.11` for Pipeline, runtime, playbook, Companion, Action Bridge and Context Handoff integration. Owner-facing communication is plain-language; executable tasks are delivered through automatic single-file JSON Action Packets.
+Unified ecosystem version: `1.2.12` for Pipeline, runtime, playbook, Companion, Action Bridge and Context Handoff integration. Owner-facing communication is plain-language; executable tasks are delivered through automatic single-file JSON Action Packets.

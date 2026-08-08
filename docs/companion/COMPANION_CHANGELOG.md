@@ -1,5 +1,11 @@
 # Companion changelog
 
+## 1.2.12 — Context Handoff Unicode Launcher
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.12.
+- Makes the hidden Context Handoff launcher Unicode-safe and byte-idempotent on Windows.
+
 ## 1.2.11 — Context Handoff Task Quiescence
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

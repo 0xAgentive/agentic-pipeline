@@ -7,7 +7,7 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
-$EcosystemVersion = '1.2.11'
+$EcosystemVersion = '1.2.12'
 $ActionPacketSchemaVersion = '1.2.9'
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $Python = (Get-Command python -ErrorAction Stop | Select-Object -First 1).Source

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.12 — Context Handoff Unicode Launcher
+
+- Supersedes 1.2.11 without moving or rewriting its public tag or release.
+- Serializes the hidden Context Handoff launcher as UTF-16LE with BOM so Windows Script Host preserves non-ASCII Python paths.
+- Compares the launcher byte-for-byte, keeping a successful second apply write-free and byte-identical.
+- Adds an executable `cscript` Unicode-path regression with idempotence and exact transactional rollback coverage.
+- Rebinds all five ecosystem assets to one immutable 1.2.12 source commit while retaining schema 1.2.9 compatibility.
+
 ## 1.2.11 — Context Handoff Task Quiescence
 
 - Supersedes 1.2.10 without moving or rewriting its public tag or release.

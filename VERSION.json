@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.11",
-  "package_version": "1.2.11",
-  "release_name": "Context Handoff Task Quiescence",
-  "playbook_version": "1.2.11",
-  "runtime_version": "1.2.11",
-  "companion_version": "1.2.11",
-  "action_bridge_version": "1.2.11",
-  "context_handoff_version": "1.2.11",
-  "handoff_compatibility": "1.2.11",
+  "ecosystem_version": "1.2.12",
+  "package_version": "1.2.12",
+  "release_name": "Context Handoff Unicode Launcher",
+  "playbook_version": "1.2.12",
+  "runtime_version": "1.2.12",
+  "companion_version": "1.2.12",
+  "action_bridge_version": "1.2.12",
+  "context_handoff_version": "1.2.12",
+  "handoff_compatibility": "1.2.12",
   "status": "stable"
 }

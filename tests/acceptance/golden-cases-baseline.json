@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "source_path": "evals/companion/golden_cases.json",
-  "source_sha256": "354c7e993436f4f655f16e86269ba5db4e76eb6e8c5886cf2597db93f665d9f8",
+  "source_sha256": "1d903c3b23a9aba75d270d4ca04055c559a7e5de9c534cbbbbd6c13adaddef0d",
   "case_count": 56,
   "case_ids": [
     "unknown_slash_command_is_rejected",
@@ -61,5 +61,5 @@
     "dirty_state_overrides_state_declared_fixcritical",
     "repeated_no_progress_stops_without_repair_override_prompt"
   ],
-  "release_baseline": "1.2.11-context-handoff-task-quiescence"
+  "release_baseline": "1.2.12-context-handoff-unicode-launcher"
 }

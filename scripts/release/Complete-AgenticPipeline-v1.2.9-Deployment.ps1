@@ -94,6 +94,7 @@ try {
     RuntimeRoot = $RuntimePackage
     RuntimeArchivePath = $Assets.runtime
     AssetSha256 = $RuntimeHash
+    ExpectedSourceCommit = $SourceCommit
     AllowDirty = $true
     BackupBaseRoot = $RuntimeBackupRoot
   }
@@ -111,9 +112,18 @@ try {
 
   $HandoffPackage = Find-PackageRoot -ExtractRoot $HandoffExtract -Marker 'Update-AgenticContextHandoff-v1.2.9.ps1'
   $HandoffUpdater = Join-Path $HandoffPackage 'Update-AgenticContextHandoff-v1.2.9.ps1'
-  & $HandoffUpdater -PackageRoot $HandoffPackage -HandoffRoot $HandoffRoot
-  & $HandoffUpdater -PackageRoot $HandoffPackage -HandoffRoot $HandoffRoot -Apply
-  & $HandoffUpdater -PackageRoot $HandoffPackage -HandoffRoot $HandoffRoot -Apply
+  $HandoffHash = (Get-FileHash -LiteralPath $Assets.context_handoff -Algorithm SHA256).Hash.ToLowerInvariant()
+  $HandoffArguments = @{
+    PackageRoot = $HandoffPackage
+    PackageArchivePath = $Assets.context_handoff
+    AssetSha256 = $HandoffHash
+    ExpectedSourceCommit = $SourceCommit
+    HandoffRoot = $HandoffRoot
+  }
+  & $HandoffUpdater @HandoffArguments
+  $HandoffArguments.Apply = $true
+  & $HandoffUpdater @HandoffArguments
+  & $HandoffUpdater @HandoffArguments
 
   $CompanionHash = (Get-FileHash -LiteralPath $Assets.companion -Algorithm SHA256).Hash.ToLowerInvariant()
   $Prepare = Join-Path $Repo 'scripts\release\Prepare-AgenticPipeline-Companion-v1.2.9.ps1'

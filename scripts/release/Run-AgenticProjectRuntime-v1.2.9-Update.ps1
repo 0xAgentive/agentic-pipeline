@@ -4,6 +4,7 @@ param(
   [string]$RepoRoot = "$env:USERPROFILE\Documents\antigravity\agentic-pipeline",
   [string]$RuntimeZip = "",
   [string]$RuntimeSha256 = "",
+  [string]$ExpectedSourceCommit = "",
   [switch]$Apply,
   [switch]$AllowDirty,
   [switch]$SkipValidation
@@ -22,6 +23,7 @@ try {
 
   $EffectiveRepoRoot = $RepoRoot
   if (![string]::IsNullOrWhiteSpace($RuntimeZip)) {
+    if ($ExpectedSourceCommit -notmatch '^[0-9a-fA-F]{40}$') { throw 'ExpectedSourceCommit is required when installing a runtime release ZIP.' }
     if (!(Test-Path -LiteralPath $RuntimeZip -PathType Leaf)) { throw "Runtime overlay ZIP not found: $RuntimeZip" }
     $RuntimeZip = (Resolve-Path -LiteralPath $RuntimeZip).Path
     $ActualRuntimeSha256 = (Get-FileHash -LiteralPath $RuntimeZip -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -53,6 +55,7 @@ try {
     $UpdaterArguments.RuntimeRoot = $EffectiveRepoRoot
     $UpdaterArguments.RuntimeArchivePath = $RuntimeZip
     $UpdaterArguments.AssetSha256 = $RuntimeSha256
+    $UpdaterArguments.ExpectedSourceCommit = $ExpectedSourceCommit
   }
   else {
     $UpdaterArguments.RepoRoot = $EffectiveRepoRoot

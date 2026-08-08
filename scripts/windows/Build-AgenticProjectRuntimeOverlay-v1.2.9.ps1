@@ -145,7 +145,7 @@ try {
   $Readme = @'
 # Agentic Project Runtime 1.2.9 Overlay
 
-Extract this exact release archive, calculate its SHA-256, and run `scripts/windows/Update-AgenticProjectRuntime-v1.2.9.ps1` from the extracted root with `-RuntimeArchivePath` and `-AssetSha256`: first without `-Apply`, then with `-Apply -AllowDirty` after review. The updater cryptographically binds the extracted manifest to the archive, changes only the explicit framework-owned allowlist, creates transactional backups, never cleans/resets product source, migrates legacy counter-based routing to progress history, and activates project-local Antigravity hooks last.
+Extract this exact release archive, calculate its SHA-256, resolve the 40-hex commit identified by the release tag, and run `scripts/windows/Update-AgenticProjectRuntime-v1.2.9.ps1` from the extracted root with `-RuntimeArchivePath`, `-AssetSha256`, and `-ExpectedSourceCommit`: first without `-Apply`, then with `-Apply -AllowDirty` after review. The updater cryptographically binds the extracted manifest to the archive and release commit, changes only the explicit framework-owned allowlist, creates transactional backups, never cleans/resets product source, migrates legacy counter-based routing to progress history, and activates project-local Antigravity hooks last.
 '@
   [IO.File]::WriteAllText((Join-Path $PackageRoot 'README_RU.md'), $Readme, $Utf8NoBom)
   $DeploymentMap = New-Object System.Collections.Generic.List[object]

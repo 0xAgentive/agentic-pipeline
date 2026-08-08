@@ -5,6 +5,7 @@ param(
   [string]$RepoRoot = '',
   [string]$RuntimeArchivePath = '',
   [string]$AssetSha256 = '',
+  [string]$ExpectedSourceCommit = '',
   [switch]$Apply,
   [switch]$AllowDirty,
   [switch]$SkipValidation,
@@ -135,8 +136,14 @@ if ($SourceCommit -notmatch '^[0-9a-fA-F]{40}$') {
   }
 }
 if ($SourceCommit -notmatch '^[0-9a-fA-F]{40}$') { throw 'Runtime source commit is missing or invalid.' }
+if (-not [string]::IsNullOrWhiteSpace($ExpectedSourceCommit)) {
+  if ($ExpectedSourceCommit -notmatch '^[0-9a-fA-F]{40}$' -or $SourceCommit.ToLowerInvariant() -cne $ExpectedSourceCommit.ToLowerInvariant()) {
+    throw 'Runtime source commit does not match ExpectedSourceCommit.'
+  }
+}
 
 if ($null -ne $OverlayManifest) {
+  if ([string]::IsNullOrWhiteSpace($ExpectedSourceCommit)) { throw 'ExpectedSourceCommit is required when installing an extracted release asset.' }
   if ([string]::IsNullOrWhiteSpace($RuntimeArchivePath) -or -not (Test-Path -LiteralPath $RuntimeArchivePath -PathType Leaf)) { throw 'RuntimeArchivePath is required when installing an extracted release asset.' }
   if ($AssetSha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'A verified 64-hex AssetSha256 is required for an extracted release asset.' }
   $ArchiveFull = (Resolve-Path -LiteralPath $RuntimeArchivePath).Path

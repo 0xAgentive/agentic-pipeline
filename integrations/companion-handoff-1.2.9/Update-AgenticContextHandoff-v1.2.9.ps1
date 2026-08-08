@@ -2,6 +2,9 @@
 param(
   [string]$HandoffRoot = 'C:\Scripts\AntigravityProjects\companion-handoff',
   [string]$PackageRoot = '',
+  [string]$PackageArchivePath = '',
+  [string]$AssetSha256 = '',
+  [string]$ExpectedSourceCommit = '',
   [string]$BackupRoot = '',
   [string]$HooksPath = "$env:USERPROFILE\.gemini\config\hooks.json",
   [string]$TaskName = 'AntigravityCompanionHandoffWorker',
@@ -47,6 +50,13 @@ function Get-BytesSha256 {
   param([Parameter(Mandatory = $true)][byte[]]$Bytes)
   $Hasher = [Security.Cryptography.SHA256]::Create()
   try { return ([Convert]::ToHexString($Hasher.ComputeHash($Bytes))).ToLowerInvariant() }
+  finally { $Hasher.Dispose() }
+}
+
+function Get-StreamSha256 {
+  param([Parameter(Mandatory = $true)][IO.Stream]$Stream)
+  $Hasher = [Security.Cryptography.SHA256]::Create()
+  try { return ([Convert]::ToHexString($Hasher.ComputeHash($Stream))).ToLowerInvariant() }
   finally { $Hasher.Dispose() }
 }
 
@@ -244,6 +254,78 @@ function Test-PackageIntegrity {
   return [pscustomobject]@{ version = $Version; manifest = $Manifest; attestation = $Attestation }
 }
 
+function Test-PackageArchiveBinding {
+  param(
+    [Parameter(Mandatory = $true)][string]$ExtractedRoot,
+    [Parameter(Mandatory = $true)][object]$Manifest,
+    [Parameter(Mandatory = $true)][string]$ArchivePath,
+    [Parameter(Mandatory = $true)][string]$ExpectedAssetSha256
+  )
+
+  if (-not (Test-Path -LiteralPath $ArchivePath -PathType Leaf) -or [IO.Path]::GetExtension($ArchivePath) -ine '.zip') {
+    throw 'PackageArchivePath must identify the originating Context Handoff release ZIP.'
+  }
+  if ($ExpectedAssetSha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'A verified 64-hex Context Handoff AssetSha256 is required.' }
+  $ResolvedArchive = (Resolve-Path -LiteralPath $ArchivePath).Path
+  $ActualAssetSha256 = Get-Sha256 -Path $ResolvedArchive
+  if ($ActualAssetSha256 -cne $ExpectedAssetSha256.ToLowerInvariant()) { throw 'Context Handoff archive SHA-256 does not match AssetSha256.' }
+
+  $Archive = [IO.Compression.ZipFile]::OpenRead($ResolvedArchive)
+  try {
+    $ArchiveEntries = [Collections.Generic.Dictionary[string,object]]::new([StringComparer]::OrdinalIgnoreCase)
+    $ArchiveFiles = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $TotalExpandedBytes = [int64]0
+    foreach ($Entry in $Archive.Entries) {
+      $Name = $Entry.FullName.Replace('\', '/')
+      if (
+        [string]::IsNullOrWhiteSpace($Name) -or
+        $Name.StartsWith('/') -or
+        $Name -match '^[A-Za-z]:' -or
+        $Name -match '(^|/)\.\.(/|$)' -or
+        -not $ArchiveEntries.TryAdd($Name, $Entry)
+      ) { throw 'Context Handoff archive contains an unsafe or duplicate member.' }
+      if (-not $Name.EndsWith('/')) {
+        [void]$ArchiveFiles.Add($Name)
+        $TotalExpandedBytes += [int64]$Entry.Length
+        if ($TotalExpandedBytes -gt 128MB) { throw 'Context Handoff archive expanded size exceeds the 128 MiB safety limit.' }
+      }
+    }
+
+    $ArchiveManifestEntries = @($Archive.Entries | Where-Object {
+      -not $_.FullName.Replace('\', '/').EndsWith('/') -and $_.FullName.Replace('\', '/') -match '(^|/)MANIFEST\.json$'
+    })
+    if ($ArchiveManifestEntries.Count -ne 1) { throw "Context Handoff archive must contain exactly one MANIFEST.json; found $($ArchiveManifestEntries.Count)." }
+    $ArchiveManifestName = $ArchiveManifestEntries[0].FullName.Replace('\', '/')
+    $ArchivePrefix = $ArchiveManifestName.Substring(0, $ArchiveManifestName.Length - 'MANIFEST.json'.Length)
+    $ArchiveManifestStream = $ArchiveManifestEntries[0].Open()
+    try { $ArchiveManifestSha256 = Get-StreamSha256 -Stream $ArchiveManifestStream }
+    finally { $ArchiveManifestStream.Dispose() }
+    if ((Get-Sha256 -Path (Join-Path $ExtractedRoot 'MANIFEST.json')) -cne $ArchiveManifestSha256) {
+      throw 'Extracted Context Handoff MANIFEST.json does not match the raw manifest in the verified archive.'
+    }
+
+    $ExpectedArchiveFiles = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    [void]$ExpectedArchiveFiles.Add($ArchiveManifestName)
+    foreach ($ManifestEntry in @($Manifest.files)) {
+      $RelativeMember = ([string]$ManifestEntry.path).Replace('\', '/')
+      $ArchiveMemberName = $ArchivePrefix + $RelativeMember
+      if (-not $ExpectedArchiveFiles.Add($ArchiveMemberName)) { throw "Duplicate Context Handoff manifest member: $RelativeMember" }
+      if (-not $ArchiveEntries.ContainsKey($ArchiveMemberName)) { throw "Verified Context Handoff archive is missing manifest member: $RelativeMember" }
+      $ArchiveMember = $ArchiveEntries[$ArchiveMemberName]
+      if ([int64]$ArchiveMember.Length -ne [int64]$ManifestEntry.size_bytes) { throw "Context Handoff archive member size mismatch: $RelativeMember" }
+      $ArchiveMemberStream = $ArchiveMember.Open()
+      try { $ArchiveMemberSha256 = Get-StreamSha256 -Stream $ArchiveMemberStream }
+      finally { $ArchiveMemberStream.Dispose() }
+      if ($ArchiveMemberSha256 -cne ([string]$ManifestEntry.sha256).ToLowerInvariant()) { throw "Context Handoff archive member hash mismatch: $RelativeMember" }
+    }
+    if ($ArchiveFiles.Count -ne $ExpectedArchiveFiles.Count -or @($ArchiveFiles | Where-Object { -not $ExpectedArchiveFiles.Contains($_) }).Count -gt 0) {
+      throw 'Context Handoff archive contains files outside its exact global manifest-bound member set.'
+    }
+  }
+  finally { $Archive.Dispose() }
+  return $ActualAssetSha256
+}
+
 function Get-InstalledImmutableFiles {
   param(
     [Parameter(Mandatory = $true)][string]$Root,
@@ -367,6 +449,25 @@ $PackageState = Test-PackageIntegrity -Root $PackageRoot
 $Version = $PackageState.version
 $Manifest = $PackageState.manifest
 $Attestation = $PackageState.attestation
+$PackageSourceCommit = ([string]$Version.source_commit).ToLowerInvariant()
+$HasArchivePath = -not [string]::IsNullOrWhiteSpace($PackageArchivePath)
+$HasAssetSha256 = -not [string]::IsNullOrWhiteSpace($AssetSha256)
+$NormalizedAssetSha256 = $null
+
+if (-not $AllowDevelopmentPackage) {
+  if (-not $HasArchivePath) { throw 'PackageArchivePath is required to bind the extracted Context Handoff release package to its ZIP.' }
+  if (-not $HasAssetSha256) { throw 'AssetSha256 is required to bind the extracted Context Handoff release package to its ZIP.' }
+  if ([string]::IsNullOrWhiteSpace($ExpectedSourceCommit)) { throw 'ExpectedSourceCommit is required for a Context Handoff release package.' }
+}
+if ($HasArchivePath -xor $HasAssetSha256) { throw 'PackageArchivePath and AssetSha256 must be supplied together.' }
+if (-not [string]::IsNullOrWhiteSpace($ExpectedSourceCommit)) {
+  if ($ExpectedSourceCommit -notmatch '^[0-9a-fA-F]{40}$' -or $PackageSourceCommit -cne $ExpectedSourceCommit.ToLowerInvariant()) {
+    throw 'Context Handoff package source commit does not exactly match ExpectedSourceCommit.'
+  }
+}
+if ($HasArchivePath) {
+  $NormalizedAssetSha256 = Test-PackageArchiveBinding -ExtractedRoot $PackageRoot -Manifest $Manifest -ArchivePath $PackageArchivePath -ExpectedAssetSha256 $AssetSha256
+}
 
 $RootExisted = Test-Path -LiteralPath $HandoffRoot -PathType Container
 $ResolvedHandoffRoot = if ($RootExisted) { (Resolve-Path -LiteralPath $HandoffRoot).Path } else { [IO.Path]::GetFullPath($HandoffRoot) }
@@ -482,6 +583,7 @@ $InstalledSourceManifest = [ordered]@{
   engine_schema_version = $EngineSchemaVersion
   source_commit = [string]$Version.source_commit
   source_tree_dirty = [bool]$Version.source_tree_dirty
+  release_asset_sha256 = $NormalizedAssetSha256
   package_manifest_sha256 = Get-Sha256 -Path (Join-Path $PackageRoot 'MANIFEST.json')
   source_payload_sha256 = [string]$Attestation.source_payload_sha256
   explicit_exclusions = $ExplicitExclusions
@@ -545,6 +647,7 @@ $Plan = [ordered]@{
   ecosystem_version = $EcosystemVersion
   source_commit = [string]$Version.source_commit
   source_tree_dirty = [bool]$Version.source_tree_dirty
+  release_asset_sha256 = $NormalizedAssetSha256
   source_payload_sha256 = [string]$Attestation.source_payload_sha256
   handoff_root = $ResolvedHandoffRoot
   backup_root = $ResolvedBackupRoot
@@ -657,6 +760,7 @@ if ($Changes.Count -eq 0) {
     status = 'PASS'
     ecosystem_version = $EcosystemVersion
     source_commit = [string]$Version.source_commit
+    release_asset_sha256 = $NormalizedAssetSha256
     source_payload_sha256 = [string]$Attestation.source_payload_sha256
     handoff_root = $ResolvedHandoffRoot
     changes_applied = 0
@@ -782,6 +886,7 @@ try {
     engine_schema_version = $EngineSchemaVersion
     source_commit = [string]$Version.source_commit
     source_tree_dirty = [bool]$Version.source_tree_dirty
+    release_asset_sha256 = $NormalizedAssetSha256
     package_manifest_sha256 = Get-Sha256 -Path (Join-Path $PackageRoot 'MANIFEST.json')
     source_payload_sha256 = [string]$Attestation.source_payload_sha256
     installed_source_sha256 = $FinalDigest
@@ -810,6 +915,7 @@ try {
     status = 'PASS'
     ecosystem_version = $EcosystemVersion
     source_commit = [string]$Version.source_commit
+    release_asset_sha256 = $NormalizedAssetSha256
     source_payload_sha256 = [string]$Attestation.source_payload_sha256
     handoff_root = $ResolvedHandoffRoot
     backup_path = $BackupPath

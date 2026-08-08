@@ -10,6 +10,17 @@ $BackupRoot = Join-Path $TempRoot 'backups'
 $Pwsh = (Get-Command pwsh -ErrorAction Stop).Source
 $Updater = Join-Path $Root 'scripts\windows\Update-AgenticProjectRuntime-v1.2.9.ps1'
 $Utf8 = [Text.UTF8Encoding]::new($false)
+$SourceCommitProbe = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Root,'rev-parse','HEAD')
+$ExpectedRuntimeSourceCommit = if ($SourceCommitProbe.ExitCode -eq 0 -and $SourceCommitProbe.StdOut.Trim() -match '^[0-9a-fA-F]{40}$') {
+  $SourceCommitProbe.StdOut.Trim()
+} else {
+  [string](Get-Content -LiteralPath (Join-Path $Root 'SOURCE_IDENTITY.json') -Raw -Encoding UTF8 | ConvertFrom-Json).source_commit
+}
+if ($ExpectedRuntimeSourceCommit -notmatch '^[0-9a-fA-F]{40}$') { throw 'Runtime transaction regression cannot resolve an exact source commit.' }
+$UpdaterText = Get-Content -LiteralPath $Updater -Raw -Encoding UTF8
+if ($UpdaterText -notmatch '(?s)\$null\s+-ne\s+\$OverlayManifest.*?ExpectedSourceCommit is required when installing an extracted release asset') {
+  throw 'Runtime updater does not fail closed when a release overlay lacks ExpectedSourceCommit.'
+}
 
 function Invoke-Required([string]$FilePath, [string[]]$Arguments, [string]$Description) {
   $Result = Invoke-AgenticNativeProcess -FilePath $FilePath -ArgumentList $Arguments
@@ -117,11 +128,17 @@ function New-StaleTransaction([string]$Project, [string]$Name, [string]$Phase, [
 
 try {
   New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
+  $IdentityMismatchProject = New-Fixture 'source identity mismatch'
+  $IdentityMismatchBefore = @(Get-TreeSnapshot $IdentityMismatchProject)
+  $IdentityMismatch = Invoke-AgenticNativeProcess -FilePath $Pwsh -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$Updater,'-ProjectRoot',$IdentityMismatchProject,'-RepoRoot',$Root,'-ExpectedSourceCommit',('0' * 40),'-AllowDirty','-BackupBaseRoot',$BackupRoot)
+  if ($IdentityMismatch.ExitCode -eq 0 -or $IdentityMismatch.StdErr -notmatch 'does not match ExpectedSourceCommit') { throw 'Runtime updater did not reject a mismatched expected source commit.' }
+  if (@(Compare-Snapshot -Before $IdentityMismatchBefore -After @(Get-TreeSnapshot $IdentityMismatchProject)).Count -ne 0) { throw 'Source-identity rejection changed the project fixture.' }
+
   $Project = New-Fixture 'idempotent project юникод'
   Remove-Item -LiteralPath (Join-Path $Project '.agy\PROGRESS_STATE.json') -Force
   Remove-Item -LiteralPath (Join-Path $Project '.agy\NEXT_ACTION.json') -Force
   $ProductBefore = (Get-FileHash -LiteralPath (Join-Path $Project 'src\product.txt') -Algorithm SHA256).Hash
-  $Common = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$Updater,'-ProjectRoot',$Project,'-RepoRoot',$Root,'-Apply','-AllowDirty','-BackupBaseRoot',$BackupRoot)
+  $Common = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$Updater,'-ProjectRoot',$Project,'-RepoRoot',$Root,'-ExpectedSourceCommit',$ExpectedRuntimeSourceCommit,'-Apply','-AllowDirty','-BackupBaseRoot',$BackupRoot)
   Invoke-Required $Pwsh $Common 'runtime updater first apply' | Out-Null
   foreach ($Required in @('.agy\PROGRESS_STATE.json','.agy\NEXT_ACTION.json','.agy\OWNER_AUTONOMY_MIGRATION_RESULT.json','.agy\INSTALLATION_MANIFEST.json','.agy\RUNTIME_UPDATE_RESULT.json')) {
     if (-not (Test-Path -LiteralPath (Join-Path $Project $Required) -PathType Leaf)) { throw "Runtime updater omitted required state: $Required" }

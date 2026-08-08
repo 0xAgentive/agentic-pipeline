@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.11 — Context Handoff Task Quiescence
+
+- Supersedes 1.2.10 without moving or rewriting its public tag or release.
+- Quiesces the snapshotted Context Handoff worker before the first installation write.
+- Restores and verifies the exact prior task definition and enabled/running state on transactional rollback.
+- Requires the replacement worker to be enabled and Ready before a successful update is reported.
+- Rebinds all five ecosystem assets to one immutable 1.2.11 source commit while retaining schema 1.2.9 compatibility.
+
 ## 1.2.10 — Lossless Legacy Runtime Migration
 
 - Supersedes 1.2.9 without moving or rewriting its public tag or release.

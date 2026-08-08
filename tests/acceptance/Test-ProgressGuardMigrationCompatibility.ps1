@@ -116,7 +116,7 @@ try {
       if (-not ($UpdatedHandshake.PSObject.Properties.Name -contains 'installed')) {
         throw "Case $($CaseItem.name): installed was not added."
       }
-      if ([string]$UpdatedHandshake.installed.runtime_version -ne '1.2.10') {
+      if ([string]$UpdatedHandshake.installed.runtime_version -ne '1.2.11') {
         throw "Case $($CaseItem.name): installed runtime version mismatch."
       }
       if (-not ($UpdatedHandshake.PSObject.Properties.Name -contains 'routing')) {

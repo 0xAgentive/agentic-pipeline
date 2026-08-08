@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.10",
-  "package_version": "1.2.10",
-  "release_name": "Lossless Legacy Runtime Migration",
-  "playbook_version": "1.2.10",
-  "runtime_version": "1.2.10",
-  "companion_version": "1.2.10",
-  "action_bridge_version": "1.2.10",
-  "context_handoff_version": "1.2.10",
-  "handoff_compatibility": "1.2.10",
+  "ecosystem_version": "1.2.11",
+  "package_version": "1.2.11",
+  "release_name": "Context Handoff Task Quiescence",
+  "playbook_version": "1.2.11",
+  "runtime_version": "1.2.11",
+  "companion_version": "1.2.11",
+  "action_bridge_version": "1.2.11",
+  "context_handoff_version": "1.2.11",
+  "handoff_compatibility": "1.2.11",
   "status": "stable"
 }

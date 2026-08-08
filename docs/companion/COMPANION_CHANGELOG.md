@@ -1,5 +1,11 @@
 # Companion changelog
 
+## 1.2.11 — Context Handoff Task Quiescence
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.11.
+- Prevents the installed Context Handoff worker from racing transactional source replacement.
+
 ## 1.2.10 — Lossless Legacy Runtime Migration
 
 - Keeps the 1.2.9 token-free Action Packet, local Bridge authorization and safe Context Handoff design.

@@ -10,6 +10,8 @@ $BackupRoot = Join-Path $TempRoot 'backups'
 $Pwsh = (Get-Command pwsh -ErrorAction Stop).Source
 $Updater = Join-Path $Root 'scripts\windows\Update-AgenticProjectRuntime-v1.2.10.ps1'
 $Utf8 = [Text.UTF8Encoding]::new($false)
+$ExpectedEcosystemVersion = [string](Get-Content -LiteralPath (Join-Path $Root 'VERSION.json') -Raw -Encoding UTF8 | ConvertFrom-Json).ecosystem_version
+$LegacyFindingsArchiveRelative = ".agy/history/legacy-findings/runtime-$ExpectedEcosystemVersion/FINDINGS.json"
 $SourceCommitProbe = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Root,'rev-parse','HEAD')
 $ExpectedRuntimeSourceCommit = if ($SourceCommitProbe.ExitCode -eq 0 -and $SourceCommitProbe.StdOut.Trim() -match '^[0-9a-fA-F]{40}$') {
   $SourceCommitProbe.StdOut.Trim()
@@ -71,6 +73,64 @@ function Write-JsonFile([string]$Path, [object]$Value) {
   $Parent = Split-Path -Parent $Path
   if ($Parent) { New-Item -ItemType Directory -Force -Path $Parent | Out-Null }
   [IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 40), $Utf8)
+}
+
+function Write-H10LikeLegacyFindings([string]$Project, [string]$Fault = '') {
+  $Definitions = @(
+    @('adapter_placeholder','product_blocker','fixed_unverified','initial_audit'),
+    @('algorithm_defect','product_blocker','fixed_unverified','initial_audit'),
+    @('algorithm_defect','product_blocker','fixed_unverified','initial_audit'),
+    @('algorithm_defect','product_blocker','fixed_unverified','initial_audit'),
+    @('audit_candidate_unbound','verification_blocker','fixed_unverified','audit_coverage_miss'),
+    @('coverage_matrix_incomplete','verification_blocker','open_confirmed','audit_coverage_miss'),
+    @('evidence_gap','verification_blocker','deferred','initial_audit'),
+    @('external_dependency','verification_blocker','deferred','initial_audit'),
+    @('findings_schema_invalid','verification_blocker','fixed_unverified','audit_coverage_miss'),
+    @('governance_gap','verification_blocker','deferred','initial_audit'),
+    @('lease_authority_defective','verification_blocker','verified_resolved','authority_audit'),
+    @('oracle_circularity','product_blocker','fixed_unverified','initial_audit'),
+    @('repair_delta_missing','verification_blocker','verified_resolved','authority_audit'),
+    @('report_mismatch','product_blocker','fixed_unverified','initial_audit'),
+    @('runtime_routing_stale','verification_blocker','verified_resolved','authority_audit'),
+    @('stage_firewall_absent','verification_blocker','verified_resolved','authority_audit'),
+    @('test_evidence_gap','verification_blocker','fixed_unverified','initial_audit'),
+    @('timestamp_not_utc','verification_blocker','verified_resolved','audit_coverage_miss'),
+    @('work_item_corruption','verification_blocker','open_confirmed','initial_audit')
+  )
+  $Findings = New-Object System.Collections.Generic.List[object]
+  for ($Index = 0; $Index -lt $Definitions.Count; $Index++) {
+    $Number = $Index + 1
+    $Definition = $Definitions[$Index]
+    $AffectedPaths = @("src/h10-like-$('{0:d2}' -f $Number).txt")
+    if ($Number % 3 -ne 1) { $AffectedPaths += "tests/h10-like-$('{0:d2}' -f $Number).test" }
+    if ($Number % 3 -eq 0) { $AffectedPaths += "reports/h10-like-$('{0:d2}' -f $Number).md" }
+    $Finding = [ordered]@{
+      finding_id = 'H10-LIKE-{0:d3}' -f $Number
+      title = "Synthetic H10-like legacy finding $Number"
+      category = [string]$Definition[0]
+      description = "Preserve this exact synthetic legacy description for finding $Number."
+      affected_paths = [object[]]$AffectedPaths
+      lifecycle_status = [string]$Definition[2]
+      materiality = [string]$Definition[1]
+      origin = [string]$Definition[3]
+      coverage_id = 'H10-COVERAGE-{0:d3}' -f $Number
+    }
+    if ($Index -eq 0 -and $Fault -eq 'unknown_category') { $Finding['category'] = 'unrecognized_h10_category' }
+    if ($Index -eq 0 -and $Fault -eq 'unknown_shape') { $Finding['unexpected_legacy_field'] = 'must fail closed' }
+    [void]$Findings.Add($Finding)
+  }
+  $Head = (Invoke-Required 'git' @('-C',$Project,'rev-parse','HEAD') 'git H10-like fixture head').StdOut.Trim()
+  $Document = [ordered]@{
+    schema_version = '1.0.0'
+    work_item_id = 'execute-h10-like-analytical-validation'
+    target_head = $Head
+    candidate_manifest_id = 'candidate-manifest-h10-like-legacy'
+    findings = [object[]]$Findings.ToArray()
+    updated_at_utc = '2026-08-05T13:02:00Z'
+  }
+  $Path = Join-Path $Project '.agy\FINDINGS.json'
+  Write-JsonFile -Path $Path -Value $Document
+  return $Path
 }
 
 function Get-ProjectLockPath([string]$Project) {
@@ -149,6 +209,69 @@ try {
   $AfterSecond = @(Get-TreeSnapshot $Project)
   $SecondDelta = @(Compare-Snapshot $BeforeSecond $AfterSecond)
   if ($SecondDelta.Count -gt 0) { throw "Second identical updater run changed bytes: $($SecondDelta.InputObject -join ', ')" }
+
+  $FindingsProject = New-Fixture 'H10-like legacy findings migration'
+  $LegacyFindingsPath = Write-H10LikeLegacyFindings -Project $FindingsProject
+  [byte[]]$LegacyFindingsBytes = [IO.File]::ReadAllBytes($LegacyFindingsPath)
+  $LegacyFindingsDocument = Get-Content -LiteralPath $LegacyFindingsPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
+  $LegacyFindingsSha = (Get-FileHash -LiteralPath $LegacyFindingsPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $FindingsProductBefore = (Get-FileHash -LiteralPath (Join-Path $FindingsProject 'src\product.txt') -Algorithm SHA256).Hash
+  $FindingsCommon = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$Updater,'-ProjectRoot',$FindingsProject,'-RepoRoot',$Root,'-ExpectedSourceCommit',$ExpectedRuntimeSourceCommit,'-Apply','-AllowDirty','-SkipActiveWorkItemMigration','-BackupBaseRoot',$BackupRoot)
+  $FindingsRun = Invoke-AgenticNativeProcess -FilePath $Pwsh -ArgumentList $FindingsCommon
+  if ($FindingsRun.ExitCode -ne 0) { throw "H10-like legacy findings migration failed: stdout=$($FindingsRun.StdOut) stderr=$($FindingsRun.StdErr)" }
+  $FindingsArchivePath = Join-Path $FindingsProject $LegacyFindingsArchiveRelative.Replace('/','\')
+  if (-not (Test-Path -LiteralPath $FindingsArchivePath -PathType Leaf)) { throw 'Legacy FINDINGS.json byte archive was not created at the versioned path.' }
+  if ((Get-FileHash -LiteralPath $FindingsArchivePath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $LegacyFindingsSha -or [Convert]::ToBase64String([IO.File]::ReadAllBytes($FindingsArchivePath)) -cne [Convert]::ToBase64String($LegacyFindingsBytes)) { throw 'Legacy FINDINGS.json history archive is not byte-identical to the original.' }
+  $MigratedFindingsDocument = Get-Content -LiteralPath $LegacyFindingsPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
+  $ExpectedTopProperties = @('schema_version','work_item_id','target_head','findings','updated_at_utc')
+  if ((@($MigratedFindingsDocument.PSObject.Properties.Name) -join "`0") -cne ($ExpectedTopProperties -join "`0") -or @($MigratedFindingsDocument.findings).Count -ne 19) { throw 'Migrated finding set does not have the exact canonical top-level shape/count.' }
+  $CategoryMap = @{
+    adapter_placeholder='delivery'; algorithm_defect='research_validity'; audit_candidate_unbound='reproducibility'; coverage_matrix_incomplete='reproducibility'
+    evidence_gap='reproducibility'; external_dependency='delivery'; findings_schema_invalid='data_integrity'; governance_gap='safety'
+    lease_authority_defective='safety'; oracle_circularity='research_validity'; repair_delta_missing='observability'; report_mismatch='data_integrity'
+    runtime_routing_stale='safety'; stage_firewall_absent='safety'; test_evidence_gap='reproducibility'; timestamp_not_utc='data_integrity'; work_item_corruption='data_integrity'
+  }
+  $OriginMap = @{ initial_audit='initial_audit'; audit_coverage_miss='audit_coverage_miss'; authority_audit='verification' }
+  foreach ($LegacyFinding in @($LegacyFindingsDocument.findings)) {
+    $MigratedFinding = @($MigratedFindingsDocument.findings | Where-Object { [string]$_.finding_id -ceq [string]$LegacyFinding.finding_id })
+    if ($MigratedFinding.Count -ne 1) { throw "Migrated finding identity was lost or duplicated: $($LegacyFinding.finding_id)" }
+    $MigratedFinding = $MigratedFinding[0]
+    $ExpectedSeverity = if ([string]$LegacyFinding.materiality -ceq 'product_blocker') { 'blocker' } else { 'high' }
+    $ExpectedPhase = if ([string]$LegacyFinding.lifecycle_status -ceq 'deferred') { 'deferred_debt' } else { 'current_phase_blocker' }
+    if ([string]$MigratedFinding.category -cne [string]$CategoryMap[[string]$LegacyFinding.category] -or [string]$MigratedFinding.severity -cne $ExpectedSeverity -or [string]$MigratedFinding.phase_classification -cne $ExpectedPhase -or [string]$MigratedFinding.origin -cne [string]$OriginMap[[string]$LegacyFinding.origin]) { throw "Legacy finding mapping mismatch: $($LegacyFinding.finding_id)" }
+    if ([string]$MigratedFinding.title -cne [string]$LegacyFinding.title -or [string]$MigratedFinding.lifecycle_status -cne [string]$LegacyFinding.lifecycle_status -or [string]$MigratedFinding.materiality -cne [string]$LegacyFinding.materiality -or [string]$MigratedFinding.coverage_id -cne [string]$LegacyFinding.coverage_id) { throw "Legacy finding canonical fields were not preserved: $($LegacyFinding.finding_id)" }
+    if ((@($MigratedFinding.evidence) -join "`0") -cne (@($LegacyFinding.affected_paths) -join "`0") -or [string]$MigratedFinding.notes -notlike "*$([string]$LegacyFinding.description)*" -or [string]$MigratedFinding.notes -notlike "*exact source: $LegacyFindingsArchiveRelative*") { throw "Legacy finding evidence/description provenance was not preserved: $($LegacyFinding.finding_id)" }
+    if ($MigratedFinding.auto_repairable -ne $false -or $MigratedFinding.owner_decision_required -ne $false -or $null -ne $MigratedFinding.PSObject.Properties['description'] -or $null -ne $MigratedFinding.PSObject.Properties['affected_paths']) { throw "Migrated finding contains unsafe or legacy fields: $($LegacyFinding.finding_id)" }
+  }
+  Invoke-Required $Pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $FindingsProject 'scripts\windows\companion\Test-FindingSet.ps1'),'-ProjectRoot',$FindingsProject) 'canonical migrated finding validation' | Out-Null
+  $FindingsRuntimeResult = Get-Content -LiteralPath (Join-Path $FindingsProject '.agy\RUNTIME_UPDATE_RESULT.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+  $FindingsJournal = Get-Content -LiteralPath (Join-Path ([string]$FindingsRuntimeResult.backup_root) 'journal.json') -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 100
+  $FindingsJournalPaths = @($FindingsJournal.paths | ForEach-Object { [string]$_.relative })
+  if ($FindingsJournalPaths -cnotcontains '.agy/FINDINGS.json' -or $FindingsJournalPaths -cnotcontains $LegacyFindingsArchiveRelative) { throw 'Runtime journal omitted FINDINGS.json or its exact versioned archive path.' }
+  if ((Get-FileHash -LiteralPath (Join-Path $FindingsProject 'src\product.txt') -Algorithm SHA256).Hash -ne $FindingsProductBefore) { throw 'Legacy findings migration changed product source.' }
+  $FindingsBeforeSecond = @(Get-TreeSnapshot $FindingsProject)
+  Invoke-Required $Pwsh $FindingsCommon 'H10-like findings byte-identical second apply' | Out-Null
+  $FindingsSecondDelta = @(Compare-Snapshot $FindingsBeforeSecond (Get-TreeSnapshot $FindingsProject))
+  if ($FindingsSecondDelta.Count -gt 0) { throw "Second findings migration run changed bytes/topology: $($FindingsSecondDelta.InputObject -join ', ')" }
+
+  $FindingsFaultProject = New-Fixture 'H10-like findings fault rollback'
+  [void](Write-H10LikeLegacyFindings -Project $FindingsFaultProject)
+  $FindingsFaultBefore = @(Get-TreeSnapshot $FindingsFaultProject)
+  $FindingsFault = Invoke-AgenticNativeProcess -FilePath $Pwsh -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$Updater,'-ProjectRoot',$FindingsFaultProject,'-RepoRoot',$Root,'-ExpectedSourceCommit',$ExpectedRuntimeSourceCommit,'-Apply','-AllowDirty','-SkipActiveWorkItemMigration','-SkipValidation','-BackupBaseRoot',$BackupRoot,'-FaultInjectionAfterMigration')
+  if ($FindingsFault.ExitCode -eq 0 -or $FindingsFault.StdErr + $FindingsFault.StdOut -notmatch 'Injected runtime update failure after migration') { throw 'Findings migration fault injection did not reach the post-migration rollback boundary.' }
+  $FindingsFaultDelta = @(Compare-Snapshot $FindingsFaultBefore (Get-TreeSnapshot $FindingsFaultProject))
+  if ($FindingsFaultDelta.Count -gt 0) { throw "Findings migration rollback was not byte/topology exact: $($FindingsFaultDelta.InputObject -join ', ')" }
+
+  foreach ($FindingsFaultName in @('unknown_category','unknown_shape')) {
+    $UnknownFindingsProject = New-Fixture "H10-like findings $FindingsFaultName"
+    [void](Write-H10LikeLegacyFindings -Project $UnknownFindingsProject -Fault $FindingsFaultName)
+    $UnknownFindingsBefore = @(Get-TreeSnapshot $UnknownFindingsProject)
+    $UnknownFindingsRun = Invoke-AgenticNativeProcess -FilePath $Pwsh -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$Updater,'-ProjectRoot',$UnknownFindingsProject,'-RepoRoot',$Root,'-ExpectedSourceCommit',$ExpectedRuntimeSourceCommit,'-Apply','-AllowDirty','-SkipActiveWorkItemMigration','-SkipValidation','-BackupBaseRoot',$BackupRoot)
+    if ($UnknownFindingsRun.ExitCode -eq 0 -or $UnknownFindingsRun.StdErr + $UnknownFindingsRun.StdOut -notmatch 'Unsupported legacy finding category|unknown finding shape') { throw "Unknown legacy findings input was not rejected fail-closed: $FindingsFaultName" }
+    $UnknownFindingsDelta = @(Compare-Snapshot $UnknownFindingsBefore (Get-TreeSnapshot $UnknownFindingsProject))
+    if ($UnknownFindingsDelta.Count -gt 0) { throw "Unknown legacy findings rejection changed target bytes/topology ($FindingsFaultName): $($UnknownFindingsDelta.InputObject -join ', ')" }
+    if (Test-Path -LiteralPath (Get-ProjectLockPath $UnknownFindingsProject) -PathType Leaf) { throw "Unknown legacy findings rejection left a lock: $FindingsFaultName" }
+  }
 
   $FaultProject = New-Fixture 'rollback project'
   Remove-Item -LiteralPath (Join-Path $FaultProject '.agy\PROGRESS_STATE.json') -Force
@@ -263,7 +386,7 @@ try {
     if (Test-Path -LiteralPath (Get-ProjectLockPath $AdversarialProject) -PathType Leaf) { throw "Contradictory legacy rejection left a lock: $FaultName" }
   }
 
-  Write-Host 'Runtime updater transaction, resumable recovery, fail-closed legacy adoption, rollback, lock ownership, product preservation and byte-identical second run passed.'
+  Write-Host 'Runtime updater transaction, lossless findings migration, resumable recovery, fail-closed legacy adoption, rollback, lock ownership, product preservation and byte-identical second run passed.'
 }
 finally {
   Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue

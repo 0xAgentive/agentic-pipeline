@@ -223,6 +223,8 @@ foreach ($Item in $Map) {
   if ([int64](Get-Item -LiteralPath $Source).Length -ne [int64]$Item.size_bytes) { throw "Runtime member size mismatch: $($Item.source)" }
 }
 
+$FindingsRelative = '.agy/FINDINGS.json'
+$LegacyFindingsArchiveRelative = ".agy/history/legacy-findings/runtime-$EcosystemVersion/FINDINGS.json"
 $ConditionalState = @(
   '.agy/WORK_ITEM.json', '.agy/WORK_ITEM_TRANSACTION.json', '.agy/EXECUTION_SCOPE.json', '.agy/EXECUTION_LEASE.json',
   '.agy/EXECUTION_AUTHORITY_TRANSACTION.json', '.agy/STAGE_FIREWALL.json', '.agy/RUNTIME_HANDSHAKE.json',
@@ -231,6 +233,7 @@ $ConditionalState = @(
   '.agy/history/legacy-repair-budget/runtime-1.2.9/CONVERGENCE_BUDGET.json',
   '.agy/history/legacy-repair-budget/runtime-1.2.9/REPAIR_BUDGET.json',
   '.agy/history/legacy-repair-budget/runtime-1.2.9/repair-ledger.ndjson',
+  $FindingsRelative, $LegacyFindingsArchiveRelative,
   '.agy/INSTALLATION_MANIFEST.json', '.agy/RUNTIME_UPDATE_RESULT.json'
 )
 $FrameworkSet = @{}
@@ -258,6 +261,194 @@ function Get-SnapshotIdentity([object[]]$Rows) {
 function Test-SamePath([string]$Left, [string]$Right) {
   if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) { return $false }
   return [IO.Path]::GetFullPath($Left).TrimEnd('\').Equals([IO.Path]::GetFullPath($Right).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Test-ExactPropertySet([object]$Object, [string[]]$Expected) {
+  if ($null -eq $Object -or $Object -is [System.Array] -or $Object -is [string]) { return $false }
+  $Actual = @($Object.PSObject.Properties.Name)
+  if ($Actual.Count -ne $Expected.Count) { return $false }
+  foreach ($Name in $Actual) { if ($Expected -cnotcontains $Name) { return $false } }
+  return $true
+}
+
+function Test-CanonicalFindingSetDocument([object]$Document) {
+  $TopProperties = @('schema_version','work_item_id','target_head','findings','updated_at_utc')
+  if (-not (Test-ExactPropertySet $Document $TopProperties)) { return $false }
+  if ([string](Get-OptionalProperty $Document 'schema_version' '') -cne '1.0.0') { return $false }
+  foreach ($Name in @('work_item_id','target_head','updated_at_utc')) { if ((Get-OptionalProperty $Document $Name) -isnot [string]) { return $false } }
+  $Findings = $Document.PSObject.Properties['findings'].Value
+  if ($Findings -isnot [System.Array]) { return $false }
+
+  $AllowedProperties = @('finding_id','title','category','severity','lifecycle_status','phase_classification','evidence','implementation_alignment_status','empirical_validation_status','production_use_status','notes','materiality','auto_repairable','owner_decision_required','owner_decision_type','origin','coverage_id','audit_cycle','repair_batch_id')
+  $Categories = @('safety','security_privacy','data_integrity','research_validity','reproducibility','delivery','observability','cosmetic')
+  $Severities = @('blocker','high','medium','low','info')
+  $Lifecycles = @('open_confirmed','fixed_unverified','verified_resolved','deferred','accepted_risk','false_positive','superseded')
+  $Phases = @('current_phase_blocker','next_phase_requirement','deferred_debt','accepted_risk','false_positive','superseded')
+  $Materialities = @('product_blocker','verification_blocker','release_blocker','service_warning','cosmetic')
+  $OwnerDecisionTypes = @('scope_or_requirement_change','destructive_or_irreversible_action','release_or_publication','credentials_private_data_or_paid_access','material_risk_acceptance','normative_protocol_change','required_capability_unavailable')
+  $Ids = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  foreach ($Finding in @($Findings)) {
+    if ($null -eq $Finding -or $Finding -is [System.Array] -or $Finding -is [string]) { return $false }
+    foreach ($Name in @($Finding.PSObject.Properties.Name)) { if ($AllowedProperties -cnotcontains $Name) { return $false } }
+    foreach ($Name in @('finding_id','title','category','severity','lifecycle_status','phase_classification','materiality','auto_repairable','owner_decision_required')) {
+      if ($null -eq $Finding.PSObject.Properties[$Name]) { return $false }
+    }
+    $FindingId = Get-OptionalProperty $Finding 'finding_id'
+    $Title = Get-OptionalProperty $Finding 'title'
+    if ($FindingId -isnot [string] -or [string]::IsNullOrWhiteSpace($FindingId) -or $Title -isnot [string] -or [string]::IsNullOrWhiteSpace($Title)) { return $false }
+    if (-not $Ids.Add([string]$FindingId)) { return $false }
+    if ($Categories -cnotcontains [string]$Finding.category -or $Severities -cnotcontains [string]$Finding.severity -or $Lifecycles -cnotcontains [string]$Finding.lifecycle_status -or $Phases -cnotcontains [string]$Finding.phase_classification -or $Materialities -cnotcontains [string]$Finding.materiality) { return $false }
+    if ($Finding.auto_repairable -isnot [bool] -or $Finding.owner_decision_required -isnot [bool]) { return $false }
+    $OwnerDecisionType = Get-OptionalProperty $Finding 'owner_decision_type'
+    if ($Finding.owner_decision_required -eq $true) {
+      if ($Finding.auto_repairable -eq $true -or $OwnerDecisionTypes -cnotcontains [string]$OwnerDecisionType) { return $false }
+    }
+    elseif ($null -ne $OwnerDecisionType) { return $false }
+    if ($null -ne $Finding.PSObject.Properties['evidence']) {
+      $Evidence = $Finding.PSObject.Properties['evidence'].Value
+      if ($Evidence -isnot [System.Array] -or @($Evidence | Where-Object { $_ -isnot [string] }).Count -gt 0) { return $false }
+    }
+    if ($null -ne $Finding.PSObject.Properties['implementation_alignment_status'] -and @('unknown','misaligned','aligned','resolved') -cnotcontains [string]$Finding.implementation_alignment_status) { return $false }
+    if ($null -ne $Finding.PSObject.Properties['empirical_validation_status'] -and @('not_applicable','unknown','unvalidated','partially_validated','validated') -cnotcontains [string]$Finding.empirical_validation_status) { return $false }
+    if ($null -ne $Finding.PSObject.Properties['production_use_status'] -and @('unknown','blocked','conditional','allowed') -cnotcontains [string]$Finding.production_use_status) { return $false }
+    if ($null -ne $Finding.PSObject.Properties['origin'] -and @('initial_audit','audit_coverage_miss','verification','owner_change','runtime') -cnotcontains [string]$Finding.origin) { return $false }
+    if ($null -ne $Finding.PSObject.Properties['notes'] -and $Finding.notes -isnot [string]) { return $false }
+    foreach ($Name in @('coverage_id','audit_cycle','repair_batch_id')) {
+      if ($null -ne $Finding.PSObject.Properties[$Name]) {
+        $Value = $Finding.PSObject.Properties[$Name].Value
+        if ($null -ne $Value -and $Value -isnot [string]) { return $false }
+      }
+    }
+  }
+  return $true
+}
+
+function Convert-LegacyFindingCategory([string]$Value) {
+  switch -CaseSensitive ($Value) {
+    'adapter_placeholder' { return 'delivery' }
+    'algorithm_defect' { return 'research_validity' }
+    'audit_candidate_unbound' { return 'reproducibility' }
+    'coverage_matrix_incomplete' { return 'reproducibility' }
+    'evidence_gap' { return 'reproducibility' }
+    'external_dependency' { return 'delivery' }
+    'findings_schema_invalid' { return 'data_integrity' }
+    'governance_gap' { return 'safety' }
+    'lease_authority_defective' { return 'safety' }
+    'oracle_circularity' { return 'research_validity' }
+    'repair_delta_missing' { return 'observability' }
+    'report_mismatch' { return 'data_integrity' }
+    'runtime_routing_stale' { return 'safety' }
+    'stage_firewall_absent' { return 'safety' }
+    'test_evidence_gap' { return 'reproducibility' }
+    'timestamp_not_utc' { return 'data_integrity' }
+    'work_item_corruption' { return 'data_integrity' }
+  }
+  throw "Unsupported legacy finding category: $Value"
+}
+
+function Convert-LegacyFindingOrigin([string]$Value) {
+  switch -CaseSensitive ($Value) {
+    'initial_audit' { return 'initial_audit' }
+    'audit_coverage_miss' { return 'audit_coverage_miss' }
+    'authority_audit' { return 'verification' }
+  }
+  throw "Unsupported legacy finding origin: $Value"
+}
+
+function Convert-LegacyFindingSeverity([string]$Materiality) {
+  switch -CaseSensitive ($Materiality) {
+    'product_blocker' { return 'blocker' }
+    'verification_blocker' { return 'high' }
+  }
+  throw "Unsupported legacy finding materiality: $Materiality"
+}
+
+function Convert-LegacyFindingPhase([string]$Lifecycle) {
+  switch -CaseSensitive ($Lifecycle) {
+    'open_confirmed' { return 'current_phase_blocker' }
+    'fixed_unverified' { return 'current_phase_blocker' }
+    'verified_resolved' { return 'current_phase_blocker' }
+    'deferred' { return 'deferred_debt' }
+  }
+  throw "Unsupported legacy finding lifecycle: $Lifecycle"
+}
+
+function Test-LegacyFindingsPreconditions {
+  $FindingsPath = Resolve-ConfinedPath -Root $Project -Relative $FindingsRelative
+  if (-not (Test-Path -LiteralPath $FindingsPath -PathType Leaf)) {
+    return [pscustomobject]@{ state='absent'; requires_migration=$false; source_sha256=$null; source_bytes=$null; migrated_document=$null; archive_relative=$LegacyFindingsArchiveRelative }
+  }
+
+  [byte[]]$SourceBytes = [IO.File]::ReadAllBytes($FindingsPath)
+  $SourceSha = Get-BytesSha256 $SourceBytes
+  try {
+    $JsonText = [Text.UTF8Encoding]::new($false, $true).GetString($SourceBytes)
+    $Document = $JsonText | ConvertFrom-Json -Depth 100 -DateKind String
+  }
+  catch { throw "FINDINGS.json is not strict UTF-8 JSON; migration refused: $($_.Exception.Message)" }
+
+  if (Test-CanonicalFindingSetDocument $Document) {
+    return [pscustomobject]@{ state='canonical'; requires_migration=$false; source_sha256=$SourceSha; source_bytes=$null; migrated_document=$null; archive_relative=$LegacyFindingsArchiveRelative }
+  }
+
+  $LegacyTopProperties = @('schema_version','work_item_id','target_head','candidate_manifest_id','findings','updated_at_utc')
+  $LegacyFindingProperties = @('finding_id','title','category','description','affected_paths','lifecycle_status','materiality','origin','coverage_id')
+  if (-not (Test-ExactPropertySet $Document $LegacyTopProperties)) { throw 'FINDINGS.json is neither canonical nor the exact recognized legacy finding-set shape.' }
+  if ([string](Get-OptionalProperty $Document 'schema_version' '') -cne '1.0.0') { throw 'Legacy FINDINGS.json schema_version is unsupported.' }
+  foreach ($Name in @('work_item_id','candidate_manifest_id')) {
+    $Value = Get-OptionalProperty $Document $Name
+    if ($Value -isnot [string] -or [string]::IsNullOrWhiteSpace($Value)) { throw "Legacy FINDINGS.json $Name is missing or invalid." }
+  }
+  if ((Get-OptionalProperty $Document 'target_head') -isnot [string] -or [string]$Document.target_head -notmatch '^[0-9a-f]{40}$') { throw 'Legacy FINDINGS.json target_head is invalid.' }
+  if ((Get-OptionalProperty $Document 'updated_at_utc') -isnot [string] -or [string]$Document.updated_at_utc -notmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$') { throw 'Legacy FINDINGS.json updated_at_utc is not canonical UTC.' }
+  $LegacyFindings = $Document.PSObject.Properties['findings'].Value
+  if ($LegacyFindings -isnot [System.Array] -or @($LegacyFindings).Count -eq 0) { throw 'Legacy FINDINGS.json findings must be a non-empty array.' }
+
+  $MigratedFindings = New-Object System.Collections.Generic.List[object]
+  $Ids = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  foreach ($Legacy in @($LegacyFindings)) {
+    if (-not (Test-ExactPropertySet $Legacy $LegacyFindingProperties)) { throw 'Legacy FINDINGS.json contains an unknown finding shape.' }
+    foreach ($Name in @('finding_id','title','category','description','lifecycle_status','materiality','origin','coverage_id')) {
+      $Value = Get-OptionalProperty $Legacy $Name
+      if ($Value -isnot [string] -or [string]::IsNullOrWhiteSpace($Value)) { throw "Legacy finding $Name is missing or invalid." }
+    }
+    if (-not $Ids.Add([string]$Legacy.finding_id)) { throw "Legacy FINDINGS.json contains duplicate finding_id: $($Legacy.finding_id)" }
+    $AffectedValue = $Legacy.PSObject.Properties['affected_paths'].Value
+    if ($AffectedValue -isnot [System.Array] -or @($AffectedValue).Count -eq 0 -or @($AffectedValue | Where-Object { $_ -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0) { throw "Legacy finding affected_paths is invalid: $($Legacy.finding_id)" }
+    $MappedCategory = Convert-LegacyFindingCategory ([string]$Legacy.category)
+    $MappedOrigin = Convert-LegacyFindingOrigin ([string]$Legacy.origin)
+    $MappedSeverity = Convert-LegacyFindingSeverity ([string]$Legacy.materiality)
+    $MappedPhase = Convert-LegacyFindingPhase ([string]$Legacy.lifecycle_status)
+    $Notes = "{0}`n`nLegacy category: {1}; legacy origin: {2}; exact source: {3}" -f [string]$Legacy.description, [string]$Legacy.category, [string]$Legacy.origin, $LegacyFindingsArchiveRelative
+    [void]$MigratedFindings.Add([ordered]@{
+      finding_id = [string]$Legacy.finding_id
+      title = [string]$Legacy.title
+      category = $MappedCategory
+      severity = $MappedSeverity
+      lifecycle_status = [string]$Legacy.lifecycle_status
+      phase_classification = $MappedPhase
+      evidence = [object[]]@($AffectedValue)
+      notes = $Notes
+      materiality = [string]$Legacy.materiality
+      auto_repairable = $false
+      owner_decision_required = $false
+      origin = $MappedOrigin
+      coverage_id = [string]$Legacy.coverage_id
+    })
+  }
+  $MigratedDocument = [ordered]@{
+    schema_version = '1.0.0'
+    work_item_id = [string]$Document.work_item_id
+    target_head = [string]$Document.target_head
+    findings = [object[]]$MigratedFindings.ToArray()
+    updated_at_utc = [string]$Document.updated_at_utc
+  }
+  $MigratedRoundTrip = ($MigratedDocument | ConvertTo-Json -Depth 40) | ConvertFrom-Json -Depth 100 -DateKind String
+  if (-not (Test-CanonicalFindingSetDocument $MigratedRoundTrip)) { throw 'Internal legacy FINDINGS.json mapping did not produce a canonical finding set.' }
+
+  $ArchivePath = Resolve-ConfinedPath -Root $Project -Relative $LegacyFindingsArchiveRelative
+  if ((Test-Path -LiteralPath $ArchivePath -PathType Leaf) -and (Get-Sha256 $ArchivePath) -cne $SourceSha) { throw 'Existing legacy FINDINGS.json history archive does not match the exact source bytes.' }
+  return [pscustomobject]@{ state='legacy'; requires_migration=$true; source_sha256=$SourceSha; source_bytes=$SourceBytes; migrated_document=$MigratedDocument; archive_relative=$LegacyFindingsArchiveRelative }
 }
 
 function Test-LegacyAuthorityPreconditions {
@@ -456,6 +647,7 @@ foreach ($Item in $Map) {
   $Action = if ($Item.mode -eq 'create_if_missing' -and $null -ne $CurrentHash) { 'preserve' } elseif ($CurrentHash -eq ([string]$Item.sha256).ToLowerInvariant()) { 'current' } else { if ($null -eq $CurrentHash) { 'create' } else { 'replace' } }
   [void]$Plan.Add([pscustomobject]@{ target = $Item.target; mode = $Item.mode; action = $Action; current_sha256 = $CurrentHash; incoming_sha256 = ([string]$Item.sha256).ToLowerInvariant() })
 }
+$LegacyFindingsPreflight = Test-LegacyFindingsPreconditions
 $LegacyAuthorityPreflight = Test-LegacyAuthorityPreconditions
 
 $MigrationResultPath = Join-Path $Project '.agy\OWNER_AUTONOMY_MIGRATION_RESULT.json'
@@ -475,9 +667,9 @@ if ((Test-Path -LiteralPath $InstallationPath -PathType Leaf) -and (Test-Path -L
   } catch { $ReceiptsCurrent = $false }
 }
 $AllFilesCurrent = @($Plan | Where-Object { $_.action -notin @('current', 'preserve') }).Count -eq 0
-$AlreadyCurrent = $AllFilesCurrent -and ($SkipActiveWorkItemMigration -or $MigrationCurrent) -and $ReceiptsCurrent
+$AlreadyCurrent = $AllFilesCurrent -and ($SkipActiveWorkItemMigration -or $MigrationCurrent) -and $ReceiptsCurrent -and -not [bool]$LegacyFindingsPreflight.requires_migration
 
-$Summary = [ordered]@{ schema_version = '1.0.0'; ecosystem_version = $EcosystemVersion; source_commit = $SourceCommit; asset_sha256 = if ($AssetSha256) { $AssetSha256.ToLowerInvariant() } else { $null }; project_root = $Project; apply = [bool]$Apply; already_current = $AlreadyCurrent; product_baseline_sha256 = $ProductBeforeIdentity; plan = $Plan.ToArray() }
+$Summary = [ordered]@{ schema_version = '1.0.0'; ecosystem_version = $EcosystemVersion; source_commit = $SourceCommit; asset_sha256 = if ($AssetSha256) { $AssetSha256.ToLowerInvariant() } else { $null }; project_root = $Project; apply = [bool]$Apply; already_current = $AlreadyCurrent; product_baseline_sha256 = $ProductBeforeIdentity; legacy_findings_migration = [ordered]@{ required = [bool]$LegacyFindingsPreflight.requires_migration; source_sha256 = $LegacyFindingsPreflight.source_sha256; archive_path = $LegacyFindingsArchiveRelative }; plan = $Plan.ToArray() }
 if (-not $Apply) { $Summary | ConvertTo-Json -Depth 20; Write-Host 'DRY RUN COMPLETE. No files changed.'; return }
 
 function Invoke-DeployedValidation {
@@ -568,6 +760,8 @@ function Copy-MapItem([object]$Item) {
 }
 
 try {
+  $LegacyFindingsApplyPreflight = Test-LegacyFindingsPreconditions
+  if ([string]$LegacyFindingsApplyPreflight.state -cne [string]$LegacyFindingsPreflight.state -or [string]$LegacyFindingsApplyPreflight.source_sha256 -cne [string]$LegacyFindingsPreflight.source_sha256) { throw 'FINDINGS.json changed after preflight; refusing to deploy.' }
   $LegacyAuthorityPreflight = Test-LegacyAuthorityPreconditions
   New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
   foreach ($Relative in @($Map.target) + $ConditionalState | Sort-Object -Unique) { Backup-Path $Relative }
@@ -575,6 +769,26 @@ try {
   $JournalWritten = $true
 
   foreach ($Item in @($Map | Where-Object { $_.mode -ne 'activate_last' })) { Copy-MapItem $Item }
+
+  if ([bool]$LegacyFindingsApplyPreflight.requires_migration) {
+    $FindingsPath = Resolve-ConfinedPath -Root $Project -Relative $FindingsRelative
+    if ((Get-Sha256 $FindingsPath) -cne [string]$LegacyFindingsApplyPreflight.source_sha256) { throw 'Legacy FINDINGS.json changed before migration.' }
+    $ArchivePath = Resolve-ConfinedPath -Root $Project -Relative $LegacyFindingsArchiveRelative
+    if (Test-Path -LiteralPath $ArchivePath -PathType Leaf) {
+      if ((Get-Sha256 $ArchivePath) -cne [string]$LegacyFindingsApplyPreflight.source_sha256) { throw 'Existing legacy FINDINGS.json history archive conflicts with the migration source.' }
+    }
+    else {
+      $MutationStarted = $true
+      Write-BytesAtomic -Path $ArchivePath -Bytes ([byte[]]$LegacyFindingsApplyPreflight.source_bytes)
+      [void]$CreatedOrReplaced.Add($LegacyFindingsArchiveRelative)
+    }
+    if ((Get-Sha256 $ArchivePath) -cne [string]$LegacyFindingsApplyPreflight.source_sha256) { throw 'Legacy FINDINGS.json history archive is not byte-identical to the migration source.' }
+    $MutationStarted = $true
+    Write-JsonAtomic -Path $FindingsPath -Value $LegacyFindingsApplyPreflight.migrated_document -Depth 40
+    [void]$CreatedOrReplaced.Add($FindingsRelative)
+    $MigratedState = Test-LegacyFindingsPreconditions
+    if ([string]$MigratedState.state -cne 'canonical' -or [bool]$MigratedState.requires_migration) { throw 'Migrated FINDINGS.json did not pass canonical validation.' }
+  }
 
   if (-not $SkipActiveWorkItemMigration) {
     $Agy = Join-Path $Project '.agy'

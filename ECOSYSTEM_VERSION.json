@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.12",
-  "release_name": "Context Handoff Unicode Launcher",
+  "ecosystem_version": "1.2.13",
+  "release_name": "Antigravity Hook Working Directory",
   "components": {
-    "pipeline": "1.2.12",
-    "runtime": "1.2.12",
-    "playbook": "1.2.12",
-    "companion": "1.2.12",
-    "action_bridge": "1.2.12",
-    "context_handoff": "1.2.12"
+    "pipeline": "1.2.13",
+    "runtime": "1.2.13",
+    "playbook": "1.2.13",
+    "companion": "1.2.13",
+    "action_bridge": "1.2.13",
+    "context_handoff": "1.2.13"
   },
   "status": "stable"
 }

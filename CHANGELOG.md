@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.13 — Antigravity Hook Working Directory
+
+- Supersedes 1.2.12 without moving or rewriting its public tag or release.
+- Resolves project lifecycle-hook commands relative to the `.agents` customization root used as Antigravity's hook working directory.
+- Removes the duplicated `.agents/.agents/hooks` path that prevented owner-autonomy hooks from loading their runtime module.
+- Adds an executable Stop-hook regression from the exact `.agents` working directory and rejects duplicate handler registration.
+- Rebinds all five ecosystem assets to one immutable 1.2.13 source commit while retaining schema 1.2.9 compatibility.
+
 ## 1.2.12 — Context Handoff Unicode Launcher
 
 - Supersedes 1.2.11 without moving or rewriting its public tag or release.

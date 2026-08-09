@@ -1,5 +1,11 @@
 # Companion changelog
 
+## 1.2.13 — Antigravity Hook Working Directory
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.13.
+- Makes project lifecycle-hook commands executable from Antigravity's `.agents` hook working directory.
+
 ## 1.2.12 — Context Handoff Unicode Launcher
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

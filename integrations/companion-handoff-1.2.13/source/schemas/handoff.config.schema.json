@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Auto Context Handoff Configuration v4.3.4",
+  "type": "object",
+  "required": ["version", "engine_schema_version", "ecosystem_version", "local_root"],
+  "properties": {
+    "version": { "type": "string", "default": "4.3.4" },
+    "engine_schema_version": { "type": "string", "const": "4.3.4" },
+    "ecosystem_version": { "type": "string", "const": "1.2.13" },
+    "local_root": { "type": "string" },
+    "default_profile": { "type": "string", "enum": ["handoff", "forensic-recent", "forensic-full"], "default": "handoff" },
+    "clipboard_content": { "type": "string", "enum": ["companion_message", "zip_path"], "default": "zip_path" },
+    "open_explorer_after_publish": { "type": "boolean", "default": false },
+    "select_zip_in_explorer": { "type": "boolean", "default": false },
+    "create_windows_notification": { "type": "boolean", "default": true },
+    "history_retention_per_conversation": { "type": "integer", "minimum": 1, "default": 20 },
+    "soft_bundle_limit_mb": { "type": "integer", "minimum": 1, "default": 20 },
+    "hard_bundle_limit_mb": { "type": "integer", "minimum": 1, "default": 100 },
+    "max_member_count": { "type": "integer", "minimum": 100, "default": 5000 },
+    "max_expanded_zip_mb": { "type": "integer", "minimum": 100, "default": 1024 },
+    "max_compression_ratio": { "type": "integer", "minimum": 10, "default": 200 },
+    "legacy_fallback_cycles": { "type": "integer", "minimum": 0, "default": 2 },
+    "pipeline_target_sources": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "privacy": {
+      "type": "object",
+      "properties": {
+        "fail_closed_patterns": { "type": "array", "items": { "type": "string" } },
+        "raw_biometrics_excluded": { "type": "boolean", "default": true }
+      }
+    }
+  }
+}

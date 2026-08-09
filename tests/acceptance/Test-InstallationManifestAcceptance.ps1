@@ -85,9 +85,9 @@ foreach ($Required in @($VersionPath, $WindowsInstaller, $BashInstaller, $Manife
 }
 
 $Version = Read-Json -Path $VersionPath
-Assert-Equal -Actual $Version.package_version -Expected "1.2.12" -Message "Acceptance requires package 1.2.12 candidate."
-Assert-Equal -Actual $Version.runtime_version -Expected "1.2.12" -Message "Acceptance requires runtime 1.2.12."
-Assert-Equal -Actual $Version.companion_version -Expected "1.2.12" -Message "Acceptance requires Companion 1.2.12."
+Assert-Equal -Actual $Version.package_version -Expected "1.2.13" -Message "Acceptance requires package 1.2.13 candidate."
+Assert-Equal -Actual $Version.runtime_version -Expected "1.2.13" -Message "Acceptance requires runtime 1.2.13."
+Assert-Equal -Actual $Version.companion_version -Expected "1.2.13" -Message "Acceptance requires Companion 1.2.13."
 
 $WindowsInstallerText = [System.IO.File]::ReadAllText($WindowsInstaller, [System.Text.Encoding]::UTF8)
 $BashInstallerText = [System.IO.File]::ReadAllText($BashInstaller, [System.Text.Encoding]::UTF8)
@@ -100,7 +100,7 @@ foreach ($InstallerContract in @(
   if (!$InstallerContract.Text.Contains("write-installation-manifest.cjs")) {
     throw "$($InstallerContract.Name) must invoke the shared manifest writer."
   }
-  foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"', '"1.2.11"', '"1.2.12"')) {
+  foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"', '"1.2.11"', '"1.2.12"', '"1.2.13"')) {
     if ($InstallerContract.Text.Contains($ForbiddenLiteral)) {
       throw "$($InstallerContract.Name) hardcodes release version literal $ForbiddenLiteral."
     }
@@ -110,7 +110,7 @@ foreach ($InstallerContract in @(
 if (!$ManifestWriterText.Contains("VERSION.json")) {
   throw "Shared manifest writer must read VERSION.json."
 }
-foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"', '"1.2.11"', '"1.2.12"')) {
+foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"', '"1.2.11"', '"1.2.12"', '"1.2.13"')) {
   if ($ManifestWriterText.Contains($ForbiddenLiteral)) {
     throw "Shared manifest writer hardcodes release version literal $ForbiddenLiteral."
   }

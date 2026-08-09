@@ -65,6 +65,33 @@ function Read-RepoText {
   return [System.IO.File]::ReadAllText((Join-Path $Root $RelativePath), [System.Text.Encoding]::UTF8)
 }
 
+function ConvertTo-Utf16CodeUnitIdentity {
+  param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Value)
+  $CodeUnits = @(
+    $Value.ToCharArray() | ForEach-Object { '{0:X4}' -f [int][char]$_ }
+  )
+  return [string]::Join('', [string[]]$CodeUnits)
+}
+
+function Get-RootEntryIdentity {
+  param([Parameter(Mandatory = $true)][string]$RootPath)
+  return @(
+    Get-ChildItem -LiteralPath $RootPath -Force |
+      ForEach-Object {
+        $Kind = if ($_.PSIsContainer) { 'directory' } else { 'file' }
+        $CodeUnitName = ConvertTo-Utf16CodeUnitIdentity -Value $_.Name
+        "$Kind|$CodeUnitName"
+      } |
+      Sort-Object
+  )
+}
+
+if (
+  (ConvertTo-Utf16CodeUnitIdentity -Value ([string][char]0xD800)) -cne 'D800' -or
+  (ConvertTo-Utf16CodeUnitIdentity -Value ([string][char]0xD801)) -cne 'D801'
+) { throw 'Root-entry identity does not preserve exact unpaired UTF-16 code units.' }
+$RootEntryIdentityBefore = @(Get-RootEntryIdentity -RootPath $Root)
+
 $OverlayText = Read-RepoText 'scripts/release/Apply-CandidateOverlay.ps1'
 $RuntimeUpdaterText = Read-RepoText 'scripts/windows/Update-AgenticProjectRuntime-v1.2.15.ps1'
 $BridgeE2EText = Read-RepoText 'tests/acceptance/Test-ActionBridgeEndToEnd.ps1'
@@ -163,6 +190,50 @@ function Invoke-Capture {
     Code = [int]$Code
     Text = ([object[]]$Output -join "`n")
   }
+}
+
+function Invoke-CaptureWithRemovedEnvironment {
+  param(
+    [Parameter(Mandatory = $true)][string]$FilePath,
+    [string[]]$Arguments = @(),
+    [Parameter(Mandatory = $true)][string[]]$EnvironmentNames,
+    [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+    [int]$TimeoutSeconds = 120
+  )
+
+  $StartInfo = [Diagnostics.ProcessStartInfo]::new()
+  $StartInfo.FileName = $FilePath
+  $StartInfo.UseShellExecute = $false
+  $StartInfo.CreateNoWindow = $true
+  $StartInfo.RedirectStandardOutput = $true
+  $StartInfo.RedirectStandardError = $true
+  $StartInfo.StandardOutputEncoding = $Utf8NoBom
+  $StartInfo.StandardErrorEncoding = $Utf8NoBom
+  $StartInfo.WorkingDirectory = $WorkingDirectory
+  foreach ($Name in $EnvironmentNames) { [void]$StartInfo.Environment.Remove($Name) }
+  foreach ($Argument in $Arguments) { [void]$StartInfo.ArgumentList.Add($Argument) }
+
+  $Process = [Diagnostics.Process]::new()
+  $Process.StartInfo = $StartInfo
+  try {
+    if (-not $Process.Start()) { throw 'Unable to start isolated environment regression process.' }
+    $StdoutTask = $Process.StandardOutput.ReadToEndAsync()
+    $StderrTask = $Process.StandardError.ReadToEndAsync()
+    if (-not $Process.WaitForExit($TimeoutSeconds * 1000)) {
+      $Process.Kill($true)
+      throw "Isolated environment regression process timed out after $TimeoutSeconds seconds."
+    }
+    $Process.WaitForExit()
+    $Output = @(
+      $StdoutTask.GetAwaiter().GetResult(),
+      $StderrTask.GetAwaiter().GetResult()
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+    return [pscustomobject]@{
+      Code = [int]$Process.ExitCode
+      Text = ([string[]]$Output -join "`n")
+    }
+  }
+  finally { $Process.Dispose() }
 }
 
 function Invoke-Native {
@@ -296,40 +367,28 @@ try {
     Invoke-Native -FilePath "git" -Arguments $GitArgs | Out-Null
   }
 
-  $EnvironmentSnapshot = @{}
-  foreach ($Name in @("AGENTIC_PIPELINE_TEMP", "TEMP", "TMP", "TMPDIR")) {
-    $EnvironmentSnapshot[$Name] = [Environment]::GetEnvironmentVariable(
-      $Name,
-      [EnvironmentVariableTarget]::Process
-    )
-    [Environment]::SetEnvironmentVariable(
-      $Name,
-      $null,
-      [EnvironmentVariableTarget]::Process
-    )
-  }
-
-  try {
-    $ExpectedHandshakeRoot = Get-ExpectedDefaultHandshakeRoot
-    $HandshakeResult = Invoke-Capture `
-      -FilePath $HostExe `
-      -Arguments @(
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", $HandshakeScript,
-        "-ProjectRoot", $Project,
-        "-PipelineRoot", $Root
-      )
-  }
-  finally {
-    foreach ($Name in @("AGENTIC_PIPELINE_TEMP", "TEMP", "TMP", "TMPDIR")) {
-      [Environment]::SetEnvironmentVariable(
-        $Name,
-        $EnvironmentSnapshot[$Name],
-        [EnvironmentVariableTarget]::Process
-      )
-    }
-  }
+  $EnvironmentNamesToRemove = @("AGENTIC_PIPELINE_TEMP", "TEMP", "TMP", "TMPDIR")
+  $ExpectedHandshakeRoot = Get-ExpectedDefaultHandshakeRoot
+  $EscapedHandshakeScript = $HandshakeScript.Replace("'", "''")
+  $EscapedProject = $Project.Replace("'", "''")
+  $EscapedRoot = $Root.Replace("'", "''")
+  $HandshakeInvocation = @"
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new(`$false)
+`$OutputEncoding = [Console]::OutputEncoding
+& '$EscapedHandshakeScript' -ProjectRoot '$EscapedProject' -PipelineRoot '$EscapedRoot'
+"@
+  $HandshakeEncodedCommand = [Convert]::ToBase64String(
+    [Text.Encoding]::Unicode.GetBytes($HandshakeInvocation)
+  )
+  $HandshakeResult = Invoke-CaptureWithRemovedEnvironment `
+    -FilePath $HostExe `
+    -Arguments @(
+      "-NoProfile",
+      "-ExecutionPolicy", "Bypass",
+      "-EncodedCommand", $HandshakeEncodedCommand
+    ) `
+    -EnvironmentNames $EnvironmentNamesToRemove `
+    -WorkingDirectory $TempRoot
 
   if ($HandshakeResult.Code -ne 0) {
     throw "Default handshake failed without AGENTIC_PIPELINE_TEMP/TEMP/TMP/TMPDIR.`n$($HandshakeResult.Text)"
@@ -520,4 +579,15 @@ finally {
     }
     Remove-Item -LiteralPath $ResolvedTemp -Recurse -Force
   }
+  $RootEntryIdentityAfter = @(Get-RootEntryIdentity -RootPath $Root)
+  $RootEntryDiff = @(
+    Compare-Object `
+      -ReferenceObject $RootEntryIdentityBefore `
+      -DifferenceObject $RootEntryIdentityAfter `
+      -CaseSensitive
+  )
+  if ($RootEntryDiff.Count -gt 0) {
+    throw "Cross-platform validation changed repository root-entry identity: $($RootEntryDiff | ConvertTo-Json -Compress)"
+  }
+  Write-Host 'Repository root-entry immutability regression passed.'
 }

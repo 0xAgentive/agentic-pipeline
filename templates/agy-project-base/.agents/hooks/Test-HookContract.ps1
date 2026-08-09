@@ -13,11 +13,49 @@ if (-not $Group -or $Group.enabled -ne $true) { throw 'Owner-autonomy hook regis
 foreach ($EventName in @('PreToolUse','PostToolUse','PreInvocation','Stop')) {
   if (-not $Group.PSObject.Properties[$EventName] -or @($Group.$EventName).Count -eq 0) { throw "Hook event missing: $EventName" }
 }
+$ConfiguredCommands = @(
+  @($Group.PreToolUse) | ForEach-Object { @($_.hooks) | ForEach-Object { [string]$_.command } }
+  @($Group.PostToolUse) | ForEach-Object { @($_.hooks) | ForEach-Object { [string]$_.command } }
+  @($Group.PreInvocation) | ForEach-Object { [string]$_.command }
+  @($Group.Stop) | ForEach-Object { [string]$_.command }
+)
+$ExpectedCommands = @(
+  'node hooks/agentic_runtime_hook.cjs prewrite',
+  'node hooks/agentic_runtime_hook.cjs precommand',
+  'node hooks/agentic_runtime_hook.cjs postwrite',
+  'node hooks/agentic_runtime_hook.cjs postcommand',
+  'node hooks/agentic_runtime_hook.cjs preinvocation',
+  'node hooks/agentic_runtime_hook.cjs stop'
+)
+if ((@($ConfiguredCommands | Sort-Object) -join "`n") -cne (@($ExpectedCommands | Sort-Object) -join "`n")) {
+  throw 'Hook commands do not exactly match the paths resolved from the Antigravity .agents working directory.'
+}
+if (@($ConfiguredCommands | Where-Object { $_ -match '(?i)(?:^|\s)\.agents[\\/]hooks[\\/]' }).Count -gt 0) {
+  throw 'Hook command duplicates the .agents working-directory segment.'
+}
+$ConfiguredStopCommand = [string]@($Group.Stop)[0].command
+$ConfiguredStopMatch = [regex]::Match($ConfiguredStopCommand, '^node (?<script>hooks/agentic_runtime_hook\.cjs) (?<event>stop)$', [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+if (-not $ConfiguredStopMatch.Success) { throw 'Stop hook command cannot be invoked safely by the cwd regression.' }
 $TempRoot = Join-Path $env:TEMP ('agentic-hook-contract-' + [guid]::NewGuid().ToString('N'))
 try {
   New-Item -ItemType Directory -Force (Join-Path $TempRoot '.agy') | Out-Null
-  New-Item -ItemType Directory -Force (Join-Path $TempRoot '.agents') | Out-Null
+  $TempAgentsRoot = New-Item -ItemType Directory -Force (Join-Path $TempRoot '.agents')
+  $TempHookRoot = New-Item -ItemType Directory -Force (Join-Path $TempAgentsRoot.FullName 'hooks')
+  $TempHook = Join-Path $TempHookRoot.FullName 'agentic_runtime_hook.cjs'
+  Copy-Item -LiteralPath $Hook -Destination $TempHook
   New-Item -ItemType Directory -Force (Join-Path $TempRoot 'src') | Out-Null
+  $CwdInput = @{conversationId='hook-cwd-contract';workspacePaths=@($TempRoot);fullyIdle=$false;terminationReason='model_stop'} | ConvertTo-Json -Depth 10 -Compress
+  Push-Location -LiteralPath $TempAgentsRoot.FullName
+  try {
+    $CwdRawOutput = @($CwdInput | & $Node $ConfiguredStopMatch.Groups['script'].Value $ConfiguredStopMatch.Groups['event'].Value 2>&1)
+    $CwdExitCode = $LASTEXITCODE
+  }
+  finally { Pop-Location }
+  if ($CwdExitCode -ne 0) { throw "Configured Stop hook failed from the Antigravity .agents cwd: $($CwdRawOutput -join [Environment]::NewLine)" }
+  $CwdOutput = ($CwdRawOutput -join "`n") | ConvertFrom-Json
+  if ([string]$CwdOutput.decision -ne 'stop') { throw 'Configured Stop hook returned an invalid result from the Antigravity .agents cwd.' }
+  $ResolvedConfiguredHook = (Resolve-Path -LiteralPath (Join-Path $TempAgentsRoot.FullName $ConfiguredStopMatch.Groups['script'].Value)).Path
+  if (-not $ResolvedConfiguredHook.Equals($TempHook, [StringComparison]::OrdinalIgnoreCase)) { throw 'Configured Stop hook did not resolve to .agents/hooks/agentic_runtime_hook.cjs.' }
   [IO.File]::WriteAllText((Join-Path $TempRoot 'src\base.ts'),'export const base = true;',[Text.UTF8Encoding]::new($false))
   & git -C $TempRoot init -b main | Out-Null
   & git -C $TempRoot -c user.name='Hook Contract' -c user.email='hook@local.invalid' add --all

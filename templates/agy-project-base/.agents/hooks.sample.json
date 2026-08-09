@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .agents/hooks/agentic_runtime_hook.cjs prewrite",
+            "command": "node hooks/agentic_runtime_hook.cjs prewrite",
             "timeout": 15
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .agents/hooks/agentic_runtime_hook.cjs precommand",
+            "command": "node hooks/agentic_runtime_hook.cjs precommand",
             "timeout": 15
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .agents/hooks/agentic_runtime_hook.cjs postwrite",
+            "command": "node hooks/agentic_runtime_hook.cjs postwrite",
             "timeout": 15
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .agents/hooks/agentic_runtime_hook.cjs postcommand",
+            "command": "node hooks/agentic_runtime_hook.cjs postcommand",
             "timeout": 15
           }
         ]
@@ -48,14 +48,14 @@
     "PreInvocation": [
       {
         "type": "command",
-        "command": "node .agents/hooks/agentic_runtime_hook.cjs preinvocation",
+        "command": "node hooks/agentic_runtime_hook.cjs preinvocation",
         "timeout": 15
       }
     ],
     "Stop": [
       {
         "type": "command",
-        "command": "node .agents/hooks/agentic_runtime_hook.cjs stop",
+        "command": "node hooks/agentic_runtime_hook.cjs stop",
         "timeout": 15
       }
     ]

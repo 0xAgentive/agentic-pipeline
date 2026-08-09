@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.14",
+  "ecosystem_version": "1.2.15",
   "artifact": "pipeline_source_snapshot",
   "source": "complete canonical tree",
-  "generated_at_utc": "2026-08-08T18:21:27Z",
+  "generated_at_utc": "2026-08-09T09:46:46Z",
   "operational_gate_policy": {
     "blocking": [
       "syntax/runtime safety",

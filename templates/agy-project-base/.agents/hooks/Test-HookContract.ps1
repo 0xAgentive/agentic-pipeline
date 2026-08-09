@@ -3,6 +3,16 @@ param([string]$ProjectRoot = (Split-Path -Parent (Split-Path -Parent $PSScriptRo
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $PathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$PathSeparators = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+function Test-UnsafeTemporaryBase {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $Full = [IO.Path]::GetFullPath($Path)
+  $Normalized = $Full.TrimEnd($PathSeparators)
+  $VolumeRoot = [IO.Path]::GetPathRoot($Full)
+  if ([string]::IsNullOrWhiteSpace($Normalized) -or [string]::IsNullOrWhiteSpace($VolumeRoot)) { return $true }
+  $NormalizedVolumeRoot = [IO.Path]::GetFullPath($VolumeRoot).TrimEnd($PathSeparators)
+  return $Normalized.Equals($NormalizedVolumeRoot, $PathComparison)
+}
 $Node = (Get-Command node -ErrorAction Stop).Source
 $Hook = Join-Path $ProjectRoot '.agents/hooks/agentic_runtime_hook.cjs'
 $HooksJson = Join-Path $ProjectRoot '.agents/hooks.json'
@@ -37,7 +47,15 @@ if (@($ConfiguredCommands | Where-Object { $_ -match '(?i)(?:^|\s)\.agents[\\/]h
 $ConfiguredStopCommand = [string]@($Group.Stop)[0].command
 $ConfiguredStopMatch = [regex]::Match($ConfiguredStopCommand, '^node (?<script>hooks/agentic_runtime_hook\.cjs) (?<event>stop)$', [Text.RegularExpressions.RegexOptions]::CultureInvariant)
 if (-not $ConfiguredStopMatch.Success) { throw 'Stop hook command cannot be invoked safely by the cwd regression.' }
-$TempRoot = Join-Path ([IO.Path]::GetTempPath()) ('agentic-hook-contract-' + [guid]::NewGuid().ToString('N'))
+$TempBaseFull = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+if (Test-UnsafeTemporaryBase -Path $TempBaseFull) { throw "Unsafe hook-contract temporary base: $TempBaseFull" }
+$TempBase = $TempBaseFull.TrimEnd($PathSeparators)
+$TempVolumeRoot = [IO.Path]::GetPathRoot($TempBaseFull)
+if (-not (Test-UnsafeTemporaryBase -Path $TempVolumeRoot)) { throw "Hook-contract volume-root rejection probe failed: $TempVolumeRoot" }
+$TempBasePrefix = $TempBase + [IO.Path]::DirectorySeparatorChar
+$TempRootName = 'agentic-hook-contract-' + [guid]::NewGuid().ToString('N')
+$TempRoot = [IO.Path]::GetFullPath((Join-Path $TempBase $TempRootName)).TrimEnd($PathSeparators)
+if (-not $TempRoot.StartsWith($TempBasePrefix, $PathComparison) -or $TempRoot.Equals($TempBase, $PathComparison) -or (Test-UnsafeTemporaryBase -Path $TempRoot) -or (Split-Path -Leaf $TempRoot) -cnotmatch '^agentic-hook-contract-[0-9a-f]{32}$') { throw "Unsafe hook-contract temporary root: $TempRoot" }
 try {
   New-Item -ItemType Directory -Force (Join-Path $TempRoot '.agy') | Out-Null
   $TempAgentsRoot = New-Item -ItemType Directory -Force (Join-Path $TempRoot '.agents')
@@ -109,4 +127,10 @@ try {
   $StalledOutput = ($StopInput | ConvertTo-Json -Depth 10 -Compress) | & $Node $Hook stop | ConvertFrom-Json
   if ($StalledOutput.decision -ne 'stop') { throw 'Stalled work item was not stopped.' }
   Write-Host 'Hook contract OK.'
-} finally { Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue }
+} finally {
+  if (Test-Path -LiteralPath $TempRoot -PathType Container) {
+    $ResolvedTemp = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $TempRoot).Path).TrimEnd($PathSeparators)
+    if (-not $ResolvedTemp.StartsWith($TempBasePrefix, $PathComparison) -or -not $ResolvedTemp.Equals($TempRoot, $PathComparison) -or $ResolvedTemp.Equals($TempBase, $PathComparison) -or (Test-UnsafeTemporaryBase -Path $ResolvedTemp) -or (Split-Path -Leaf $ResolvedTemp) -cnotmatch '^agentic-hook-contract-[0-9a-f]{32}$') { throw "Unsafe hook-contract cleanup target: $ResolvedTemp" }
+    Remove-Item -LiteralPath $ResolvedTemp -Recurse -Force
+  }
+}

@@ -7,6 +7,19 @@ $ErrorActionPreference = "Stop"
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $HostExe = (Get-Process -Id $PID).Path
+$PathComparison = if (
+  [System.Environment]::OSVersion.Platform -eq
+  [System.PlatformID]::Win32NT
+) {
+  [System.StringComparison]::OrdinalIgnoreCase
+}
+else {
+  [System.StringComparison]::Ordinal
+}
+$PathSeparators = [char[]]@(
+  [System.IO.Path]::DirectorySeparatorChar,
+  [System.IO.Path]::AltDirectorySeparatorChar
+)
 $VersionPath = Join-Path $Root "VERSION.json"
 $HandshakeSchemaPath = Join-Path $Root "schemas\companion\runtime-handshake.schema.json"
 
@@ -53,7 +66,7 @@ function Read-RepoText {
 }
 
 $OverlayText = Read-RepoText 'scripts/release/Apply-CandidateOverlay.ps1'
-$RuntimeUpdaterText = Read-RepoText 'scripts/windows/Update-AgenticProjectRuntime-v1.2.14.ps1'
+$RuntimeUpdaterText = Read-RepoText 'scripts/windows/Update-AgenticProjectRuntime-v1.2.15.ps1'
 $BridgeE2EText = Read-RepoText 'tests/acceptance/Test-ActionBridgeEndToEnd.ps1'
 $BridgeInstallerText = Read-RepoText 'tests/acceptance/Test-ActionBridgeInstallerTransaction.ps1'
 $BridgeInstallerSourceText = Read-RepoText 'scripts/bridge/Install-CompanionActionBridge.ps1'
@@ -81,14 +94,54 @@ if (-not $BridgeInstallerSourceText.Contains('[IO.Path]::DirectorySeparatorChar'
 if ($HookContractText.Contains("Join-Path `$PSScriptRoot '..\..'") -or -not $HookContractText.Contains('Split-Path -Parent') -or $HookContractText.Contains('Join-Path $env:TEMP')) {
   throw 'Hook contract still resolves its default project root with a Windows-only relative path.'
 }
+foreach ($RequiredCleanupGuard in @(
+  '[IO.Path]::GetFullPath([IO.Path]::GetTempPath())',
+  'function Test-UnsafeTemporaryBase',
+  'Test-UnsafeTemporaryBase -Path $TempVolumeRoot',
+  'Test-UnsafeTemporaryBase -Path $ResolvedTemp',
+  '$ResolvedTemp.StartsWith($TempBasePrefix, $PathComparison)',
+  '$ResolvedTemp.Equals($TempRoot, $PathComparison)'
+)) {
+  if (-not $HookContractText.Contains($RequiredCleanupGuard)) {
+    throw "Hook contract cleanup is missing a required temporary-path confinement guard: $RequiredCleanupGuard"
+  }
+}
 if ($ContextBindingText -notmatch 'RunningOnWindows' -or $WorkflowText -notmatch '(?s)validate-windows-unicode:.*?Full Windows distribution integrity.*?Test-DistributionIntegrity\.ps1') {
   throw 'Windows-only Context Handoff execution is not paired with full windows-latest distribution coverage.'
 }
 Write-Host 'CI path-portability regression contract passed.'
 
-$TempRoot = Join-Path (
-  [System.IO.Path]::GetTempPath()
-) ("agentic-cross-platform-edges-" + [Guid]::NewGuid().ToString("N"))
+function Test-UnsafeTemporaryBase {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  $Full = [System.IO.Path]::GetFullPath($Path)
+  $Normalized = $Full.TrimEnd($PathSeparators)
+  $VolumeRoot = [System.IO.Path]::GetPathRoot($Full)
+  if ([string]::IsNullOrWhiteSpace($Normalized) -or
+      [string]::IsNullOrWhiteSpace($VolumeRoot)) {
+    return $true
+  }
+  $NormalizedVolumeRoot = [System.IO.Path]::GetFullPath($VolumeRoot).TrimEnd($PathSeparators)
+  return $Normalized.Equals($NormalizedVolumeRoot, $PathComparison)
+}
+
+$TempBaseFull = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+if (Test-UnsafeTemporaryBase -Path $TempBaseFull) {
+  throw "Unsafe cross-platform temporary base: $TempBaseFull"
+}
+$TempBase = $TempBaseFull.TrimEnd($PathSeparators)
+$TempVolumeRoot = [System.IO.Path]::GetPathRoot($TempBaseFull)
+if (-not (Test-UnsafeTemporaryBase -Path $TempVolumeRoot)) {
+  throw "Temporary volume-root rejection probe failed: $TempVolumeRoot"
+}
+$TempBasePrefix = $TempBase + [System.IO.Path]::DirectorySeparatorChar
+$TempRootName = "agentic-cross-platform-edges-" + [Guid]::NewGuid().ToString("N")
+$TempRoot = [System.IO.Path]::GetFullPath((Join-Path $TempBase $TempRootName)).TrimEnd($PathSeparators)
+if (-not $TempRoot.StartsWith($TempBasePrefix, $PathComparison) -or
+    $TempRoot.Equals($TempBase, $PathComparison) -or
+    (Test-UnsafeTemporaryBase -Path $TempRoot) -or
+    (Split-Path -Leaf $TempRoot) -cnotmatch '^agentic-cross-platform-edges-[0-9a-f]{32}$') {
+  throw "Unsafe cross-platform temporary root: $TempRoot"
+}
 
 function Invoke-Capture {
   param(
@@ -134,6 +187,81 @@ function Write-Utf8 {
   [System.IO.File]::WriteAllText($Path, $Text, $Utf8NoBom)
 }
 
+function Get-ExpectedDefaultHandshakeRoot {
+  $Candidates = New-Object System.Collections.Generic.List[string]
+  $IsWindowsPlatform = (
+    [System.Environment]::OSVersion.Platform -eq
+    [System.PlatformID]::Win32NT
+  )
+  $UserProfile = [System.Environment]::GetFolderPath(
+    [System.Environment+SpecialFolder]::UserProfile
+  )
+
+  if ($IsWindowsPlatform) {
+    $LocalApplicationData = [System.Environment]::GetFolderPath(
+      [System.Environment+SpecialFolder]::LocalApplicationData
+    )
+    if (-not [string]::IsNullOrWhiteSpace($LocalApplicationData)) {
+      [void]$Candidates.Add([System.IO.Path]::Combine($LocalApplicationData, 'Temp'))
+    }
+    if (-not [string]::IsNullOrWhiteSpace($UserProfile)) {
+      [void]$Candidates.Add([System.IO.Path]::Combine($UserProfile, 'AppData', 'Local', 'Temp'))
+    }
+  }
+  else {
+    foreach ($Value in @($env:XDG_RUNTIME_DIR, $env:XDG_CACHE_HOME)) {
+      if (-not [string]::IsNullOrWhiteSpace([string]$Value)) {
+        [void]$Candidates.Add([string]$Value)
+      }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($UserProfile)) {
+      [void]$Candidates.Add([System.IO.Path]::Combine($UserProfile, '.cache'))
+    }
+    [void]$Candidates.Add('/tmp')
+  }
+  try { [void]$Candidates.Add([System.IO.Path]::GetTempPath()) }
+  catch { }
+
+  foreach ($Candidate in @($Candidates | Select-Object -Unique)) {
+    $ProbePath = $null
+    try {
+      $ExpandedCandidate = [System.Environment]::ExpandEnvironmentVariables([string]$Candidate)
+      if (-not [System.IO.Path]::IsPathRooted($ExpandedCandidate)) { continue }
+      $BaseRoot = [System.IO.Path]::GetFullPath($ExpandedCandidate)
+      $ExpectedRoot = [System.IO.Path]::Combine($BaseRoot, 'agentic-pipeline', 'runtime-handshake')
+      [System.IO.Directory]::CreateDirectory($ExpectedRoot) | Out-Null
+      $ProbePath = [System.IO.Path]::Combine($ExpectedRoot, '.expected-root-probe-' + [Guid]::NewGuid().ToString('N') + '.tmp')
+      [System.IO.File]::WriteAllText($ProbePath, '', $Utf8NoBom)
+      [System.IO.File]::Delete($ProbePath)
+      return [System.IO.Path]::GetFullPath($ExpectedRoot).TrimEnd($PathSeparators)
+    }
+    catch {
+      if ($ProbePath) { Remove-Item -LiteralPath $ProbePath -Force -ErrorAction SilentlyContinue }
+    }
+  }
+
+  throw 'Unable to determine the exact default runtime-handshake directory.'
+}
+
+function Remove-BoundHandshakeFile {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$ExpectedRoot
+  )
+  $Full = [System.IO.Path]::GetFullPath($Path)
+  $Parent = [System.IO.Path]::GetDirectoryName($Full)
+  $Leaf = [System.IO.Path]::GetFileName($Full)
+  if (-not $Parent.Equals($ExpectedRoot, $PathComparison) -or
+      $Leaf -cnotmatch '^runtime-handshake-[0-9]{8}-[0-9]{6}-[0-9a-f]{32}\.json$') {
+    throw "Refusing to delete an unbound runtime-handshake path: $Full"
+  }
+  if (Test-Path -LiteralPath $Full -PathType Leaf) {
+    Remove-Item -LiteralPath $Full -Force
+  }
+}
+
+$ExpectedHandshakeRoot = $null
+$GeneratedHandshakeFullPath = $null
 try {
   New-Item -ItemType Directory -Force $TempRoot | Out-Null
 
@@ -182,6 +310,7 @@ try {
   }
 
   try {
+    $ExpectedHandshakeRoot = Get-ExpectedDefaultHandshakeRoot
     $HandshakeResult = Invoke-Capture `
       -FilePath $HostExe `
       -Arguments @(
@@ -237,26 +366,25 @@ try {
     throw "Default handshake output directory is not usable: $GeneratedHandshakeParent"
   }
 
-  $TrimSeparators = [char[]]@(
-    [System.IO.Path]::DirectorySeparatorChar,
-    [System.IO.Path]::AltDirectorySeparatorChar
-  )
   $ProjectFullPath = [System.IO.Path]::GetFullPath($Project).TrimEnd(
-    $TrimSeparators
+    $PathSeparators
   )
   $ProjectPrefix = $ProjectFullPath + [System.IO.Path]::DirectorySeparatorChar
-  $PathComparison = if (
-    [System.Environment]::OSVersion.Platform -eq
-    [System.PlatformID]::Win32NT
-  ) {
-    [System.StringComparison]::OrdinalIgnoreCase
-  }
-  else {
-    [System.StringComparison]::Ordinal
-  }
 
   if ($GeneratedHandshakeFullPath.StartsWith($ProjectPrefix, $PathComparison)) {
     throw "Default handshake output was written inside the project: $GeneratedHandshakeFullPath"
+  }
+
+  $GeneratedHandshakeParentFull = [System.IO.Path]::GetFullPath(
+    $GeneratedHandshakeParent
+  ).TrimEnd($PathSeparators)
+  $GeneratedHandshakeLeaf = [System.IO.Path]::GetFileName($GeneratedHandshakeFullPath)
+  if (-not $GeneratedHandshakeParentFull.Equals($ExpectedHandshakeRoot, $PathComparison) -or
+      $GeneratedHandshakeLeaf -cnotmatch '^runtime-handshake-[0-9]{8}-[0-9]{6}-[0-9a-f]{32}\.json$') {
+    throw (
+      "Default handshake output is not bound to the exact expected temporary directory and leaf pattern: " +
+      "$GeneratedHandshakeFullPath expected_parent=$ExpectedHandshakeRoot"
+    )
   }
 
   $ProjectStatus = Invoke-Capture `
@@ -289,7 +417,7 @@ try {
     )
   }
 
-  Remove-Item -LiteralPath $GeneratedHandshakePath -Force
+  Remove-BoundHandshakeFile -Path $GeneratedHandshakeFullPath -ExpectedRoot $ExpectedHandshakeRoot
   Write-Host "Default handshake temp-path regression passed."
 
   $Bash = Get-Command bash -ErrorAction SilentlyContinue
@@ -332,7 +460,7 @@ try {
     }
 
     if (Test-Path -LiteralPath (
-      Join-Path $LinkedTarget ".agy\INSTALLATION_MANIFEST.json"
+      Join-Path (Join-Path $LinkedTarget '.agy') 'INSTALLATION_MANIFEST.json'
     )) {
       throw "Dirty linked-worktree rejection wrote an installation manifest."
     }
@@ -347,7 +475,7 @@ try {
       throw "Clean linked Git worktree adoption failed.`n$($CleanAdoption.Text)"
     }
 
-    $ManifestPath = Join-Path $LinkedTarget ".agy\INSTALLATION_MANIFEST.json"
+    $ManifestPath = Join-Path (Join-Path $LinkedTarget '.agy') 'INSTALLATION_MANIFEST.json'
     if (!(Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
       throw "Clean linked-worktree adoption did not write a manifest."
     }
@@ -377,7 +505,19 @@ try {
   exit 0
 }
 finally {
-  if (Test-Path -LiteralPath $TempRoot) {
-    Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
+  if (-not [string]::IsNullOrWhiteSpace($GeneratedHandshakeFullPath) -and
+      -not [string]::IsNullOrWhiteSpace($ExpectedHandshakeRoot)) {
+    Remove-BoundHandshakeFile -Path $GeneratedHandshakeFullPath -ExpectedRoot $ExpectedHandshakeRoot
+  }
+  if (Test-Path -LiteralPath $TempRoot -PathType Container) {
+    $ResolvedTemp = [System.IO.Path]::GetFullPath((Resolve-Path -LiteralPath $TempRoot).Path).TrimEnd($PathSeparators)
+    if (-not $ResolvedTemp.StartsWith($TempBasePrefix, $PathComparison) -or
+        -not $ResolvedTemp.Equals($TempRoot, $PathComparison) -or
+        $ResolvedTemp.Equals($TempBase, $PathComparison) -or
+        (Test-UnsafeTemporaryBase -Path $ResolvedTemp) -or
+        (Split-Path -Leaf $ResolvedTemp) -cnotmatch '^agentic-cross-platform-edges-[0-9a-f]{32}$') {
+      throw "Unsafe cross-platform cleanup target: $ResolvedTemp"
+    }
+    Remove-Item -LiteralPath $ResolvedTemp -Recurse -Force
   }
 }

@@ -5,8 +5,8 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
-$CanonicalUpdater = Join-Path $Root 'integrations/companion-handoff-1.2.14/Update-AgenticContextHandoff-v1.2.14.ps1'
-$CompleteScript = Join-Path $Root 'scripts/release/Complete-AgenticPipeline-v1.2.14-Deployment.ps1'
+$CanonicalUpdater = Join-Path $Root 'integrations/companion-handoff-1.2.15/Update-AgenticContextHandoff-v1.2.15.ps1'
+$CompleteScript = Join-Path $Root 'scripts/release/Complete-AgenticPipeline-v1.2.15-Deployment.ps1'
 $WorkflowPath = Join-Path $Root '.github/workflows/validate.yml'
 $Pwsh = (Get-Command pwsh -ErrorAction Stop | Select-Object -First 1).Source
 $RunningOnWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
@@ -26,7 +26,7 @@ $Cscript = Join-Path $env:WINDIR 'System32\cscript.exe'
 $Cmd = Join-Path $env:WINDIR 'System32\cmd.exe'
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $Commit = 'a' * 40
-$PackageName = 'agentic-context-handoff-1.2.14'
+$PackageName = 'agentic-context-handoff-1.2.15'
 $ExplicitExclusions = @('install/finalize_v432.py','install/finalize_v433.py','install/finalize_v434.py','install/fix_task.ps1')
 $Assertions = 0
 
@@ -134,7 +134,7 @@ function Invoke-Updater {
     [string[]]$ExtraArguments = @()
   )
   $Arguments = @(
-    '-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.14.ps1'),
+    '-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.15.ps1'),
     '-PackageRoot',$PackageRoot,
     '-HandoffRoot',(Join-Path $TempRoot 'never-live-handoff'),
     '-BackupRoot',(Join-Path $TempRoot 'never-live-backups'),
@@ -155,7 +155,7 @@ function Invoke-UpdaterPlanApply {
     [string[]]$ExtraArguments = @()
   )
   $Arguments = @(
-    '-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.14.ps1'),
+    '-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.15.ps1'),
     '-PackageRoot',$PackageRoot,
     '-HandoffRoot',$HandoffRoot,
     '-BackupRoot',$BackupRoot,
@@ -171,12 +171,12 @@ function New-ContextPackageFixture {
   param([Parameter(Mandatory = $true)][string]$ParentRoot)
   $PackageRoot = Join-Path $ParentRoot $PackageName
   New-Item -ItemType Directory -Force -Path (Join-Path $PackageRoot 'source\src') | Out-Null
-  Copy-Item -LiteralPath $CanonicalUpdater -Destination (Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.14.ps1')
+  Copy-Item -LiteralPath $CanonicalUpdater -Destination (Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.15.ps1')
   Write-Utf8Text -Path (Join-Path $PackageRoot 'README.md') -Text "Hermetic Context Handoff asset-binding fixture.`n"
   Write-JsonFile -Path (Join-Path $PackageRoot 'source\handoff.config.example.json') -Value ([ordered]@{
     version = '4.3.4'
     engine_schema_version = '4.3.4'
-    ecosystem_version = '1.2.14'
+    ecosystem_version = '1.2.15'
     local_root = ''
     privacy = [ordered]@{ fail_closed_patterns = @(); raw_biometrics_excluded = $true }
   })
@@ -208,17 +208,17 @@ raise SystemExit(0)
   })
   $SourceDigest = Get-RecordSetDigest -Records $SourceRecords
   Write-JsonFile -Path (Join-Path $PackageRoot 'VERSION.json') -Value ([ordered]@{
-    schema_version = '1.0.0'; ecosystem_version = '1.2.14'; component = 'context_handoff'; version = '1.2.14'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; source_payload_sha256 = $SourceDigest
+    schema_version = '1.0.0'; ecosystem_version = '1.2.15'; component = 'context_handoff'; version = '1.2.15'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; source_payload_sha256 = $SourceDigest
   })
   Write-JsonFile -Path (Join-Path $PackageRoot 'SOURCE_ATTESTATION.json') -Value ([ordered]@{
-    schema_version = '1.0.0'; ecosystem_version = '1.2.14'; component = 'context_handoff_source'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; source_payload_sha256 = $SourceDigest; explicit_exclusions = $ExplicitExclusions; source_files = $SourceRecords
+    schema_version = '1.0.0'; ecosystem_version = '1.2.15'; component = 'context_handoff_source'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; source_payload_sha256 = $SourceDigest; explicit_exclusions = $ExplicitExclusions; source_files = $SourceRecords
   })
   $ManifestRecords = @(Get-ChildItem -LiteralPath $PackageRoot -File -Recurse -Force | Where-Object Name -ne 'MANIFEST.json' | Sort-Object FullName | ForEach-Object {
     $Relative = Get-RelativeForwardPath -BasePath $PackageRoot -Path $_.FullName
     New-FileRecord -BasePath $PackageRoot -File $_ -Role $(if ($Relative.StartsWith('source/')) { 'immutable_source' } else { 'package_control' })
   })
   Write-JsonFile -Path (Join-Path $PackageRoot 'MANIFEST.json') -Value ([ordered]@{
-    schema_version = '1.0.0'; ecosystem_version = '1.2.14'; component = 'context_handoff'; version = '1.2.14'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; built_at_utc = '2026-08-08T00:00:00Z'; source_payload_sha256 = $SourceDigest; package_payload_sha256 = Get-RecordSetDigest -Records $ManifestRecords; explicit_exclusions = $ExplicitExclusions; files = $ManifestRecords
+    schema_version = '1.0.0'; ecosystem_version = '1.2.15'; component = 'context_handoff'; version = '1.2.15'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; built_at_utc = '2026-08-08T00:00:00Z'; source_payload_sha256 = $SourceDigest; package_payload_sha256 = Get-RecordSetDigest -Records $ManifestRecords; explicit_exclusions = $ExplicitExclusions; files = $ManifestRecords
   })
   return $PackageRoot
 }
@@ -249,7 +249,7 @@ try {
   $BuildParent = Join-Path $TempRoot 'build'
   New-Item -ItemType Directory -Force -Path $BuildParent | Out-Null
   $BuiltPackage = New-ContextPackageFixture -ParentRoot $BuildParent
-  $ArchivePath = Join-Path $TempRoot 'agentic-context-handoff-1.2.14.zip'
+  $ArchivePath = Join-Path $TempRoot 'agentic-context-handoff-1.2.15.zip'
   New-ZipFromDirectory -SourceDirectory $BuildParent -ArchivePath $ArchivePath
   $AssetSha256 = Get-Sha256 -Path $ArchivePath
   $ExtractRoot = Join-Path $TempRoot 'extracted'
@@ -262,6 +262,25 @@ try {
   $HappyPlan = $Happy.stdout | ConvertFrom-Json
   Assert-True -Condition ([string]$HappyPlan.release_asset_sha256 -ceq $AssetSha256) -Message 'Bound release asset SHA is missing from the plan.'
   Assert-True -Condition ([string]$HappyPlan.source_commit -ceq $Commit) -Message 'Bound source commit is missing from the plan.'
+
+  $OverLimitHandoffRoot = $TempRoot
+  foreach ($SegmentIndex in 1..15) {
+    $OverLimitHandoffRoot = Join-Path $OverLimitHandoffRoot ("segment-$SegmentIndex-" + ('x' * 180))
+  }
+  $OverLimitBackupRoot = Join-Path $TempRoot 'over-limit-backups'
+  $OverLimitHooksPath = Join-Path $TempRoot 'over-limit-hooks\hooks.json'
+  $OverLimitResult = Invoke-UpdaterPlanApply `
+    -PackageRoot $PackageRoot `
+    -HandoffRoot $OverLimitHandoffRoot `
+    -BackupRoot $OverLimitBackupRoot `
+    -HooksPath $OverLimitHooksPath `
+    -PythonwPath $Pythonw `
+    -ExtraArguments $BindingArguments
+  Assert-True -Condition ($OverLimitResult.exit_code -ne 0) -Message 'Over-limit Context Handoff Stop command unexpectedly reached apply.'
+  Assert-True -Condition (($OverLimitResult.stdout + $OverLimitResult.stderr) -match 'hook command length [0-9]+ exceeds the fail-closed Windows command limit 8000') -Message 'Over-limit Context Handoff Stop command did not fail with the exact length-boundary reason.'
+  Assert-True -Condition (-not (Test-Path -LiteralPath $OverLimitHandoffRoot)) -Message 'Over-limit Context Handoff rejection wrote the installation root.'
+  Assert-True -Condition (-not (Test-Path -LiteralPath $OverLimitBackupRoot)) -Message 'Over-limit Context Handoff rejection wrote a transaction backup.'
+  Assert-True -Condition (-not (Test-Path -LiteralPath $OverLimitHooksPath)) -Message 'Over-limit Context Handoff rejection wrote hooks state.'
 
   Assert-Rejected -Result (Invoke-Updater -PackageRoot $PackageRoot -ExtraArguments @('-ExpectedSourceCommit',$Commit)) -Pattern 'PackageArchivePath is required' -Label 'Missing archive binding'
   Assert-Rejected -Result (Invoke-Updater -PackageRoot $PackageRoot -ExtraArguments @('-PackageArchivePath',$ArchivePath,'-ExpectedSourceCommit',$Commit)) -Pattern 'AssetSha256 is required' -Label 'Missing asset hash binding'
@@ -332,6 +351,7 @@ try {
   $HookCommand = [string]$InstalledHooks.'companion-handoff-on-stop'.Stop[0].command
   Assert-True -Condition (-not (Test-Path -LiteralPath $ObsoleteHookWrapperPath)) -Message 'Successful apply left the obsolete cmd wrapper active.'
   Assert-True -Condition ($HookCommand.StartsWith('powershell.exe ', [StringComparison]::Ordinal)) -Message 'Stop hook does not begin with the safe bare powershell.exe token.'
+  Assert-True -Condition ($HookCommand.Length -le 8000) -Message "Default Stop hook exceeds the fail-closed Windows command limit: $($HookCommand.Length)"
   Assert-True -Condition ($HookCommand -notmatch '["'']|\bcall\b') -Message 'Stop hook still contains quoting or the cmd-only call builtin.'
   $EncodedCommandMatch = [regex]::Match($HookCommand, '^powershell\.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand (?<value>[A-Za-z0-9+/=]+)$')
   Assert-True -Condition $EncodedCommandMatch.Success -Message 'Stop hook command does not exactly match the first-token-safe encoded launcher contract.'
@@ -407,6 +427,7 @@ try {
   Assert-True -Condition ($UpdaterText -match '\[Text\.UnicodeEncoding\]::new\(\$false,\s*\$true\)') -Message 'Context Handoff updater does not define a UTF-16LE BOM launcher encoding.'
   Assert-True -Condition ($UpdaterText -match '(?s)\$DesiredLauncherBytes\s*=\s*ConvertTo-EncodedTextBytes.*?Test-FileBytesEqual\s+-Path\s+\$LauncherPath.*?Write-AtomicBytes\s+-Path\s+\$LauncherPath\s+-Bytes\s+\$DesiredLauncherBytes') -Message 'Context Handoff launcher desired-state, comparison, and write are not consistently byte-aware.'
   Assert-True -Condition ($UpdaterText -match '(?s)\$HookCommand\s*=\s*"powershell\.exe.*?-EncodedCommand\s+\$HookEncodedCommand".*?remove-generated:\$ObsoleteHookWrapperPath.*?Remove-Item\s+-LiteralPath\s+\$ObsoleteHookWrapperPath') -Message 'Context Handoff direct Stop hook or transactional obsolete-wrapper removal is incomplete.'
+  Assert-True -Condition ($UpdaterText -match '(?s)\$HookCommandMaxLength\s*=\s*8000.*?\$HookCommand\.Length\s+-gt\s+\$HookCommandMaxLength.*?No installation writes were performed') -Message 'Context Handoff updater lacks the fail-closed pre-write Windows command-length boundary.'
   Assert-True -Condition ($UpdaterText -match '(?s)\$TaskSnapshotCaptured\s*=\s*\$true.*?Disable-ScheduledTask.*?Wait-TaskQuiesced.*?Assert-TaskQuiescedBeforeWrite.*?New-Item\s+-ItemType\s+Directory\s+-Force\s+-Path\s+\$ResolvedHandoffRoot') -Message 'Context Handoff updater does not quiesce the snapshotted task before the first installation write.'
   Assert-True -Condition ($UpdaterText -match '(?s)function\s+Wait-TaskQuiesced.*?Settings\.Enabled.*?Running.*?Queued.*?Scheduled task did not quiesce') -Message 'Context Handoff updater lacks a fail-closed enabled/running/queued quiescence wait.'
   Assert-True -Condition ($UpdaterText -match '(?s)function\s+Restore-Transaction.*?Register-ScheduledTask\s+-TaskName\s+\$TaskName\s+-Xml\s+\$TaskXml.*?\$TaskOriginalEnabled.*?Get-NormalizedTaskXml') -Message 'Context Handoff rollback does not restore and verify the exact scheduled-task snapshot.'

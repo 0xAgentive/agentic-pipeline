@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.14",
-  "release_name": "Context Handoff Command Wrapper",
+  "ecosystem_version": "1.2.15",
+  "release_name": "Cross-Platform Validation and Stop Launch",
   "components": {
-    "pipeline": "1.2.14",
-    "runtime": "1.2.14",
-    "playbook": "1.2.14",
-    "companion": "1.2.14",
-    "action_bridge": "1.2.14",
-    "context_handoff": "1.2.14"
+    "pipeline": "1.2.15",
+    "runtime": "1.2.15",
+    "playbook": "1.2.15",
+    "companion": "1.2.15",
+    "action_bridge": "1.2.15",
+    "context_handoff": "1.2.15"
   },
   "status": "stable"
 }

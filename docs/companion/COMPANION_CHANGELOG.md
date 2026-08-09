@@ -1,5 +1,11 @@
 # Companion changelog
 
+## 1.2.15 — Cross-Platform Validation and Stop Launch
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.15.
+- Uses a first-token-safe encoded Windows PowerShell Stop command and pairs portable validation with full Windows execution coverage.
+
 ## 1.2.14 — Context Handoff Command Wrapper
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

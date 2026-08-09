@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.15 — Cross-Platform Validation and Stop Launch
+
+- Supersedes 1.2.14 without moving or rewriting its public tag or release.
+- Launches the Context Stop hook with a first-token-safe direct `powershell.exe -EncodedCommand` command and transactionally removes the obsolete wrapper.
+- Rejects over-limit Stop commands before any installation write and binds hermetic cleanup to exact temporary roots and generated handshake leaves.
+- Makes runtime, overlay, Action Bridge and hook-contract path confinement executable on both Windows and Ubuntu without weakening Windows-only canaries.
+- Runs the complete Distribution Integrity contract on `windows-latest` while retaining the Ubuntu distribution gate.
+- Rebinds all five ecosystem assets to one immutable 1.2.15 source commit while retaining schema 1.2.9 and Context engine 4.3.4 compatibility.
+
 ## 1.2.14 — Context Handoff Command Wrapper
 
 - Supersedes 1.2.13 without moving or rewriting its public tag or release.

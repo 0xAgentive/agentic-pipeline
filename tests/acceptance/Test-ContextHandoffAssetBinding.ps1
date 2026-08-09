@@ -79,24 +79,23 @@ function Invoke-CapturedProcess {
     [string]$FilePath,
     [string[]]$ArgumentList = @(),
     [int]$TimeoutSeconds = 30,
-    [AllowNull()][string]$StandardInput = $null,
-    [AllowNull()][string]$RawArguments = $null
+    [AllowNull()][string]$StandardInput = $null
   )
+  $HasStandardInput = $PSBoundParameters.ContainsKey('StandardInput')
   $StartInfo = [Diagnostics.ProcessStartInfo]::new()
   $StartInfo.FileName = $FilePath
   $StartInfo.UseShellExecute = $false
   $StartInfo.CreateNoWindow = $true
   $StartInfo.RedirectStandardOutput = $true
   $StartInfo.RedirectStandardError = $true
-  $StartInfo.RedirectStandardInput = $null -ne $StandardInput
-  if ($null -ne $StandardInput) { $StartInfo.StandardInputEncoding = [Text.UTF8Encoding]::new($false) }
-  if (-not [string]::IsNullOrWhiteSpace($RawArguments)) { $StartInfo.Arguments = $RawArguments }
-  else { foreach ($Argument in $ArgumentList) { [void]$StartInfo.ArgumentList.Add($Argument) } }
+  $StartInfo.RedirectStandardInput = $HasStandardInput
+  if ($HasStandardInput) { $StartInfo.StandardInputEncoding = [Text.UTF8Encoding]::new($false) }
+  foreach ($Argument in $ArgumentList) { [void]$StartInfo.ArgumentList.Add($Argument) }
   $Process = [Diagnostics.Process]::new()
   $Process.StartInfo = $StartInfo
   try {
     if (-not $Process.Start()) { throw 'Unable to start Context Handoff test process.' }
-    if ($null -ne $StandardInput) {
+    if ($HasStandardInput) {
       $Process.StandardInput.Write($StandardInput)
       $Process.StandardInput.Close()
     }
@@ -286,6 +285,9 @@ try {
   $UnicodeBackupRoot = Join-Path $TempRoot 'backups Юникод'
   $UnicodeHooksPath = Join-Path $TempRoot 'hooks Юникод\hooks.json'
   Assert-True -Condition ($UnicodeHandoffRoot -match '[^\u0000-\u007f]') -Message 'Executable launcher fixture did not create a Unicode worker path.'
+  $ObsoleteHookWrapperPath = Join-Path $UnicodeHandoffRoot '.deployment\enqueue_stop_hook.cmd'
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $ObsoleteHookWrapperPath) | Out-Null
+  [IO.File]::WriteAllText($ObsoleteHookWrapperPath, "@echo off`r`nexit /b 19`r`n", [Text.ASCIIEncoding]::new())
 
   $FirstApply = Invoke-UpdaterPlanApply -PackageRoot $PackageRoot -HandoffRoot $UnicodeHandoffRoot -BackupRoot $UnicodeBackupRoot -HooksPath $UnicodeHooksPath -PythonwPath $Pythonw -ExtraArguments $BindingArguments
   Assert-True -Condition ($FirstApply.exit_code -eq 0) -Message "Unicode Context Handoff apply failed: $($FirstApply.stderr)"
@@ -313,16 +315,11 @@ try {
 
   $InstalledHooks = Get-Content -LiteralPath $UnicodeHooksPath -Raw -Encoding UTF8 | ConvertFrom-Json
   $HookCommand = [string]$InstalledHooks.'companion-handoff-on-stop'.Stop[0].command
-  $HookWrapperPath = Join-Path $UnicodeHandoffRoot '.deployment\enqueue_stop_hook.cmd'
-  Assert-True -Condition ($HookCommand -ceq ('call "' + $HookWrapperPath + '"')) -Message 'Stop hook does not call the installed wrapper by its exact absolute path.'
-  Assert-True -Condition (-not $HookCommand.StartsWith('"', [StringComparison]::Ordinal)) -Message 'Stop hook still begins with a quoted executable and is unsafe for cmd /c.'
-  Assert-True -Condition (Test-Path -LiteralPath $HookWrapperPath -PathType Leaf) -Message 'Context Handoff apply did not install the Stop hook wrapper.'
-  $HookWrapperBytesBefore = [IO.File]::ReadAllBytes($HookWrapperPath)
-  Assert-True -Condition (@($HookWrapperBytesBefore | Where-Object { $_ -gt 0x7f }).Count -eq 0) -Message 'Stop hook wrapper is not ASCII-only.'
-  $HookWrapperText = [Text.Encoding]::ASCII.GetString($HookWrapperBytesBefore)
-  Assert-True -Condition ($HookWrapperText.StartsWith("@echo off`r`n", [StringComparison]::Ordinal)) -Message 'Stop hook wrapper is not a quiet deterministic cmd script.'
-  $EncodedCommandMatch = [regex]::Match($HookWrapperText, '(?m)-EncodedCommand\s+(?<value>[A-Za-z0-9+/=]+)\r?$')
-  Assert-True -Condition $EncodedCommandMatch.Success -Message 'Stop hook wrapper does not contain a safe encoded launcher.'
+  Assert-True -Condition (-not (Test-Path -LiteralPath $ObsoleteHookWrapperPath)) -Message 'Successful apply left the obsolete cmd wrapper active.'
+  Assert-True -Condition ($HookCommand.StartsWith('powershell.exe ', [StringComparison]::Ordinal)) -Message 'Stop hook does not begin with the safe bare powershell.exe token.'
+  Assert-True -Condition ($HookCommand -notmatch '["'']|\bcall\b') -Message 'Stop hook still contains quoting or the cmd-only call builtin.'
+  $EncodedCommandMatch = [regex]::Match($HookCommand, '^powershell\.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand (?<value>[A-Za-z0-9+/=]+)$')
+  Assert-True -Condition $EncodedCommandMatch.Success -Message 'Stop hook command does not exactly match the first-token-safe encoded launcher contract.'
   $DecodedHookLauncher = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($EncodedCommandMatch.Groups['value'].Value))
   $ExpectedPythonw = (Resolve-Path -LiteralPath $Pythonw).Path
   $ExpectedEnqueueScript = Join-Path $UnicodeHandoffRoot 'src\enqueue_ag_handoff.py'
@@ -335,7 +332,7 @@ try {
   $PreviousCmdMarker = $env:CONTEXT_HANDOFF_CMD_MARKER
   try {
     $env:CONTEXT_HANDOFF_CMD_MARKER = $CmdMarker
-    $CmdRun = Invoke-CapturedProcess -FilePath $Cmd -RawArguments ('/d /s /c "' + $HookCommand + '"') -TimeoutSeconds 30 -StandardInput $CmdPayload
+    $CmdRun = Invoke-CapturedProcess -FilePath $Cmd -ArgumentList @('/d','/s','/c',$HookCommand) -TimeoutSeconds 30 -StandardInput $CmdPayload
   }
   finally { $env:CONTEXT_HANDOFF_CMD_MARKER = $PreviousCmdMarker }
   Assert-True -Condition ($CmdRun.exit_code -eq 0) -Message "cmd.exe Stop hook execution failed: $($CmdRun.stderr)"
@@ -358,8 +355,6 @@ try {
 
   $LauncherHashBefore = Get-Sha256 -Path $LauncherPath
   $LauncherMtimeBefore = (Get-Item -LiteralPath $LauncherPath).LastWriteTimeUtc.Ticks
-  $HookWrapperHashBefore = Get-Sha256 -Path $HookWrapperPath
-  $HookWrapperMtimeBefore = (Get-Item -LiteralPath $HookWrapperPath).LastWriteTimeUtc.Ticks
   $HooksHashBefore = Get-Sha256 -Path $UnicodeHooksPath
   $HooksMtimeBefore = (Get-Item -LiteralPath $UnicodeHooksPath).LastWriteTimeUtc.Ticks
   $BackupCountBefore = @(Get-ChildItem -LiteralPath $UnicodeBackupRoot -Directory -Force).Count
@@ -370,8 +365,7 @@ try {
   Assert-True -Condition ([bool]$SecondApplyResult.idempotent -and [int]$SecondApplyResult.changes_applied -eq 0) -Message 'Second Unicode Context Handoff apply was not byte-idempotent.'
   Assert-True -Condition ((Get-Sha256 -Path $LauncherPath) -ceq $LauncherHashBefore) -Message 'Second apply changed launcher bytes.'
   Assert-True -Condition ((Get-Item -LiteralPath $LauncherPath).LastWriteTimeUtc.Ticks -eq $LauncherMtimeBefore) -Message 'Second apply rewrote the byte-identical launcher.'
-  Assert-True -Condition ((Get-Sha256 -Path $HookWrapperPath) -ceq $HookWrapperHashBefore) -Message 'Second apply changed Stop hook wrapper bytes.'
-  Assert-True -Condition ((Get-Item -LiteralPath $HookWrapperPath).LastWriteTimeUtc.Ticks -eq $HookWrapperMtimeBefore) -Message 'Second apply rewrote the byte-identical Stop hook wrapper.'
+  Assert-True -Condition (-not (Test-Path -LiteralPath $ObsoleteHookWrapperPath)) -Message 'Second apply recreated the obsolete cmd wrapper.'
   Assert-True -Condition ((Get-Sha256 -Path $UnicodeHooksPath) -ceq $HooksHashBefore) -Message 'Second apply changed the desired hooks config.'
   Assert-True -Condition ((Get-Item -LiteralPath $UnicodeHooksPath).LastWriteTimeUtc.Ticks -eq $HooksMtimeBefore) -Message 'Second apply rewrote the desired hooks config.'
   Assert-True -Condition (@(Get-ChildItem -LiteralPath $UnicodeBackupRoot -Directory -Force).Count -eq $BackupCountBefore) -Message 'Idempotent second apply created an unnecessary transaction backup.'
@@ -397,7 +391,7 @@ try {
   $UpdaterText = Get-Content -LiteralPath $CanonicalUpdater -Raw -Encoding UTF8
   Assert-True -Condition ($UpdaterText -match '\[Text\.UnicodeEncoding\]::new\(\$false,\s*\$true\)') -Message 'Context Handoff updater does not define a UTF-16LE BOM launcher encoding.'
   Assert-True -Condition ($UpdaterText -match '(?s)\$DesiredLauncherBytes\s*=\s*ConvertTo-EncodedTextBytes.*?Test-FileBytesEqual\s+-Path\s+\$LauncherPath.*?Write-AtomicBytes\s+-Path\s+\$LauncherPath\s+-Bytes\s+\$DesiredLauncherBytes') -Message 'Context Handoff launcher desired-state, comparison, and write are not consistently byte-aware.'
-  Assert-True -Condition ($UpdaterText -match '(?s)\$HookCommand\s*=\s*''call\s+"''\s*\+\s*\$HookWrapperPath.*?Test-FileBytesEqual\s+-Path\s+\$HookWrapperPath.*?Write-AtomicBytes\s+-Path\s+\$HookWrapperPath\s+-Bytes\s+\$DesiredHookWrapperBytes') -Message 'Context Handoff Stop hook wrapper is not transactional and byte-idempotent.'
+  Assert-True -Condition ($UpdaterText -match '(?s)\$HookCommand\s*=\s*"powershell\.exe.*?-EncodedCommand\s+\$HookEncodedCommand".*?remove-generated:\$ObsoleteHookWrapperPath.*?Remove-Item\s+-LiteralPath\s+\$ObsoleteHookWrapperPath') -Message 'Context Handoff direct Stop hook or transactional obsolete-wrapper removal is incomplete.'
   Assert-True -Condition ($UpdaterText -match '(?s)\$TaskSnapshotCaptured\s*=\s*\$true.*?Disable-ScheduledTask.*?Wait-TaskQuiesced.*?Assert-TaskQuiescedBeforeWrite.*?New-Item\s+-ItemType\s+Directory\s+-Force\s+-Path\s+\$ResolvedHandoffRoot') -Message 'Context Handoff updater does not quiesce the snapshotted task before the first installation write.'
   Assert-True -Condition ($UpdaterText -match '(?s)function\s+Wait-TaskQuiesced.*?Settings\.Enabled.*?Running.*?Queued.*?Scheduled task did not quiesce') -Message 'Context Handoff updater lacks a fail-closed enabled/running/queued quiescence wait.'
   Assert-True -Condition ($UpdaterText -match '(?s)function\s+Restore-Transaction.*?Register-ScheduledTask\s+-TaskName\s+\$TaskName\s+-Xml\s+\$TaskXml.*?\$TaskOriginalEnabled.*?Get-NormalizedTaskXml') -Message 'Context Handoff rollback does not restore and verify the exact scheduled-task snapshot.'

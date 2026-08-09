@@ -23,7 +23,6 @@ $EcosystemVersion = '1.2.14'
 $EngineSchemaVersion = '4.3.4'
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $Utf16LeBom = [Text.UnicodeEncoding]::new($false, $true)
-$Ascii = [Text.ASCIIEncoding]::new()
 $SafeAuthorityPaths = @(
   '.agy/ACTION_PACKET_RECEIPT.json',
   '.agy/PROGRESS_POLICY.json',
@@ -632,10 +631,10 @@ WScript.Quit exitCode
 $DesiredLauncherText = $DesiredLauncherText.Replace("`r`n", "`n")
 $DesiredLauncherBytes = ConvertTo-EncodedTextBytes -Text $DesiredLauncherText -Encoding $Utf16LeBom
 
-$HookWrapperPath = Join-Path $DeploymentRoot 'enqueue_stop_hook.cmd'
+$ObsoleteHookWrapperPath = Join-Path $DeploymentRoot 'enqueue_stop_hook.cmd'
 $PowerShellPythonw = $ResolvedPythonw.Replace("'", "''")
 $PowerShellEnqueueScript = $EnqueueScriptPath.Replace("'", "''")
-$HookWrapperPowerShell = @"
+$HookRelayPowerShell = @"
 `$ErrorActionPreference = 'Stop'
 `$ProgressPreference = 'SilentlyContinue'
 `$pythonw = '$PowerShellPythonw'
@@ -677,11 +676,8 @@ finally {
 [Console]::OpenStandardError().Write(`$stderr, 0, `$stderr.Length)
 exit `$exitCode
 "@
-$HookWrapperPowerShell = $HookWrapperPowerShell.Replace("`r`n", "`n")
-$HookWrapperEncodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($HookWrapperPowerShell))
-$DesiredHookWrapperText = "@echo off`r`n`"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $HookWrapperEncodedCommand`r`nexit /b %errorlevel%`r`n"
-if ($DesiredHookWrapperText -match '[^\x00-\x7f]') { throw 'Generated Context Handoff hook wrapper must be ASCII-only.' }
-$DesiredHookWrapperBytes = $Ascii.GetBytes($DesiredHookWrapperText)
+$HookRelayPowerShell = $HookRelayPowerShell.Replace("`r`n", "`n")
+$HookEncodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($HookRelayPowerShell))
 
 $TaskDescriptor = [ordered]@{
   schema_version = '1.0.0'
@@ -719,7 +715,10 @@ $InstalledSourceManifestPath = Join-Path $DeploymentRoot 'SOURCE_INSTALLATION_MA
 $HooksObject = if (Test-Path -LiteralPath $ResolvedHooksPath -PathType Leaf) {
   Get-Content -LiteralPath $ResolvedHooksPath -Raw -Encoding UTF8 | ConvertFrom-Json
 } else { [pscustomobject]@{} }
-$HookCommand = 'call "' + $HookWrapperPath + '"'
+$HookCommand = "powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $HookEncodedCommand"
+if ($HookCommand -notmatch '^powershell\.exe(?: [A-Za-z0-9+/=.-]+)+$' -or $HookCommand -match '["'']') {
+  throw 'Generated Context Handoff hook command is not first-token-safe ASCII.'
+}
 $HookDefinition = [ordered]@{
   enabled = $true
   Stop = @([ordered]@{ type = 'command'; command = $HookCommand; timeout = 15 })
@@ -758,8 +757,8 @@ foreach ($Pair in $DesiredTextFiles.GetEnumerator()) {
 if (-not (Test-FileBytesEqual -Path $LauncherPath -ExpectedBytes $DesiredLauncherBytes)) {
   [void]$Changes.Add("bytes:$LauncherPath")
 }
-if (-not (Test-FileBytesEqual -Path $HookWrapperPath -ExpectedBytes $DesiredHookWrapperBytes)) {
-  [void]$Changes.Add("bytes:$HookWrapperPath")
+if (Test-Path -LiteralPath $ObsoleteHookWrapperPath -PathType Leaf) {
+  [void]$Changes.Add("remove-generated:$ObsoleteHookWrapperPath")
 }
 if ($TaskMode -eq 'Register' -and -not (Test-TaskDefinitionMatches -Name $TaskName -Descriptor ([pscustomobject]$TaskDescriptor))) {
   [void]$Changes.Add("task:$TaskName")
@@ -1000,7 +999,9 @@ try {
   }
   Write-AtomicText -Path $InstalledConfigPath -Text $DesiredConfigText
   Write-AtomicBytes -Path $LauncherPath -Bytes $DesiredLauncherBytes
-  Write-AtomicBytes -Path $HookWrapperPath -Bytes $DesiredHookWrapperBytes
+  if (Test-Path -LiteralPath $ObsoleteHookWrapperPath -PathType Leaf) {
+    Remove-Item -LiteralPath $ObsoleteHookWrapperPath -Force
+  }
   Write-AtomicText -Path $TaskDescriptorPath -Text $DesiredTaskDescriptorText
   Write-AtomicText -Path $InstalledSourceManifestPath -Text $DesiredSourceManifestText
 
@@ -1068,8 +1069,6 @@ try {
     backup_path = $BackupPath
     hooks_path = $ResolvedHooksPath
     hook_command_sha256 = Get-BytesSha256 -Bytes $Utf8NoBom.GetBytes($HookCommand)
-    hook_wrapper_path = $HookWrapperPath
-    hook_wrapper_sha256 = Get-BytesSha256 -Bytes $DesiredHookWrapperBytes
     task_name = $TaskName
     task_mode = $TaskMode
     task_quiesced_before_write = $TaskQuiesced

@@ -23,6 +23,7 @@ $EcosystemVersion = '1.2.13'
 $EngineSchemaVersion = '4.3.4'
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $Utf16LeBom = [Text.UnicodeEncoding]::new($false, $true)
+$Ascii = [Text.ASCIIEncoding]::new()
 $SafeAuthorityPaths = @(
   '.agy/ACTION_PACKET_RECEIPT.json',
   '.agy/PROGRESS_POLICY.json',
@@ -562,6 +563,8 @@ if ((Split-Path -Leaf $ResolvedPythonw) -ine 'pythonw.exe') { throw 'PythonwPath
 $Python = (Get-Command python -ErrorAction Stop | Select-Object -First 1).Source
 $Wscript = Join-Path $env:WINDIR 'System32\wscript.exe'
 if (-not (Test-Path -LiteralPath $Wscript -PathType Leaf)) { throw "wscript.exe missing: $Wscript" }
+$WindowsPowerShell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+if (-not (Test-Path -LiteralPath $WindowsPowerShell -PathType Leaf)) { throw "Windows PowerShell missing: $WindowsPowerShell" }
 
 $ExpectedSourceRecords = @($Attestation.source_files | ForEach-Object {
   $PackagePath = [string]$_.path
@@ -609,6 +612,7 @@ $DesiredConfigText = ConvertTo-Utf8JsonText -Value $Config
 $DeploymentRoot = Join-Path $ResolvedHandoffRoot '.deployment'
 $LauncherPath = Join-Path $DeploymentRoot 'run_worker_hidden.vbs'
 $WorkerScriptPath = Join-Path $ResolvedHandoffRoot 'src\run_ag_handoff_worker.py'
+$EnqueueScriptPath = Join-Path $ResolvedHandoffRoot 'src\enqueue_ag_handoff.py'
 $VbsPython = $ResolvedPythonw.Replace('"', '""')
 $VbsWorker = $WorkerScriptPath.Replace('"', '""')
 $DesiredLauncherText = @"
@@ -627,6 +631,57 @@ WScript.Quit exitCode
 "@
 $DesiredLauncherText = $DesiredLauncherText.Replace("`r`n", "`n")
 $DesiredLauncherBytes = ConvertTo-EncodedTextBytes -Text $DesiredLauncherText -Encoding $Utf16LeBom
+
+$HookWrapperPath = Join-Path $DeploymentRoot 'enqueue_stop_hook.cmd'
+$PowerShellPythonw = $ResolvedPythonw.Replace("'", "''")
+$PowerShellEnqueueScript = $EnqueueScriptPath.Replace("'", "''")
+$HookWrapperPowerShell = @"
+`$ErrorActionPreference = 'Stop'
+`$ProgressPreference = 'SilentlyContinue'
+`$pythonw = '$PowerShellPythonw'
+`$script = '$PowerShellEnqueueScript'
+`$inputBuffer = New-Object System.IO.MemoryStream
+[Console]::OpenStandardInput().CopyTo(`$inputBuffer)
+`$payload = `$inputBuffer.ToArray()
+`$inputBuffer.Dispose()
+`$start = New-Object System.Diagnostics.ProcessStartInfo
+`$start.FileName = `$pythonw
+`$start.Arguments = '"' + `$script + '"'
+`$start.UseShellExecute = `$false
+`$start.CreateNoWindow = `$true
+`$start.RedirectStandardInput = `$true
+`$start.RedirectStandardOutput = `$true
+`$start.RedirectStandardError = `$true
+`$process = New-Object System.Diagnostics.Process
+`$process.StartInfo = `$start
+if (-not `$process.Start()) { exit 70 }
+`$stdoutBuffer = New-Object System.IO.MemoryStream
+`$stderrBuffer = New-Object System.IO.MemoryStream
+try {
+  `$stdoutTask = `$process.StandardOutput.BaseStream.CopyToAsync(`$stdoutBuffer)
+  `$stderrTask = `$process.StandardError.BaseStream.CopyToAsync(`$stderrBuffer)
+  `$process.StandardInput.BaseStream.Write(`$payload, 0, `$payload.Length)
+  `$process.StandardInput.Close()
+  `$process.WaitForExit()
+  [Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@(`$stdoutTask, `$stderrTask))
+  `$exitCode = `$process.ExitCode
+  `$stdout = `$stdoutBuffer.ToArray()
+  `$stderr = `$stderrBuffer.ToArray()
+}
+finally {
+  `$process.Dispose()
+  `$stdoutBuffer.Dispose()
+  `$stderrBuffer.Dispose()
+}
+[Console]::OpenStandardOutput().Write(`$stdout, 0, `$stdout.Length)
+[Console]::OpenStandardError().Write(`$stderr, 0, `$stderr.Length)
+exit `$exitCode
+"@
+$HookWrapperPowerShell = $HookWrapperPowerShell.Replace("`r`n", "`n")
+$HookWrapperEncodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($HookWrapperPowerShell))
+$DesiredHookWrapperText = "@echo off`r`n`"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand $HookWrapperEncodedCommand`r`nexit /b %errorlevel%`r`n"
+if ($DesiredHookWrapperText -match '[^\x00-\x7f]') { throw 'Generated Context Handoff hook wrapper must be ASCII-only.' }
+$DesiredHookWrapperBytes = $Ascii.GetBytes($DesiredHookWrapperText)
 
 $TaskDescriptor = [ordered]@{
   schema_version = '1.0.0'
@@ -664,9 +719,7 @@ $InstalledSourceManifestPath = Join-Path $DeploymentRoot 'SOURCE_INSTALLATION_MA
 $HooksObject = if (Test-Path -LiteralPath $ResolvedHooksPath -PathType Leaf) {
   Get-Content -LiteralPath $ResolvedHooksPath -Raw -Encoding UTF8 | ConvertFrom-Json
 } else { [pscustomobject]@{} }
-$HookPython = $ResolvedPythonw.Replace('\', '/')
-$HookScript = $WorkerScriptPath.Replace('run_ag_handoff_worker.py', 'enqueue_ag_handoff.py').Replace('\', '/')
-$HookCommand = '"' + $HookPython + '" "' + $HookScript + '"'
+$HookCommand = 'call "' + $HookWrapperPath + '"'
 $HookDefinition = [ordered]@{
   enabled = $true
   Stop = @([ordered]@{ type = 'command'; command = $HookCommand; timeout = 15 })
@@ -704,6 +757,9 @@ foreach ($Pair in $DesiredTextFiles.GetEnumerator()) {
 }
 if (-not (Test-FileBytesEqual -Path $LauncherPath -ExpectedBytes $DesiredLauncherBytes)) {
   [void]$Changes.Add("bytes:$LauncherPath")
+}
+if (-not (Test-FileBytesEqual -Path $HookWrapperPath -ExpectedBytes $DesiredHookWrapperBytes)) {
+  [void]$Changes.Add("bytes:$HookWrapperPath")
 }
 if ($TaskMode -eq 'Register' -and -not (Test-TaskDefinitionMatches -Name $TaskName -Descriptor ([pscustomobject]$TaskDescriptor))) {
   [void]$Changes.Add("task:$TaskName")
@@ -944,6 +1000,7 @@ try {
   }
   Write-AtomicText -Path $InstalledConfigPath -Text $DesiredConfigText
   Write-AtomicBytes -Path $LauncherPath -Bytes $DesiredLauncherBytes
+  Write-AtomicBytes -Path $HookWrapperPath -Bytes $DesiredHookWrapperBytes
   Write-AtomicText -Path $TaskDescriptorPath -Text $DesiredTaskDescriptorText
   Write-AtomicText -Path $InstalledSourceManifestPath -Text $DesiredSourceManifestText
 
@@ -1011,6 +1068,8 @@ try {
     backup_path = $BackupPath
     hooks_path = $ResolvedHooksPath
     hook_command_sha256 = Get-BytesSha256 -Bytes $Utf8NoBom.GetBytes($HookCommand)
+    hook_wrapper_path = $HookWrapperPath
+    hook_wrapper_sha256 = Get-BytesSha256 -Bytes $DesiredHookWrapperBytes
     task_name = $TaskName
     task_mode = $TaskMode
     task_quiesced_before_write = $TaskQuiesced

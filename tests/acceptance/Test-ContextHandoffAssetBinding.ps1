@@ -10,13 +10,14 @@ $CompleteScript = Join-Path $Root 'scripts\release\Complete-AgenticPipeline-v1.2
 $Pwsh = (Get-Command pwsh -ErrorAction Stop | Select-Object -First 1).Source
 $Pythonw = (Get-Command pythonw -ErrorAction Stop | Select-Object -First 1).Source
 $Cscript = Join-Path $env:WINDIR 'System32\cscript.exe'
+$Cmd = Join-Path $env:WINDIR 'System32\cmd.exe'
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $Commit = 'a' * 40
 $PackageName = 'agentic-context-handoff-1.2.13'
 $ExplicitExclusions = @('install/finalize_v432.py','install/finalize_v433.py','install/finalize_v434.py','install/fix_task.ps1')
 $Assertions = 0
 
-foreach ($Required in @($CanonicalUpdater, $CompleteScript, $Pythonw, $Cscript)) {
+foreach ($Required in @($CanonicalUpdater, $CompleteScript, $Pythonw, $Cscript, $Cmd)) {
   if (-not (Test-Path -LiteralPath $Required -PathType Leaf)) { throw "Required asset-binding input is missing: $Required" }
 }
 
@@ -74,18 +75,31 @@ function New-FileRecord {
 }
 
 function Invoke-CapturedProcess {
-  param([string]$FilePath, [string[]]$ArgumentList, [int]$TimeoutSeconds = 30)
+  param(
+    [string]$FilePath,
+    [string[]]$ArgumentList = @(),
+    [int]$TimeoutSeconds = 30,
+    [AllowNull()][string]$StandardInput = $null,
+    [AllowNull()][string]$RawArguments = $null
+  )
   $StartInfo = [Diagnostics.ProcessStartInfo]::new()
   $StartInfo.FileName = $FilePath
   $StartInfo.UseShellExecute = $false
   $StartInfo.CreateNoWindow = $true
   $StartInfo.RedirectStandardOutput = $true
   $StartInfo.RedirectStandardError = $true
-  foreach ($Argument in $ArgumentList) { [void]$StartInfo.ArgumentList.Add($Argument) }
+  $StartInfo.RedirectStandardInput = $null -ne $StandardInput
+  if ($null -ne $StandardInput) { $StartInfo.StandardInputEncoding = [Text.UTF8Encoding]::new($false) }
+  if (-not [string]::IsNullOrWhiteSpace($RawArguments)) { $StartInfo.Arguments = $RawArguments }
+  else { foreach ($Argument in $ArgumentList) { [void]$StartInfo.ArgumentList.Add($Argument) } }
   $Process = [Diagnostics.Process]::new()
   $Process.StartInfo = $StartInfo
   try {
     if (-not $Process.Start()) { throw 'Unable to start Context Handoff test process.' }
+    if ($null -ne $StandardInput) {
+      $Process.StandardInput.Write($StandardInput)
+      $Process.StandardInput.Close()
+    }
     $StdoutTask = $Process.StandardOutput.ReadToEndAsync()
     $StderrTask = $Process.StandardError.ReadToEndAsync()
     if (-not $Process.WaitForExit($TimeoutSeconds * 1000)) {
@@ -163,7 +177,19 @@ if marker:
     Path(marker).write_text("UNICODE_LAUNCHER_OK", encoding="utf-8")
 raise SystemExit(0)
 '@
-  Write-Utf8Text -Path (Join-Path $PackageRoot 'source\src\enqueue_ag_handoff.py') -Text "raise SystemExit(0)`n"
+  Write-Utf8Text -Path (Join-Path $PackageRoot 'source\src\enqueue_ag_handoff.py') -Text @'
+import json
+import os
+import sys
+from pathlib import Path
+
+payload = sys.stdin.buffer.read().decode("utf-8")
+marker = os.environ.get("CONTEXT_HANDOFF_CMD_MARKER", "")
+if marker:
+    Path(marker).write_bytes(payload.encode("utf-8"))
+sys.stdout.write(json.dumps({"decision": "approve"}) + "\n")
+raise SystemExit(0)
+'@
 
   $SourceRecords = @(Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'source') -File -Recurse -Force | Sort-Object FullName | ForEach-Object {
     New-FileRecord -BasePath $PackageRoot -File $_
@@ -285,6 +311,39 @@ try {
     $null = Get-Content -LiteralPath $Utf8JsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
   }
 
+  $InstalledHooks = Get-Content -LiteralPath $UnicodeHooksPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $HookCommand = [string]$InstalledHooks.'companion-handoff-on-stop'.Stop[0].command
+  $HookWrapperPath = Join-Path $UnicodeHandoffRoot '.deployment\enqueue_stop_hook.cmd'
+  Assert-True -Condition ($HookCommand -ceq ('call "' + $HookWrapperPath + '"')) -Message 'Stop hook does not call the installed wrapper by its exact absolute path.'
+  Assert-True -Condition (-not $HookCommand.StartsWith('"', [StringComparison]::Ordinal)) -Message 'Stop hook still begins with a quoted executable and is unsafe for cmd /c.'
+  Assert-True -Condition (Test-Path -LiteralPath $HookWrapperPath -PathType Leaf) -Message 'Context Handoff apply did not install the Stop hook wrapper.'
+  $HookWrapperBytesBefore = [IO.File]::ReadAllBytes($HookWrapperPath)
+  Assert-True -Condition (@($HookWrapperBytesBefore | Where-Object { $_ -gt 0x7f }).Count -eq 0) -Message 'Stop hook wrapper is not ASCII-only.'
+  $HookWrapperText = [Text.Encoding]::ASCII.GetString($HookWrapperBytesBefore)
+  Assert-True -Condition ($HookWrapperText.StartsWith("@echo off`r`n", [StringComparison]::Ordinal)) -Message 'Stop hook wrapper is not a quiet deterministic cmd script.'
+  $EncodedCommandMatch = [regex]::Match($HookWrapperText, '(?m)-EncodedCommand\s+(?<value>[A-Za-z0-9+/=]+)\r?$')
+  Assert-True -Condition $EncodedCommandMatch.Success -Message 'Stop hook wrapper does not contain a safe encoded launcher.'
+  $DecodedHookLauncher = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($EncodedCommandMatch.Groups['value'].Value))
+  $ExpectedPythonw = (Resolve-Path -LiteralPath $Pythonw).Path
+  $ExpectedEnqueueScript = Join-Path $UnicodeHandoffRoot 'src\enqueue_ag_handoff.py'
+  Assert-True -Condition ($DecodedHookLauncher.Contains($ExpectedPythonw, [StringComparison]::Ordinal)) -Message 'Encoded Stop hook launcher does not preserve the exact Unicode pythonw path.'
+  Assert-True -Condition ($DecodedHookLauncher.Contains($ExpectedEnqueueScript, [StringComparison]::Ordinal)) -Message 'Encoded Stop hook launcher does not preserve the exact Unicode and spaced enqueue path.'
+
+  $CmdMarker = Join-Path $TempRoot 'маркер cmd Юникод\enqueue.ok'
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $CmdMarker) | Out-Null
+  $CmdPayload = (@{conversationId='cmd-wrapper-unicode';workspacePaths=@($UnicodeHandoffRoot);fullyIdle=$true;message='Юникод with spaces'} | ConvertTo-Json -Depth 10 -Compress) + "`n"
+  $PreviousCmdMarker = $env:CONTEXT_HANDOFF_CMD_MARKER
+  try {
+    $env:CONTEXT_HANDOFF_CMD_MARKER = $CmdMarker
+    $CmdRun = Invoke-CapturedProcess -FilePath $Cmd -RawArguments ('/d /s /c "' + $HookCommand + '"') -TimeoutSeconds 30 -StandardInput $CmdPayload
+  }
+  finally { $env:CONTEXT_HANDOFF_CMD_MARKER = $PreviousCmdMarker }
+  Assert-True -Condition ($CmdRun.exit_code -eq 0) -Message "cmd.exe Stop hook execution failed: $($CmdRun.stderr)"
+  $CmdResponse = $CmdRun.stdout | ConvertFrom-Json
+  Assert-True -Condition ([string]$CmdResponse.decision -ceq 'approve') -Message 'cmd.exe Stop hook did not forward the enqueue response.'
+  Assert-True -Condition (Test-Path -LiteralPath $CmdMarker -PathType Leaf) -Message 'cmd.exe Stop hook returned success without executing enqueue.'
+  Assert-True -Condition ((Get-Content -LiteralPath $CmdMarker -Raw -Encoding UTF8) -ceq $CmdPayload) -Message 'cmd.exe Stop hook did not forward stdin byte-for-byte as UTF-8 text.'
+
   $UnicodeMarker = Join-Path $TempRoot 'маркер Юникод\worker.ok'
   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $UnicodeMarker) | Out-Null
   $PreviousMarker = $env:CONTEXT_HANDOFF_UNICODE_MARKER
@@ -299,6 +358,10 @@ try {
 
   $LauncherHashBefore = Get-Sha256 -Path $LauncherPath
   $LauncherMtimeBefore = (Get-Item -LiteralPath $LauncherPath).LastWriteTimeUtc.Ticks
+  $HookWrapperHashBefore = Get-Sha256 -Path $HookWrapperPath
+  $HookWrapperMtimeBefore = (Get-Item -LiteralPath $HookWrapperPath).LastWriteTimeUtc.Ticks
+  $HooksHashBefore = Get-Sha256 -Path $UnicodeHooksPath
+  $HooksMtimeBefore = (Get-Item -LiteralPath $UnicodeHooksPath).LastWriteTimeUtc.Ticks
   $BackupCountBefore = @(Get-ChildItem -LiteralPath $UnicodeBackupRoot -Directory -Force).Count
   Start-Sleep -Milliseconds 1200
   $SecondApply = Invoke-UpdaterPlanApply -PackageRoot $PackageRoot -HandoffRoot $UnicodeHandoffRoot -BackupRoot $UnicodeBackupRoot -HooksPath $UnicodeHooksPath -PythonwPath $Pythonw -ExtraArguments $BindingArguments
@@ -307,18 +370,26 @@ try {
   Assert-True -Condition ([bool]$SecondApplyResult.idempotent -and [int]$SecondApplyResult.changes_applied -eq 0) -Message 'Second Unicode Context Handoff apply was not byte-idempotent.'
   Assert-True -Condition ((Get-Sha256 -Path $LauncherPath) -ceq $LauncherHashBefore) -Message 'Second apply changed launcher bytes.'
   Assert-True -Condition ((Get-Item -LiteralPath $LauncherPath).LastWriteTimeUtc.Ticks -eq $LauncherMtimeBefore) -Message 'Second apply rewrote the byte-identical launcher.'
+  Assert-True -Condition ((Get-Sha256 -Path $HookWrapperPath) -ceq $HookWrapperHashBefore) -Message 'Second apply changed Stop hook wrapper bytes.'
+  Assert-True -Condition ((Get-Item -LiteralPath $HookWrapperPath).LastWriteTimeUtc.Ticks -eq $HookWrapperMtimeBefore) -Message 'Second apply rewrote the byte-identical Stop hook wrapper.'
+  Assert-True -Condition ((Get-Sha256 -Path $UnicodeHooksPath) -ceq $HooksHashBefore) -Message 'Second apply changed the desired hooks config.'
+  Assert-True -Condition ((Get-Item -LiteralPath $UnicodeHooksPath).LastWriteTimeUtc.Ticks -eq $HooksMtimeBefore) -Message 'Second apply rewrote the desired hooks config.'
   Assert-True -Condition (@(Get-ChildItem -LiteralPath $UnicodeBackupRoot -Directory -Force).Count -eq $BackupCountBefore) -Message 'Idempotent second apply created an unnecessary transaction backup.'
 
   $RollbackHandoffRoot = Join-Path $TempRoot 'rollback Юникод\companion-handoff'
   $RollbackBackupRoot = Join-Path $TempRoot 'rollback backups'
   $RollbackHooksPath = Join-Path $TempRoot 'rollback hooks\hooks.json'
   $RollbackLauncherPath = Join-Path $RollbackHandoffRoot '.deployment\run_worker_hidden.vbs'
+  $RollbackHookWrapperPath = Join-Path $RollbackHandoffRoot '.deployment\enqueue_stop_hook.cmd'
   $LegacyLauncherBytes = [byte[]](0xff, 0xfe, 0x4c, 0x00, 0x45, 0x00, 0x47, 0x00, 0x41, 0x00, 0x43, 0x00, 0x59, 0x00)
+  $LegacyHookWrapperBytes = [Text.Encoding]::ASCII.GetBytes("@echo off`r`nexit /b 19`r`n")
   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $RollbackLauncherPath) | Out-Null
   [IO.File]::WriteAllBytes($RollbackLauncherPath, $LegacyLauncherBytes)
+  [IO.File]::WriteAllBytes($RollbackHookWrapperPath, $LegacyHookWrapperBytes)
   $RollbackAttempt = Invoke-UpdaterPlanApply -PackageRoot $PackageRoot -HandoffRoot $RollbackHandoffRoot -BackupRoot $RollbackBackupRoot -HooksPath $RollbackHooksPath -PythonwPath $Pythonw -ExtraArguments ($BindingArguments + @('-SimulateFailureAfterFileInstall'))
   Assert-True -Condition ($RollbackAttempt.exit_code -ne 0 -and ($RollbackAttempt.stdout + $RollbackAttempt.stderr) -match 'SIMULATED_CONTEXT_HANDOFF_INSTALL_FAILURE') -Message 'Simulated Context Handoff failure did not exercise rollback.'
   Assert-True -Condition ((Get-BytesSha256 -Bytes ([IO.File]::ReadAllBytes($RollbackLauncherPath))) -ceq (Get-BytesSha256 -Bytes $LegacyLauncherBytes)) -Message 'Rollback did not restore the exact pre-transaction launcher bytes.'
+  Assert-True -Condition ((Get-BytesSha256 -Bytes ([IO.File]::ReadAllBytes($RollbackHookWrapperPath))) -ceq (Get-BytesSha256 -Bytes $LegacyHookWrapperBytes)) -Message 'Rollback did not restore the exact pre-transaction Stop hook wrapper bytes.'
   $RollbackTransaction = @(Get-ChildItem -LiteralPath $RollbackBackupRoot -Directory -Force | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1)[0]
   $RollbackResult = Get-Content -LiteralPath (Join-Path $RollbackTransaction.FullName 'ROLLBACK_RESULT.json') -Raw -Encoding UTF8 | ConvertFrom-Json
   Assert-True -Condition ([string]$RollbackResult.status -ceq 'PASS' -and @($RollbackResult.errors).Count -eq 0) -Message 'Simulated Context Handoff rollback did not report PASS.'
@@ -326,6 +397,7 @@ try {
   $UpdaterText = Get-Content -LiteralPath $CanonicalUpdater -Raw -Encoding UTF8
   Assert-True -Condition ($UpdaterText -match '\[Text\.UnicodeEncoding\]::new\(\$false,\s*\$true\)') -Message 'Context Handoff updater does not define a UTF-16LE BOM launcher encoding.'
   Assert-True -Condition ($UpdaterText -match '(?s)\$DesiredLauncherBytes\s*=\s*ConvertTo-EncodedTextBytes.*?Test-FileBytesEqual\s+-Path\s+\$LauncherPath.*?Write-AtomicBytes\s+-Path\s+\$LauncherPath\s+-Bytes\s+\$DesiredLauncherBytes') -Message 'Context Handoff launcher desired-state, comparison, and write are not consistently byte-aware.'
+  Assert-True -Condition ($UpdaterText -match '(?s)\$HookCommand\s*=\s*''call\s+"''\s*\+\s*\$HookWrapperPath.*?Test-FileBytesEqual\s+-Path\s+\$HookWrapperPath.*?Write-AtomicBytes\s+-Path\s+\$HookWrapperPath\s+-Bytes\s+\$DesiredHookWrapperBytes') -Message 'Context Handoff Stop hook wrapper is not transactional and byte-idempotent.'
   Assert-True -Condition ($UpdaterText -match '(?s)\$TaskSnapshotCaptured\s*=\s*\$true.*?Disable-ScheduledTask.*?Wait-TaskQuiesced.*?Assert-TaskQuiescedBeforeWrite.*?New-Item\s+-ItemType\s+Directory\s+-Force\s+-Path\s+\$ResolvedHandoffRoot') -Message 'Context Handoff updater does not quiesce the snapshotted task before the first installation write.'
   Assert-True -Condition ($UpdaterText -match '(?s)function\s+Wait-TaskQuiesced.*?Settings\.Enabled.*?Running.*?Queued.*?Scheduled task did not quiesce') -Message 'Context Handoff updater lacks a fail-closed enabled/running/queued quiescence wait.'
   Assert-True -Condition ($UpdaterText -match '(?s)function\s+Restore-Transaction.*?Register-ScheduledTask\s+-TaskName\s+\$TaskName\s+-Xml\s+\$TaskXml.*?\$TaskOriginalEnabled.*?Get-NormalizedTaskXml') -Message 'Context Handoff rollback does not restore and verify the exact scheduled-task snapshot.'

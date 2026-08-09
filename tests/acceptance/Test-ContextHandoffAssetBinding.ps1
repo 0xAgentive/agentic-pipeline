@@ -246,6 +246,102 @@ if (-not $TempRoot.StartsWith($TempBase, $PathComparison)) { throw 'Unsafe Conte
 
 try {
   New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
+
+  $UpdaterTokens = $null
+  $UpdaterParseErrors = $null
+  $UpdaterAst = [Management.Automation.Language.Parser]::ParseFile(
+    $CanonicalUpdater,
+    [ref]$UpdaterTokens,
+    [ref]$UpdaterParseErrors
+  )
+  Assert-True -Condition (@($UpdaterParseErrors).Count -eq 0) -Message 'Context Handoff updater cannot be parsed for the task-health adapter regression.'
+  $TaskHealthFunctions = @($UpdaterAst.FindAll({
+    param($Node)
+    $Node -is [Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -ceq 'Wait-TaskHealthy'
+  }, $true))
+  Assert-True -Condition ($TaskHealthFunctions.Count -eq 1) -Message 'Context Handoff updater must define exactly one Wait-TaskHealthy helper.'
+  $TaskHealthFunctionText = $TaskHealthFunctions[0].Extent.Text
+  Assert-True -Condition ($TaskHealthFunctionText -notmatch '(?i)(Start|Stop|Enable|Disable|Register|Unregister)-ScheduledTask') -Message 'Task-health verification contains a Scheduled Task mutation.'
+  Invoke-Expression $TaskHealthFunctionText
+
+  $script:TaskHealthSequence = @(
+    [pscustomobject]@{ state = 'Queued'; result = 267009; enabled = $true },
+    [pscustomobject]@{ state = 'Running'; result = 267009; enabled = $true },
+    [pscustomobject]@{ state = 'Ready'; result = 267009; enabled = $true },
+    [pscustomobject]@{ state = 'Ready'; result = 0; enabled = $true }
+  )
+  $script:TaskHealthIndex = 0
+  $script:TaskHealthClock = 0L
+  $script:TaskHealthSleepCalls = 0
+  $GetTaskAdapter = {
+    param($Name)
+    $Sample = $script:TaskHealthSequence[[Math]::Min($script:TaskHealthIndex, $script:TaskHealthSequence.Count - 1)]
+    [pscustomobject]@{ State = $Sample.state; Settings = [pscustomobject]@{ Enabled = $Sample.enabled } }
+  }
+  $GetTaskInfoAdapter = {
+    param($Name)
+    $Sample = $script:TaskHealthSequence[[Math]::Min($script:TaskHealthIndex, $script:TaskHealthSequence.Count - 1)]
+    [pscustomobject]@{ LastTaskResult = $Sample.result }
+  }
+  $SleepAdapter = {
+    param($Milliseconds)
+    $script:TaskHealthSleepCalls++
+    $script:TaskHealthIndex++
+    $script:TaskHealthClock += [long]$Milliseconds
+  }
+  $ClockAdapter = { [long]$script:TaskHealthClock }
+
+  $RecoveredHealth = Wait-TaskHealthy `
+    -Name 'HermeticContextTask' `
+    -Context 'Hermetic transient task' `
+    -TimeoutSeconds 1 `
+    -PollMilliseconds 100 `
+    -GetTaskAdapter $GetTaskAdapter `
+    -GetTaskInfoAdapter $GetTaskInfoAdapter `
+    -SleepAdapter $SleepAdapter `
+    -GetMonotonicMillisecondsAdapter $ClockAdapter
+  Assert-True -Condition ([string]$RecoveredHealth.state -ceq 'Ready' -and [long]$RecoveredHealth.last_task_result -eq 0) -Message 'Task-health adapter did not accept Queued/Running/267009 to Ready/0 recovery.'
+  Assert-True -Condition ([int]$RecoveredHealth.polls -eq 4 -and $script:TaskHealthSleepCalls -eq 3) -Message 'Task-health adapter did not bounded-poll the exact transient sequence.'
+
+  $script:TaskHealthSequence = @([pscustomobject]@{ state = 'Running'; result = 267009; enabled = $true })
+  $script:TaskHealthIndex = 0
+  $script:TaskHealthClock = 0L
+  $script:TaskHealthSleepCalls = 0
+  $PersistentError = $null
+  try {
+    $null = Wait-TaskHealthy `
+      -Name 'HermeticContextTask' `
+      -Context 'Hermetic persistent task' `
+      -TimeoutSeconds 1 `
+      -PollMilliseconds 250 `
+      -GetTaskAdapter $GetTaskAdapter `
+      -GetTaskInfoAdapter $GetTaskInfoAdapter `
+      -SleepAdapter $SleepAdapter `
+      -GetMonotonicMillisecondsAdapter $ClockAdapter
+  }
+  catch { $PersistentError = $_.Exception.Message }
+  Assert-True -Condition ([string]$PersistentError -match 'health verification timed out after 1 seconds.*State=Running LastTaskResult=267009') -Message 'Persistent in-progress task did not fail at the deterministic health bound.'
+  Assert-True -Condition ($script:TaskHealthSleepCalls -eq 4) -Message 'Persistent task health check did not stop at the exact deterministic timeout.'
+
+  $script:TaskHealthSequence = @([pscustomobject]@{ state = 'Ready'; result = 2; enabled = $true })
+  $script:TaskHealthIndex = 0
+  $script:TaskHealthClock = 0L
+  $script:TaskHealthSleepCalls = 0
+  $FailureError = $null
+  try {
+    $null = Wait-TaskHealthy `
+      -Name 'HermeticContextTask' `
+      -Context 'Hermetic failed task' `
+      -TimeoutSeconds 30 `
+      -GetTaskAdapter $GetTaskAdapter `
+      -GetTaskInfoAdapter $GetTaskInfoAdapter `
+      -SleepAdapter $SleepAdapter `
+      -GetMonotonicMillisecondsAdapter $ClockAdapter
+  }
+  catch { $FailureError = $_.Exception.Message }
+  Assert-True -Condition ([string]$FailureError -match 'failed health verification.*State=Ready LastTaskResult=2') -Message 'Real nonzero task result did not fail health verification immediately.'
+  Assert-True -Condition ($script:TaskHealthSleepCalls -eq 0) -Message 'Real nonzero task failure was incorrectly retried.'
+
   $BuildParent = Join-Path $TempRoot 'build'
   New-Item -ItemType Directory -Force -Path $BuildParent | Out-Null
   $BuiltPackage = New-ContextPackageFixture -ParentRoot $BuildParent
@@ -430,6 +526,7 @@ try {
   Assert-True -Condition ($UpdaterText -match '(?s)\$HookCommandMaxLength\s*=\s*8000.*?\$HookCommand\.Length\s+-gt\s+\$HookCommandMaxLength.*?No installation writes were performed') -Message 'Context Handoff updater lacks the fail-closed pre-write Windows command-length boundary.'
   Assert-True -Condition ($UpdaterText -match '(?s)\$TaskSnapshotCaptured\s*=\s*\$true.*?Disable-ScheduledTask.*?Wait-TaskQuiesced.*?Assert-TaskQuiescedBeforeWrite.*?New-Item\s+-ItemType\s+Directory\s+-Force\s+-Path\s+\$ResolvedHandoffRoot') -Message 'Context Handoff updater does not quiesce the snapshotted task before the first installation write.'
   Assert-True -Condition ($UpdaterText -match '(?s)function\s+Wait-TaskQuiesced.*?Settings\.Enabled.*?Running.*?Queued.*?Scheduled task did not quiesce') -Message 'Context Handoff updater lacks a fail-closed enabled/running/queued quiescence wait.'
+  Assert-True -Condition ([regex]::Matches($UpdaterText, 'Wait-TaskHealthy\s+-Name\s+\$TaskName').Count -eq 2) -Message 'Idempotent and canary task health do not share the bounded health helper.'
   Assert-True -Condition ($UpdaterText -match '(?s)function\s+Restore-Transaction.*?Register-ScheduledTask\s+-TaskName\s+\$TaskName\s+-Xml\s+\$TaskXml.*?\$TaskOriginalEnabled.*?Get-NormalizedTaskXml') -Message 'Context Handoff rollback does not restore and verify the exact scheduled-task snapshot.'
   Assert-True -Condition ($UpdaterText -match '(?s)Register-ScheduledTask\s+-TaskName\s+\$TaskName.*?Enable-ScheduledTask.*?Test-TaskDefinitionMatches.*?Scheduled task is not enabled and Ready') -Message 'Context Handoff activation does not prove the replacement task is enabled and Ready.'
 
@@ -441,7 +538,7 @@ try {
 
   $AfterHashes = @($AuditedPaths | ForEach-Object { "$_|$(Get-Sha256 -Path $_)" }) -join "`n"
   Assert-True -Condition ($AfterHashes -ceq $BeforeHashes) -Message 'Context Handoff asset-binding test changed audited source files.'
-  Write-Host "Context Handoff asset-binding acceptance passed. Assertions=$Assertions; live_writes=0; source_changed=false"
+  Write-Host "Context Handoff asset-binding acceptance passed. Assertions=$Assertions; task_mutations=0; live_writes=0; source_changed=false"
 }
 finally {
   if (Test-Path -LiteralPath $TempRoot -PathType Container) {

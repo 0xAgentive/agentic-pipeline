@@ -473,6 +473,48 @@ function Test-TaskDefinitionMatches {
   )
 }
 
+function Wait-TaskHealthy {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [string]$Context = 'Context Handoff task',
+    [ValidateRange(0, 3600)][int]$TimeoutSeconds = 30,
+    [ValidateRange(1, 60000)][int]$PollMilliseconds = 250,
+    [scriptblock]$GetTaskAdapter = { param($TaskName) Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop },
+    [scriptblock]$GetTaskInfoAdapter = { param($TaskName) Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction Stop },
+    [scriptblock]$SleepAdapter = { param($Milliseconds) Start-Sleep -Milliseconds $Milliseconds },
+    [scriptblock]$GetMonotonicMillisecondsAdapter = { [Environment]::TickCount64 }
+  )
+  $InProgressTaskResult = 267009 # 0x00041301 / SCHED_S_TASK_RUNNING
+  $Deadline = [long](& $GetMonotonicMillisecondsAdapter) + ([long]$TimeoutSeconds * 1000L)
+  $Polls = 0
+  while ($true) {
+    $Polls++
+    $Task = & $GetTaskAdapter $Name
+    $TaskInfo = & $GetTaskInfoAdapter $Name
+    $State = [string]$Task.State
+    $Enabled = [bool]$Task.Settings.Enabled
+    $LastTaskResult = [long]$TaskInfo.LastTaskResult
+    if (-not $Enabled) {
+      throw "$Context is disabled. Name=$Name State=$State LastTaskResult=$LastTaskResult"
+    }
+    if ($State -ceq 'Ready' -and $LastTaskResult -eq 0) {
+      return [pscustomobject]@{
+        state = $State
+        last_task_result = $LastTaskResult
+        polls = $Polls
+      }
+    }
+    $InProgress = $State -in @('Running', 'Queued') -or $LastTaskResult -eq $InProgressTaskResult
+    if (-not $InProgress) {
+      throw "$Context failed health verification. Name=$Name State=$State LastTaskResult=$LastTaskResult"
+    }
+    if ([long](& $GetMonotonicMillisecondsAdapter) -ge $Deadline) {
+      throw "$Context health verification timed out after $TimeoutSeconds seconds. Name=$Name State=$State LastTaskResult=$LastTaskResult"
+    }
+    & $SleepAdapter $PollMilliseconds | Out-Null
+  }
+}
+
 function Wait-TaskQuiesced {
   param(
     [Parameter(Mandatory = $true)][string]$Name,
@@ -897,11 +939,7 @@ if ($Changes.Count -eq 0) {
     }
   }
   if ($TaskMode -eq 'Register') {
-    $TaskState = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
-    $TaskInfo = Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction Stop
-    if ([string]$TaskState.State -ne 'Ready' -or [int]$TaskInfo.LastTaskResult -ne 0) {
-      throw "Context Handoff task is not healthy on idempotent apply. State=$($TaskState.State) LastTaskResult=$($TaskInfo.LastTaskResult)"
-    }
+    $null = Wait-TaskHealthy -Name $TaskName -Context 'Context Handoff task on idempotent apply'
   }
   [ordered]@{
     status = 'PASS'
@@ -1042,15 +1080,8 @@ try {
     }
     if (-not $SkipTaskCanary) {
       Start-ScheduledTask -TaskName $TaskName
-      $Deadline = (Get-Date).AddSeconds(30)
-      do {
-        Start-Sleep -Milliseconds 500
-        $TaskState = Get-ScheduledTask -TaskName $TaskName
-      } while ([string]$TaskState.State -eq 'Running' -and (Get-Date) -lt $Deadline)
-      $TaskInfo = Get-ScheduledTaskInfo -TaskName $TaskName
-      if ([string]$TaskState.State -ne 'Ready' -or [int]$TaskInfo.LastTaskResult -ne 0) {
-        throw "Context Handoff task canary failed. State=$($TaskState.State) LastTaskResult=$($TaskInfo.LastTaskResult)"
-      }
+      Start-Sleep -Milliseconds 500
+      $null = Wait-TaskHealthy -Name $TaskName -Context 'Context Handoff task canary'
     }
   }
 

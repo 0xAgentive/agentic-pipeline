@@ -26,6 +26,6 @@ if(-not$PythonCommand){$PythonCommand=Get-Command py -ErrorAction Stop|Select-Ob
 $CacheRoot=Join-Path ([IO.Path]::GetTempPath()) ('agentic-python-cache-'+[guid]::NewGuid().ToString('N'))
 $PreviousCachePrefix=$env:PYTHONPYCACHEPREFIX
 try{$env:PYTHONPYCACHEPREFIX=$CacheRoot;& $PythonCommand.Source -m py_compile (Join-Path $Root 'scripts\bridge\companion_action_bridge.py');if($LASTEXITCODE-ne0){throw 'Action Bridge Python compile failed.'}}finally{$env:PYTHONPYCACHEPREFIX=$PreviousCachePrefix;Remove-Item $CacheRoot -Recurse -Force -ErrorAction SilentlyContinue}
-& (Join-Path $Root 'templates\agy-project-base\.agents\hooks\Test-HookContract.ps1') -ProjectRoot (Join-Path $Root 'templates\agy-project-base')
+& (Join-Path $Root 'templates/agy-project-base/.agents/hooks/Test-HookContract.ps1') -ProjectRoot (Join-Path $Root 'templates/agy-project-base')
 if($LASTEXITCODE-ne0){throw 'Active hook behavioral contract failed.'}
 Write-Host 'Owner-autonomy contracts passed.'

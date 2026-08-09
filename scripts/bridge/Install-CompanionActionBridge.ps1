@@ -23,6 +23,8 @@ $ErrorActionPreference = 'Stop'
 $Utf8 = [Text.UTF8Encoding]::new($false)
 $EcosystemVersion = '1.2.14'
 $BridgeSchemaVersion = '1.2.9'
+$PathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$PathSeparators = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
 $TaskDescriptionBase = 'Imports validated Companion 1.2.14 JSON Action Packets from Downloads into registered Agentic Pipeline projects.'
 $CreatedDirectories = [Collections.Generic.List[string]]::new()
 
@@ -198,10 +200,10 @@ $InstallRoot = [IO.Path]::GetFullPath($InstallRoot)
 $RegistryPath = [IO.Path]::GetFullPath($RegistryPath)
 $InboxPath = [IO.Path]::GetFullPath($InboxPath)
 $StateRoot = [IO.Path]::GetFullPath($StateRoot)
-if ($InstallRoot.TrimEnd('\') -eq [IO.Path]::GetPathRoot($InstallRoot).TrimEnd('\')) { throw 'InstallRoot cannot be a filesystem root.' }
+if ($InstallRoot.TrimEnd($PathSeparators) -eq [IO.Path]::GetPathRoot($InstallRoot).TrimEnd($PathSeparators)) { throw 'InstallRoot cannot be a filesystem root.' }
 if (-not (Test-Path -LiteralPath (Join-Path $ResolvedProject '.agy') -PathType Container) -or -not (Test-Path -LiteralPath (Join-Path $ResolvedProject '.agents') -PathType Container)) { throw 'Project is not an installed Agentic Pipeline project.' }
 
-$InstalledManifestPath = Join-Path $ResolvedProject '.agy\INSTALLATION_MANIFEST.json'
+$InstalledManifestPath = Join-Path $ResolvedProject '.agy/INSTALLATION_MANIFEST.json'
 if (-not (Test-Path -LiteralPath $InstalledManifestPath -PathType Leaf)) { throw 'Project installation manifest is missing.' }
 $InstalledManifest = Get-Content -LiteralPath $InstalledManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ([string]$InstalledManifest.package_version -ne $EcosystemVersion -or [string]$InstalledManifest.runtime_version -ne $EcosystemVersion) { throw 'Action Bridge requires an installed project runtime 1.2.14.' }
@@ -238,10 +240,11 @@ $ManifestMembers = [Collections.Generic.HashSet[string]]::new([StringComparer]::
 foreach ($Entry in @($PackageManifest.files)) {
   $RelativeMember = [string]$Entry.path
   if ([IO.Path]::IsPathRooted($RelativeMember) -or $RelativeMember -match '(^|[\\/])\.\.([\\/]|$)') { throw "Unsafe package member path: $RelativeMember" }
-  if (-not $ManifestMembers.Add($RelativeMember.Replace('/', '\'))) { throw "Duplicate package manifest member: $RelativeMember" }
-  $Member = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $RelativeMember))
-  $PackageRootPrefix = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\') + '\'
-  if (-not $Member.StartsWith($PackageRootPrefix, [StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $Member -PathType Leaf)) { throw "Package member missing or unsafe: $RelativeMember" }
+  if (-not $ManifestMembers.Add($RelativeMember.Replace('\', '/'))) { throw "Duplicate package manifest member: $RelativeMember" }
+  $PlatformMember = $RelativeMember.Replace([char]'/', [IO.Path]::DirectorySeparatorChar)
+  $Member = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $PlatformMember))
+  $PackageRootPrefix = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd($PathSeparators) + [IO.Path]::DirectorySeparatorChar
+  if (-not $Member.StartsWith($PackageRootPrefix, $PathComparison) -or -not (Test-Path -LiteralPath $Member -PathType Leaf)) { throw "Package member missing or unsafe: $RelativeMember" }
   if ((Get-FileHash -LiteralPath $Member -Algorithm SHA256).Hash.ToLowerInvariant() -cne ([string]$Entry.sha256).ToLowerInvariant()) { throw "Package member hash mismatch: $RelativeMember" }
 }
 foreach ($RequiredManifestMember in @('companion_action_bridge.py', 'Install-CompanionActionBridge.ps1', 'VERSION.json')) {
@@ -338,10 +341,10 @@ $TaskDescription = "$TaskDescriptionBase [configuration-sha256:$TaskConfiguratio
 if ($TaskBackend -eq 'Descriptor') {
   if ([string]::IsNullOrWhiteSpace($TaskDescriptorPath)) { throw 'TaskDescriptorPath is required for the hermetic descriptor backend.' }
   $TaskDescriptorPath = [IO.Path]::GetFullPath($TaskDescriptorPath)
-  $TempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
-  if (-not $TaskDescriptorPath.StartsWith($TempPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Hermetic task descriptor must remain below the system temporary directory.' }
+  $TempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd($PathSeparators) + [IO.Path]::DirectorySeparatorChar
+  if (-not $TaskDescriptorPath.StartsWith($TempPrefix, $PathComparison)) { throw 'Hermetic task descriptor must remain below the system temporary directory.' }
   foreach ($HermeticPath in @($ResolvedProject, $InstallRoot, $RegistryPath, $InboxPath, $StateRoot)) {
-    if (-not [IO.Path]::GetFullPath($HermeticPath).StartsWith($TempPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw "Hermetic descriptor mode cannot reference a path outside the system temporary directory: $HermeticPath" }
+    if (-not [IO.Path]::GetFullPath($HermeticPath).StartsWith($TempPrefix, $PathComparison)) { throw "Hermetic descriptor mode cannot reference a path outside the system temporary directory: $HermeticPath" }
   }
   $TaskDescriptor = [ordered]@{}
   foreach ($Key in $TaskConfiguration.Keys) { $TaskDescriptor[$Key] = $TaskConfiguration[$Key] }
@@ -350,7 +353,7 @@ if ($TaskBackend -eq 'Descriptor') {
   $TaskDescriptorBytes = ConvertTo-Utf8Bytes -Text ($TaskDescriptor | ConvertTo-Json -Depth 10)
 }
 
-$CapabilityPath = Join-Path $ResolvedProject '.agy\ACTION_BRIDGE_CAPABILITY.json'
+$CapabilityPath = Join-Path $ResolvedProject '.agy/ACTION_BRIDGE_CAPABILITY.json'
 $ReceiptPath = Join-Path $InstallRoot 'INSTALLATION_RECEIPT.json'
 $ExistingCapability = Read-JsonIfValid -Path $CapabilityPath
 $ExistingRegistry = Read-JsonIfValid -Path $RegistryPath
@@ -414,9 +417,9 @@ $UniqueTargets = [Collections.Generic.HashSet[string]]::new([StringComparer]::Or
 foreach ($Target in $FileTargets) {
   if (-not $UniqueTargets.Add([IO.Path]::GetFullPath($Target))) { throw "Transactional file targets overlap: $Target" }
 }
-$PackageRoot = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\') + '\'
+$PackageRoot = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd($PathSeparators) + [IO.Path]::DirectorySeparatorChar
 foreach ($Target in $FileTargets) {
-  if ([IO.Path]::GetFullPath($Target).StartsWith($PackageRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Installer destinations cannot overlap immutable package source files.' }
+  if ([IO.Path]::GetFullPath($Target).StartsWith($PackageRoot, $PathComparison)) { throw 'Installer destinations cannot overlap immutable package source files.' }
 }
 
 $FileSnapshots = [Collections.Generic.List[object]]::new()

@@ -39,6 +39,7 @@ function New-Fixture([string]$Name) {
   New-Item -ItemType Directory -Force -Path (Join-Path $Project 'src') | Out-Null
   [IO.File]::WriteAllText((Join-Path $Project 'src\product.txt'), "protected product bytes`n", $Utf8)
   Invoke-Required 'git' @('-C',$Project,'init','--quiet','--initial-branch=main') 'git init' | Out-Null
+  Invoke-Required 'git' @('-C',$Project,'config','core.filemode','false') 'git config Windows file-mode semantics' | Out-Null
   Invoke-Required 'git' @('-C',$Project,'config','user.email','runtime-regression@example.invalid') 'git config email' | Out-Null
   Invoke-Required 'git' @('-C',$Project,'config','user.name','Runtime Regression') 'git config name' | Out-Null
   Invoke-Required 'git' @('-C',$Project,'add','--all') 'git add' | Out-Null

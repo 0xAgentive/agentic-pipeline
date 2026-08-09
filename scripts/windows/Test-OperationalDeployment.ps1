@@ -72,6 +72,7 @@ try {
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Updater,
     '-ProjectRoot', $Project,
     '-RepoRoot', $Root,
+    '-BackupBaseRoot', (Join-Path $TempRoot 'runtime-backups'),
     '-Apply',
     '-AllowDirty',
     '-SkipActiveWorkItemMigration'

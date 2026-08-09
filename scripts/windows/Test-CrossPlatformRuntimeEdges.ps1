@@ -46,6 +46,46 @@ foreach ($RequiredValue in @(
     throw "Candidate version metadata is incomplete."
   }
 }
+
+function Read-RepoText {
+  param([Parameter(Mandatory = $true)][string]$RelativePath)
+  return [System.IO.File]::ReadAllText((Join-Path $Root $RelativePath), [System.Text.Encoding]::UTF8)
+}
+
+$OverlayText = Read-RepoText 'scripts/release/Apply-CandidateOverlay.ps1'
+$RuntimeUpdaterText = Read-RepoText 'scripts/windows/Update-AgenticProjectRuntime-v1.2.14.ps1'
+$BridgeE2EText = Read-RepoText 'tests/acceptance/Test-ActionBridgeEndToEnd.ps1'
+$BridgeInstallerText = Read-RepoText 'tests/acceptance/Test-ActionBridgeInstallerTransaction.ps1'
+$BridgeInstallerSourceText = Read-RepoText 'scripts/bridge/Install-CompanionActionBridge.ps1'
+$ContextBindingText = Read-RepoText 'tests/acceptance/Test-ContextHandoffAssetBinding.ps1'
+$HookContractText = Read-RepoText 'templates/agy-project-base/.agents/hooks/Test-HookContract.ps1'
+$WorkflowText = Read-RepoText '.github/workflows/validate.yml'
+$BackslashOnlyTempPrefix = @'
+.TrimEnd('\') + '\'
+'@.Trim()
+$BackslashOnlyRootPrefix = @'
+$RootFull + '\'
+'@.Trim()
+if (-not $OverlayText.Contains('[IO.Path]::DirectorySeparatorChar') -or $OverlayText.Contains($BackslashOnlyRootPrefix)) {
+  throw 'Candidate overlay confinement is not platform-separator aware.'
+}
+if (-not $RuntimeUpdaterText.Contains('[IO.Path]::DirectorySeparatorChar') -or $RuntimeUpdaterText.Contains($BackslashOnlyRootPrefix)) {
+  throw 'Runtime updater confinement is not platform-separator aware.'
+}
+foreach ($Contract in @($BridgeE2EText, $BridgeInstallerText, $ContextBindingText)) {
+  if ($Contract.Contains($BackslashOnlyTempPrefix)) { throw 'Acceptance cleanup guard still hardcodes a Windows-only temporary-path prefix.' }
+}
+if (-not $BridgeInstallerSourceText.Contains('[IO.Path]::DirectorySeparatorChar') -or $BridgeInstallerSourceText.Contains($BackslashOnlyTempPrefix) -or $BridgeInstallerSourceText.Contains($BackslashOnlyRootPrefix)) {
+  throw 'Action Bridge installer path confinement is not platform-separator aware.'
+}
+if ($HookContractText.Contains("Join-Path `$PSScriptRoot '..\..'") -or -not $HookContractText.Contains('Split-Path -Parent') -or $HookContractText.Contains('Join-Path $env:TEMP')) {
+  throw 'Hook contract still resolves its default project root with a Windows-only relative path.'
+}
+if ($ContextBindingText -notmatch 'RunningOnWindows' -or $WorkflowText -notmatch '(?s)validate-windows-unicode:.*?Full Windows distribution integrity.*?Test-DistributionIntegrity\.ps1') {
+  throw 'Windows-only Context Handoff execution is not paired with full windows-latest distribution coverage.'
+}
+Write-Host 'CI path-portability regression contract passed.'
+
 $TempRoot = Join-Path (
   [System.IO.Path]::GetTempPath()
 ) ("agentic-cross-platform-edges-" + [Guid]::NewGuid().ToString("N"))

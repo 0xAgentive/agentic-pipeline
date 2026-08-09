@@ -304,9 +304,11 @@ $AuditedSourceInputs = @(
   $PSCommandPath
 )
 $CheckoutBefore = Get-CheckoutSnapshot -CheckoutRoot $Root -InputPaths $AuditedSourceInputs
-$TempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+$PathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$PathSeparators = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+$TempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd($PathSeparators) + [IO.Path]::DirectorySeparatorChar
 $TempRoot = [IO.Path]::GetFullPath((Join-Path $TempBase ('action-bridge-e2e-' + [Guid]::NewGuid().ToString('N'))))
-if (-not $TempRoot.StartsWith($TempBase, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe Action Bridge temporary root.' }
+if (-not $TempRoot.StartsWith($TempBase, $PathComparison)) { throw 'Unsafe Action Bridge temporary root.' }
 
 $Project = Join-Path $TempRoot 'Проект Action Bridge'
 $RollbackProject = Join-Path $TempRoot 'Проект Rollback'
@@ -461,7 +463,7 @@ finally {
   }
   elseif (Test-Path -LiteralPath $TempRoot -PathType Container) {
     $ResolvedTemp = (Resolve-Path -LiteralPath $TempRoot).Path
-    if (-not $ResolvedTemp.StartsWith($TempBase, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe Action Bridge test cleanup target.' }
+    if (-not $ResolvedTemp.StartsWith($TempBase, $PathComparison)) { throw 'Unsafe Action Bridge test cleanup target.' }
     Remove-Item -LiteralPath $ResolvedTemp -Recurse -Force
   }
 }

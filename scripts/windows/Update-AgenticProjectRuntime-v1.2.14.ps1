@@ -19,13 +19,15 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $EcosystemVersion = '1.2.14'
+$PathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$PathSeparators = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
 
 if ([string]::IsNullOrWhiteSpace($RuntimeRoot)) {
-  $RuntimeRoot = if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) { $RepoRoot } else { (Join-Path $PSScriptRoot '..\..') }
+  $RuntimeRoot = if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) { $RepoRoot } else { (Join-Path $PSScriptRoot '../..') }
 }
 $SourceRoot = (Resolve-Path -LiteralPath $RuntimeRoot).Path
 $Project = (Resolve-Path -LiteralPath $ProjectRoot).Path
-. (Join-Path $SourceRoot 'scripts\windows\common\NativeProcess.ps1')
+. (Join-Path $SourceRoot 'scripts/windows/common/NativeProcess.ps1')
 
 function Get-OptionalProperty([object]$Object, [string]$Name, [object]$Default = $null) {
   if ($null -eq $Object) { return $Default }
@@ -87,12 +89,13 @@ function Normalize-Relative([string]$Relative) {
 
 function Resolve-ConfinedPath([string]$Root, [string]$Relative, [switch]$RejectReparseParents) {
   $Normalized = Normalize-Relative $Relative
-  $RootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\')
-  $Resolved = [IO.Path]::GetFullPath((Join-Path $RootFull $Normalized.Replace('/', '\')))
-  if (-not $Resolved.StartsWith($RootFull + '\', [StringComparison]::OrdinalIgnoreCase)) { throw "Path escapes root: $Relative" }
+  $RootFull = [IO.Path]::GetFullPath($Root).TrimEnd($PathSeparators)
+  $PlatformRelative = $Normalized.Replace([char]'/', [IO.Path]::DirectorySeparatorChar)
+  $Resolved = [IO.Path]::GetFullPath((Join-Path $RootFull $PlatformRelative))
+  if (-not $Resolved.StartsWith($RootFull + [IO.Path]::DirectorySeparatorChar, $PathComparison)) { throw "Path escapes root: $Relative" }
   if ($RejectReparseParents) {
     $Cursor = Split-Path -Parent $Resolved
-    while ($Cursor.Length -ge $RootFull.Length -and $Cursor.StartsWith($RootFull, [StringComparison]::OrdinalIgnoreCase)) {
+    while ($Cursor.Length -ge $RootFull.Length -and $Cursor.StartsWith($RootFull, $PathComparison)) {
       if (Test-Path -LiteralPath $Cursor) {
         $Attributes = (Get-Item -LiteralPath $Cursor -Force).Attributes
         if (($Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Reparse point in runtime target path: $Cursor" }
@@ -260,7 +263,7 @@ function Get-SnapshotIdentity([object[]]$Rows) {
 
 function Test-SamePath([string]$Left, [string]$Right) {
   if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) { return $false }
-  return [IO.Path]::GetFullPath($Left).TrimEnd('\').Equals([IO.Path]::GetFullPath($Right).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
+  return [IO.Path]::GetFullPath($Left).TrimEnd($PathSeparators).Equals([IO.Path]::GetFullPath($Right).TrimEnd($PathSeparators), $PathComparison)
 }
 
 function Test-ExactPropertySet([object]$Object, [string[]]$Expected) {
@@ -532,7 +535,7 @@ function Test-LegacyAuthorityPreconditions {
 }
 
 $ProjectSlug = ([IO.Path]::GetFileName($Project) -replace '[^A-Za-z0-9._-]', '_')
-$BackupBaseFull = [IO.Path]::GetFullPath($BackupBaseRoot).TrimEnd('\')
+$BackupBaseFull = [IO.Path]::GetFullPath($BackupBaseRoot).TrimEnd($PathSeparators)
 $TransactionId = 'runtime-1.2.14-' + [Guid]::NewGuid().ToString('N')
 $BackupRoot = Join-Path $BackupBaseFull (Join-Path $ProjectSlug $TransactionId)
 $JournalPath = Join-Path $BackupRoot 'journal.json'
@@ -551,7 +554,7 @@ $WriteCount = 0
 
 function Assert-BackupConfined([string]$Path, [string]$Description) {
   $Full = [IO.Path]::GetFullPath($Path)
-  if (-not $Full.StartsWith($BackupBaseFull + '\', [StringComparison]::OrdinalIgnoreCase)) { throw "$Description escapes the runtime backup root." }
+  if (-not $Full.StartsWith($BackupBaseFull + [IO.Path]::DirectorySeparatorChar, $PathComparison)) { throw "$Description escapes the runtime backup root." }
   return $Full
 }
 
@@ -702,14 +705,15 @@ function Backup-Path([string]$Relative) {
   if (@($BackupIndex | Where-Object { $_.relative -eq $Normalized }).Count -gt 0) { return }
   $Destination = Resolve-ConfinedPath -Root $Project -Relative $Normalized
   $Directory = Split-Path -Parent $Destination
-  while ($Directory.Length -gt $Project.Length -and $Directory.StartsWith($Project + '\', [StringComparison]::OrdinalIgnoreCase)) {
+  while ($Directory.Length -gt $Project.Length -and $Directory.StartsWith($Project + [IO.Path]::DirectorySeparatorChar, $PathComparison)) {
     if (-not $DirectoryBaseline.ContainsKey($Directory)) { $DirectoryBaseline[$Directory] = Test-Path -LiteralPath $Directory -PathType Container }
     $Directory = Split-Path -Parent $Directory
   }
   $Entry = [ordered]@{ relative = $Normalized; existed = (Test-Path -LiteralPath $Destination -PathType Leaf); sha256 = $null; backup = $null }
   if ($Entry.existed) {
     $Entry.sha256 = Get-Sha256 $Destination
-    $Entry.backup = Join-Path $BackupRoot ('files\' + $Normalized.Replace('/', '\'))
+    $BackupRelative = $Normalized.Replace([char]'/', [IO.Path]::DirectorySeparatorChar)
+    $Entry.backup = Join-Path (Join-Path $BackupRoot 'files') $BackupRelative
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Entry.backup) | Out-Null
     Copy-Item -LiteralPath $Destination -Destination $Entry.backup -Force
   }
@@ -718,7 +722,7 @@ function Backup-Path([string]$Relative) {
 
 function Get-DirectoryJournalRows {
   return @($DirectoryBaseline.Keys | ForEach-Object {
-    [pscustomobject]@{ relative = $_.Substring($Project.Length).TrimStart('\').Replace('\', '/'); existed = [bool]$DirectoryBaseline[$_] }
+    [pscustomobject]@{ relative = $_.Substring($Project.Length).TrimStart($PathSeparators).Replace('\', '/'); existed = [bool]$DirectoryBaseline[$_] }
   } | Sort-Object relative)
 }
 

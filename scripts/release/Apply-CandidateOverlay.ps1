@@ -11,14 +11,17 @@ $ErrorActionPreference = 'Stop'
 $Candidate = (Resolve-Path -LiteralPath $CandidateRoot).Path
 $Payload = (Resolve-Path -LiteralPath $PayloadRoot).Path
 . (Join-Path $PSScriptRoot '..\windows\common\NativeProcess.ps1')
+$PathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$PathSeparators = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
 
 function Resolve-Confined([string]$Root, [string]$Relative) {
   $Value = $Relative.Replace('\', '/').Trim()
   while ($Value.StartsWith('./', [StringComparison]::Ordinal)) { $Value = $Value.Substring(2) }
   if ([string]::IsNullOrWhiteSpace($Value) -or [IO.Path]::IsPathRooted($Value) -or $Value.Contains(':') -or $Value -match '(^|/)\.\.(/|$)') { throw "Unsafe overlay path: $Relative" }
-  $RootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\')
-  $Full = [IO.Path]::GetFullPath((Join-Path $RootFull $Value.Replace('/', '\')))
-  if (-not $Full.StartsWith($RootFull + '\', [StringComparison]::OrdinalIgnoreCase)) { throw "Overlay path escapes root: $Relative" }
+  $RootFull = [IO.Path]::GetFullPath($Root).TrimEnd($PathSeparators)
+  $PlatformValue = $Value.Replace([char]'/', [IO.Path]::DirectorySeparatorChar)
+  $Full = [IO.Path]::GetFullPath((Join-Path $RootFull $PlatformValue))
+  if (-not $Full.StartsWith($RootFull + [IO.Path]::DirectorySeparatorChar, $PathComparison)) { throw "Overlay path escapes root: $Relative" }
   return $Full
 }
 
@@ -61,9 +64,9 @@ foreach ($RawPath in @($ExpectedPaths | Sort-Object -Unique)) {
     $ModeResult = Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C', $Candidate, 'ls-files', '-s', '--', $Relative)
     $Mode = if ($ModeResult.ExitCode -eq 0 -and $ModeResult.StdOut -match '^(\d{6})\s') { $Matches[1] } else { '100644' }
     Invoke-Git @('update-index', '--add', '--cacheinfo', "$Mode,$StoredBlob,$Relative") | Out-Null
-    $Prefix = $StageRoot.TrimEnd('\') + '\'
+    $Prefix = $StageRoot.TrimEnd($PathSeparators) + [IO.Path]::DirectorySeparatorChar
     Invoke-Git @('checkout-index', '--force', "--prefix=$Prefix", '--', $Relative) | Out-Null
-    $Materialized = Join-Path $StageRoot $Relative.Replace('/', '\')
+    $Materialized = Join-Path $StageRoot $Relative.Replace([char]'/', [IO.Path]::DirectorySeparatorChar)
     if (-not (Test-Path -LiteralPath $Materialized -PathType Leaf)) { throw "Attribute-aware materialization failed: $Relative" }
     $Parent = Split-Path -Parent $CandidatePath
     New-Item -ItemType Directory -Force -Path $Parent | Out-Null

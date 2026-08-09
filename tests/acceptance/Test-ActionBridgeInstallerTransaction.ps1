@@ -11,6 +11,8 @@ $HostExe = (Get-Process -Id $PID).Path
 $Utf8 = [Text.UTF8Encoding]::new($false)
 $Assertions = 0
 $Completed = $false
+$OriginalPath = $env:PATH
+$RunningOnWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
 
 function Assert-True {
   param([Parameter(Mandatory = $true)][bool]$Condition, [Parameter(Mandatory = $true)][string]$Message)
@@ -68,7 +70,7 @@ function Get-BackupArtifactCount {
 function Initialize-ProjectFixture {
   param([Parameter(Mandatory = $true)][string]$Path)
   New-Item -ItemType Directory -Force -Path (Join-Path $Path '.agy'), (Join-Path $Path '.agents') | Out-Null
-  Write-JsonFile -Path (Join-Path $Path '.agy\INSTALLATION_MANIFEST.json') -Value ([ordered]@{
+  Write-JsonFile -Path (Join-Path $Path '.agy/INSTALLATION_MANIFEST.json') -Value ([ordered]@{
     schema_version = '1.0.0'
     ecosystem_version = '1.2.14'
     package_version = '1.2.14'
@@ -120,15 +122,17 @@ function Invoke-HermeticInstaller {
   return $Result
 }
 
-$InstallerSource = Join-Path $Root 'scripts\bridge\Install-CompanionActionBridge.ps1'
-$BridgeSource = Join-Path $Root 'scripts\bridge\companion_action_bridge.py'
+$InstallerSource = Join-Path $Root 'scripts/bridge/Install-CompanionActionBridge.ps1'
+$BridgeSource = Join-Path $Root 'scripts/bridge/companion_action_bridge.py'
 foreach ($Required in @($InstallerSource, $BridgeSource)) {
   if (-not (Test-Path -LiteralPath $Required -PathType Leaf)) { throw "Required installer test input is missing: $Required" }
 }
 $SourceBefore = @($InstallerSource, $BridgeSource) | ForEach-Object { "$_|$(Get-Sha256 -Path $_)" }
-$TempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+$PathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$PathSeparators = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+$TempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd($PathSeparators) + [IO.Path]::DirectorySeparatorChar
 $TempRoot = [IO.Path]::GetFullPath((Join-Path $TempPrefix ('action-bridge-installer-' + [Guid]::NewGuid().ToString('N'))))
-if (-not $TempRoot.StartsWith($TempPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe Action Bridge installer fixture path.' }
+if (-not $TempRoot.StartsWith($TempPrefix, $PathComparison)) { throw 'Unsafe Action Bridge installer fixture path.' }
 $PackageRoot = Join-Path $TempRoot 'package'
 $PackageArchivePath = Join-Path $TempRoot 'agentic-action-bridge-1.2.14.zip'
 $HarnessPath = Join-Path $TempRoot 'Invoke-HermeticInstaller.ps1'
@@ -138,6 +142,11 @@ $AssetSha = ''
 
 try {
   New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
+  if (-not $RunningOnWindows) {
+    $HermeticBin = New-Item -ItemType Directory -Force -Path (Join-Path $TempRoot 'hermetic-bin')
+    New-Item -ItemType SymbolicLink -Path (Join-Path $HermeticBin.FullName 'pythonw.exe') -Target $HostExe | Out-Null
+    $env:PATH = $HermeticBin.FullName + [IO.Path]::PathSeparator + $OriginalPath
+  }
   Copy-Item -LiteralPath $InstallerSource -Destination $InstallerPath
   Copy-Item -LiteralPath $BridgeSource -Destination (Join-Path $PackageRoot 'companion_action_bridge.py')
   Write-JsonFile -Path (Join-Path $PackageRoot 'VERSION.json') -Value ([ordered]@{
@@ -163,7 +172,11 @@ function New-ScheduledTaskAction { throw 'REAL_SCHEDULED_TASK_API_FORBIDDEN' }
 function New-ScheduledTaskTrigger { throw 'REAL_SCHEDULED_TASK_API_FORBIDDEN' }
 function New-ScheduledTaskSettingsSet { throw 'REAL_SCHEDULED_TASK_API_FORBIDDEN' }
 $Arguments = Get-Content -LiteralPath $InvocationFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
-& $Installer @Arguments
+try { & $Installer @Arguments }
+catch {
+  [Console]::Error.WriteLine($_.Exception.Message)
+  exit 1
+}
 '@
 
   $InstallerSourceText = Get-Content -LiteralPath $InstallerSource -Raw -Encoding UTF8
@@ -173,8 +186,8 @@ $Arguments = Get-Content -LiteralPath $InvocationFile -Raw -Encoding UTF8 | Conv
   $SuccessRoot = Join-Path $TempRoot 'success'
   $SuccessProject = Join-Path $SuccessRoot 'project'
   $SuccessInstall = Join-Path $SuccessRoot 'install'
-  $SuccessRegistry = Join-Path $SuccessRoot 'registry\projects.json'
-  $SuccessDescriptor = Join-Path $SuccessRoot 'task\definition.json'
+  $SuccessRegistry = Join-Path $SuccessRoot 'registry/projects.json'
+  $SuccessDescriptor = Join-Path $SuccessRoot 'task/definition.json'
   Initialize-ProjectFixture -Path $SuccessProject
   $UnrelatedToken = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
   Write-JsonFile -Path $SuccessRegistry -Value ([ordered]@{
@@ -257,7 +270,7 @@ $Arguments = Get-Content -LiteralPath $InvocationFile -Raw -Encoding UTF8 | Conv
   $FirstResult = Invoke-HermeticInstaller -InvocationFile $InvocationOne -ExpectedExitCode 0
   Assert-True -Condition (-not (($FirstResult.stdout + $FirstResult.stderr) -match 'REAL_SCHEDULED_TASK_API_FORBIDDEN')) -Message 'Installer attempted to call a real Scheduled Task API.'
 
-  $CapabilityPath = Join-Path $SuccessProject '.agy\ACTION_BRIDGE_CAPABILITY.json'
+  $CapabilityPath = Join-Path $SuccessProject '.agy/ACTION_BRIDGE_CAPABILITY.json'
   $ReceiptPath = Join-Path $SuccessInstall 'INSTALLATION_RECEIPT.json'
   $InstalledCodePath = Join-Path $SuccessInstall 'companion_action_bridge.py'
   $OutputPaths = @($InstalledCodePath, $SuccessRegistry, $CapabilityPath, $ReceiptPath, $SuccessDescriptor)
@@ -309,7 +322,7 @@ $Arguments = Get-Content -LiteralPath $InvocationFile -Raw -Encoding UTF8 | Conv
   $FreshBaseline = Get-TreeContentSnapshot -Path $FreshFailureRoot
   $FreshArguments = [ordered]@{
     InstallRoot = (Join-Path $FreshFailureRoot 'install')
-    RegistryPath = (Join-Path $FreshFailureRoot 'registry\projects.json')
+    RegistryPath = (Join-Path $FreshFailureRoot 'registry/projects.json')
     ProjectRoot = $FreshProject
     ProjectId = 'fresh-failure-project'
     LogicalName = 'Fresh failure'
@@ -321,7 +334,7 @@ $Arguments = Get-Content -LiteralPath $InvocationFile -Raw -Encoding UTF8 | Conv
     StateRoot = (Join-Path $FreshFailureRoot 'state')
     Apply = $true
     TaskBackend = 'Descriptor'
-    TaskDescriptorPath = (Join-Path $FreshFailureRoot 'task\definition.json')
+    TaskDescriptorPath = (Join-Path $FreshFailureRoot 'task/definition.json')
     HermeticTestMode = $true
     FaultInjectionStep = 'AfterReceipt'
   }
@@ -336,10 +349,11 @@ $Arguments = Get-Content -LiteralPath $InvocationFile -Raw -Encoding UTF8 | Conv
   Write-Host "Action Bridge installer transaction acceptance passed. Assertions=$Assertions; scheduled_task_api_calls=0; live_writes=0; source_checkout_changed=false"
 }
 finally {
+  $env:PATH = $OriginalPath
   if ($PreserveFailedFixture -and -not $Completed) { Write-Warning "Preserved failed installer fixture: $TempRoot" }
   elseif (Test-Path -LiteralPath $TempRoot -PathType Container) {
     $ResolvedTemp = (Resolve-Path -LiteralPath $TempRoot).Path
-    if (-not $ResolvedTemp.StartsWith($TempPrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe Action Bridge installer cleanup target.' }
+    if (-not $ResolvedTemp.StartsWith($TempPrefix, $PathComparison)) { throw 'Unsafe Action Bridge installer cleanup target.' }
     Remove-Item -LiteralPath $ResolvedTemp -Recurse -Force
   }
 }

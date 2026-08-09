@@ -139,3 +139,7 @@ jobs:
             -RepoRoot . `
             -PowerShellExecutable "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
             -UnicodeOnly
+
+      - name: Full Windows distribution integrity
+        shell: pwsh
+        run: ./scripts/windows/Test-DistributionIntegrity.ps1 -RepoRoot .

@@ -5,9 +5,22 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
-$CanonicalUpdater = Join-Path $Root 'integrations\companion-handoff-1.2.14\Update-AgenticContextHandoff-v1.2.14.ps1'
-$CompleteScript = Join-Path $Root 'scripts\release\Complete-AgenticPipeline-v1.2.14-Deployment.ps1'
+$CanonicalUpdater = Join-Path $Root 'integrations/companion-handoff-1.2.14/Update-AgenticContextHandoff-v1.2.14.ps1'
+$CompleteScript = Join-Path $Root 'scripts/release/Complete-AgenticPipeline-v1.2.14-Deployment.ps1'
+$WorkflowPath = Join-Path $Root '.github/workflows/validate.yml'
 $Pwsh = (Get-Command pwsh -ErrorAction Stop | Select-Object -First 1).Source
+$RunningOnWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+foreach ($Required in @($CanonicalUpdater, $CompleteScript, $WorkflowPath)) {
+  if (-not (Test-Path -LiteralPath $Required -PathType Leaf)) { throw "Required asset-binding input is missing: $Required" }
+}
+if (-not $RunningOnWindows) {
+  $WorkflowText = Get-Content -LiteralPath $WorkflowPath -Raw -Encoding UTF8
+  if ($WorkflowText -notmatch '(?s)validate-windows-unicode:.*?Full Windows distribution integrity.*?Test-DistributionIntegrity\.ps1') {
+    throw 'The Windows-only Context Handoff executable contract is not covered by full distribution validation on windows-latest.'
+  }
+  Write-Host 'Context Handoff Windows asset-binding acceptance delegated to the full windows-latest distribution job.'
+  return
+}
 $Pythonw = (Get-Command pythonw -ErrorAction Stop | Select-Object -First 1).Source
 $Cscript = Join-Path $env:WINDIR 'System32\cscript.exe'
 $Cmd = Join-Path $env:WINDIR 'System32\cmd.exe'
@@ -17,7 +30,7 @@ $PackageName = 'agentic-context-handoff-1.2.14'
 $ExplicitExclusions = @('install/finalize_v432.py','install/finalize_v433.py','install/finalize_v434.py','install/fix_task.ps1')
 $Assertions = 0
 
-foreach ($Required in @($CanonicalUpdater, $CompleteScript, $Pythonw, $Cscript, $Cmd)) {
+foreach ($Required in @($Pythonw, $Cscript, $Cmd)) {
   if (-not (Test-Path -LiteralPath $Required -PathType Leaf)) { throw "Required asset-binding input is missing: $Required" }
 }
 
@@ -225,9 +238,11 @@ function Assert-Rejected {
 
 $AuditedPaths = @($CanonicalUpdater, $CompleteScript, $PSCommandPath)
 $BeforeHashes = @($AuditedPaths | ForEach-Object { "$_|$(Get-Sha256 -Path $_)" }) -join "`n"
-$TempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+$PathComparison = [StringComparison]::OrdinalIgnoreCase
+$PathSeparators = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+$TempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd($PathSeparators) + [IO.Path]::DirectorySeparatorChar
 $TempRoot = [IO.Path]::GetFullPath((Join-Path $TempBase ('context-handoff-binding-' + [Guid]::NewGuid().ToString('N'))))
-if (-not $TempRoot.StartsWith($TempBase, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe Context Handoff test root.' }
+if (-not $TempRoot.StartsWith($TempBase, $PathComparison)) { throw 'Unsafe Context Handoff test root.' }
 
 try {
   New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
@@ -410,7 +425,7 @@ try {
 finally {
   if (Test-Path -LiteralPath $TempRoot -PathType Container) {
     $ResolvedTemp = (Resolve-Path -LiteralPath $TempRoot).Path
-    if (-not $ResolvedTemp.StartsWith($TempBase, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe Context Handoff test cleanup target.' }
+    if (-not $ResolvedTemp.StartsWith($TempBase, $PathComparison)) { throw 'Unsafe Context Handoff test cleanup target.' }
     Remove-Item -LiteralPath $ResolvedTemp -Recurse -Force
   }
 }

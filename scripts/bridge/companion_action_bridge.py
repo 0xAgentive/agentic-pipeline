@@ -4,7 +4,7 @@ import argparse,datetime as dt,hashlib,hmac,json,os,re,shutil,tempfile,time,zipf
 from pathlib import Path
 from typing import Any
 SCHEMA_VERSION='1.2.9'
-ECOSYSTEM_VERSION='1.2.13'
+ECOSYSTEM_VERSION='1.2.14'
 VALID_OPERATIONS={'new_work_item','continue_work_item'}
 VALID_ROUTES={'/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck'}
 HEADINGS=['## Что происходит','## Что уже сделано','## Что будет дальше','## Нужно ли что-то от владельца']

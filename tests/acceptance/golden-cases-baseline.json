@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "source_path": "evals/companion/golden_cases.json",
-  "source_sha256": "12d029db1ee6b56c496b3a4e8e21a9048a5044b9e44a0931c20b30a9311cc2f6",
+  "source_sha256": "1c0736cb951ac530f1cce846a41ea24b1f76d91ce6f1b5f791ed2a8691996d36",
   "case_count": 56,
   "case_ids": [
     "unknown_slash_command_is_rejected",
@@ -61,5 +61,5 @@
     "dirty_state_overrides_state_declared_fixcritical",
     "repeated_no_progress_stops_without_repair_override_prompt"
   ],
-  "release_baseline": "1.2.13-antigravity-hook-working-directory"
+  "release_baseline": "1.2.14-context-handoff-command-wrapper"
 }

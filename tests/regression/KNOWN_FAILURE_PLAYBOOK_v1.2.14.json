@@ -1,0 +1,708 @@
+{
+  "schema_version": "1.0.0",
+  "ecosystem_version": "1.2.14",
+  "source_ledger": "Agentic-Pipeline-Finalization-2026-08-08/06_KNOWN_FAILURES.json",
+  "reviewed_count": 70,
+  "cases": [
+    {
+      "id": "KF-001",
+      "title": "Git HTTPS/Schannel handshake failure",
+      "observed_failure": "Network transport failure was confused with GitHub authentication.",
+      "required_prevention": "Probe gh auth and Git transport separately; safe HTTP/1.1/OpenSSL fallbacks without disabling TLS.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-002",
+      "title": "GitHub CLI auth versus Git credential setup",
+      "observed_failure": "gh auth was valid while ordinary Git still needed setup.",
+      "required_prevention": "Run gh auth status, gh auth setup-git, API identity check, and git ls-remote as separate gates.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-003",
+      "title": "WindowsApps fake bash",
+      "observed_failure": "bash.exe existed but /bin/bash did not.",
+      "required_prevention": "Capability-test GNU Bash; otherwise use an equivalent Windows validator.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-004",
+      "title": "powershell.exe used instead of pwsh",
+      "observed_failure": "Windows PowerShell lacked required APIs.",
+      "required_prevention": "Resolve and require PowerShell 7 for runtime scripts.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-005",
+      "title": "Unsupported runtime-update mode",
+      "observed_failure": "Manifest writer accepted only new/adopt.",
+      "required_prevention": "Schema and writer parity tests for every installation mode.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-006",
+      "title": "Repository docs scan applied to runtime overlay",
+      "observed_failure": "Runtime package lacked repository-only docs and failed.",
+      "required_prevention": "Use runtime-specific validation profile; full docs scan only for source/release.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-007",
+      "title": "PowerShell literal interpolation in verifier",
+      "observed_failure": "`$true` inside a double-quoted marker became `True`.",
+      "required_prevention": "Use single-quoted literals or AST/regex checks with literal escaping.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-008",
+      "title": "Dirty runtime root rejected after framework update",
+      "observed_failure": "Bootstrap treated expected framework changes as product dirtiness.",
+      "required_prevention": "Separate runtime root, product worktree, and reviewed framework-owned changes.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-009",
+      "title": "Unicode stdout path corruption",
+      "observed_failure": "Python UTF-8 path was decoded incorrectly by PowerShell.",
+      "required_prevention": "Exchange paths through UTF-8 JSON/result files, not parsed console text.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-010",
+      "title": "Temporary extraction root selected as project authority",
+      "observed_failure": "Handoff bound to the package rather than the live project.",
+      "required_prevention": "Project scoring and explicit logical project/root identities.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-011",
+      "title": "Git stderr mixed with porcelain stdout",
+      "observed_failure": "Warning text was treated as a dirty path.",
+      "required_prevention": "Capture stdout/stderr separately; parse porcelain v2 -z or NUL-safe output.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-012",
+      "title": "PowerShell variable-colon parser error",
+      "observed_failure": "`$ExpectedTag:` parsed as an invalid variable reference.",
+      "required_prevention": "Use `${ExpectedTag}:` or format strings; parser-test every script.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-013",
+      "title": "Automatic `$Args` collision",
+      "observed_failure": "Case-insensitive `$Args` collided with `$args`.",
+      "required_prevention": "AST gate for automatic variables in parameters, assignments, loops and splats.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-014",
+      "title": "Automatic `$input` collision",
+      "observed_failure": "Hooks and scripts used `$input` as a normal variable.",
+      "required_prevention": "Rename inputs and enforce AST gate.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-015",
+      "title": "Automatic variable used as parameter name",
+      "observed_failure": "Hook functions declared `$input`/`$args` parameters.",
+      "required_prevention": "PowerShell runtime-contract validator must reject.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-016",
+      "title": "Generic List wrapped in `@()`",
+      "observed_failure": "PowerShell raised Argument types do not match.",
+      "required_prevention": "Use `.ToArray()` or explicit enumeration; regression with singleton and multiple values.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-017",
+      "title": "Missing Companion contract markers",
+      "observed_failure": "Runtime Truth rejected missing Completion/Executor discovery sections.",
+      "required_prevention": "Contract marker test over exact built Companion package.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-018",
+      "title": "Wrong active Companion filename",
+      "observed_failure": "Validator expected GPT55 while active file was GPT56.",
+      "required_prevention": "Manifest-driven active-file discovery, no hard-coded stale filename.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-019",
+      "title": "Version surfaces diverged",
+      "observed_failure": "Config, README, installer, tests and packages showed different versions.",
+      "required_prevention": "One ECOSYSTEM_VERSION source and exhaustive active-surface gate.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-020",
+      "title": "Duplicate version matrices drifted",
+      "observed_failure": "docs and docs/reference copies differed.",
+      "required_prevention": "Single canonical source or byte-parity check.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-021",
+      "title": "Trailing blank line blocked release",
+      "observed_failure": "git diff --check stopped on docs-only whitespace.",
+      "required_prevention": "Operational profile treats documentation-only whitespace as advisory; strict CI remains available.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-022",
+      "title": "Markdown formatting treated as operational failure",
+      "observed_failure": "Harmless docs formatting repeatedly blocked deployment.",
+      "required_prevention": "Separate operational and strict-release gates.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-023",
+      "title": "Broken active Markdown links",
+      "observed_failure": "Moved docs left stale links.",
+      "required_prevention": "Link checker over exact extracted package.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-024",
+      "title": "Golden-case baseline stale",
+      "observed_failure": "Case set and recorded source hash differed.",
+      "required_prevention": "Recompute from exact source; baseline parity gate.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-025",
+      "title": "Placeholder tests",
+      "observed_failure": "`assert True`, `pass`, or callable-only checks produced false green.",
+      "required_prevention": "Behavioral tests plus AST meta-test.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-026",
+      "title": "Import errors silently passed",
+      "observed_failure": "Required modules could fail to import without failing tests.",
+      "required_prevention": "No silent ImportError in required acceptance tests.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-027",
+      "title": "Conditional no-op tests",
+      "observed_failure": "Missing evidence files caused test bodies to skip.",
+      "required_prevention": "Assert prerequisites exist or fail.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-028",
+      "title": "Synthetic fixture labeled real H10",
+      "observed_failure": "A sanitised fixture was presented as current product evidence.",
+      "required_prevention": "Real/synthetic provenance field and forbidden label mismatch.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-029",
+      "title": "Manual queue injection labeled real Desktop Stop",
+      "observed_failure": "Simulation was claimed as same-surface evidence.",
+      "required_prevention": "Trigger provenance and manual-injection flags.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-030",
+      "title": "Attestation created before evidence",
+      "observed_failure": "Hashes and timestamps did not match delivered artifacts.",
+      "required_prevention": "Create attestation last and freeze all attested files.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-031",
+      "title": "Source package not equal to executing code",
+      "observed_failure": "Final handoff came from edits made after source package build.",
+      "required_prevention": "Bind source identity/generation to outputs.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-032",
+      "title": "Result identity bound to wrong worktree",
+      "observed_failure": "Governance root was used instead of product root.",
+      "required_prevention": "Separate result worktree and runtime root.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-033",
+      "title": "Missing primary artifact falsely accepted",
+      "observed_failure": "Required ZIP absence was downgraded.",
+      "required_prevention": "Fail-closed artifact contract; verification debt is not acceptance.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-034",
+      "title": "Invented `/new-goal` command",
+      "observed_failure": "Readiness depended on a command absent from inventory.",
+      "required_prevention": "Inventory/capability based routing only.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-035",
+      "title": "Runtime root and result worktree conflated",
+      "observed_failure": "One selected worktree served incompatible purposes.",
+      "required_prevention": "Explicit logical project, runtime root, result worktree and artifact root.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-036",
+      "title": "Empty session delta marked READY",
+      "observed_failure": "Conversation context was absent while readiness was green.",
+      "required_prevention": "Non-empty delta or explicit no-new-events receipt.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-037",
+      "title": "Exporter dialogue root wrong",
+      "observed_failure": "Telegram workspace was authority for companion-handoff changes.",
+      "required_prevention": "Write-root scoring and objective coherence.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-038",
+      "title": "UX helper not wired",
+      "observed_failure": "ZIP existed but clipboard/explorer/notification chain was incomplete.",
+      "required_prevention": "Worker-to-UX integration test with returned archive path.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-039",
+      "title": "Worker reconstructed archive path",
+      "observed_failure": "Multi-root result could be delivered from wrong folder.",
+      "required_prevention": "Use exporter-returned archive_path only.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-040",
+      "title": "H10 names leaked into generic Pipeline",
+      "observed_failure": "Universal release scripts contained product-specific paths.",
+      "required_prevention": "Generic config/registry and leakage test.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-041",
+      "title": "Writer/schema revision mismatch",
+      "observed_failure": "WORK_ITEM writer produced fields disallowed by active schema.",
+      "required_prevention": "Writer-shaped fixtures validated by production schema.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-042",
+      "title": "StrictMode property assignment on legacy state",
+      "observed_failure": "Updater assigned missing PSCustomObject properties directly.",
+      "required_prevention": "Add-Member/upsert helper and legacy-shape regression.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-043",
+      "title": "Checkout SHA compared across CRLF",
+      "observed_failure": "File identity failed despite identical Git blob.",
+      "required_prevention": "Compare Git blob identity or normalized content.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/acceptance/Test-CandidateOverlayEolSafety.ps1; tests/acceptance/Test-ValidationSourceImmutability.ps1"
+    },
+    {
+      "id": "KF-044",
+      "title": "Git path parsing dropped first character",
+      "observed_failure": "`docs/...` became `ocs/...`.",
+      "required_prevention": "NUL-delimited path parsing; first-entry regression.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-045",
+      "title": "Validation-created pycache dirtied repo",
+      "observed_failure": "Release builder rejected generated caches.",
+      "required_prevention": "Put caches outside checkout or clean proven ephemeral paths before cleanliness gate.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-046",
+      "title": "Validators mutate source checkout",
+      "observed_failure": "Latest run left six tracked files modified after validation.",
+      "required_prevention": "Per-test before/after hashes and full-sequence immutability regression.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/acceptance/Test-CandidateOverlayEolSafety.ps1; tests/acceptance/Test-ValidationSourceImmutability.ps1"
+    },
+    {
+      "id": "KF-047",
+      "title": "Public release identity drift",
+      "observed_failure": "Main moved beyond tag/release and assets.",
+      "required_prevention": "Immutable tag policy; promote new unified version when necessary.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-048",
+      "title": "Partial success after push",
+      "observed_failure": "Main was pushed but deployment and release refresh stopped.",
+      "required_prevention": "State-aware resume with explicit completed-step receipts.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-049",
+      "title": "GitHub token expired",
+      "observed_failure": "Code patch cycle was unnecessary.",
+      "required_prevention": "Credential preflight and one browser re-auth flow.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-050",
+      "title": "Rollback not proven exact",
+      "observed_failure": "Failed updates risked leaving mixed state.",
+      "required_prevention": "Transactional backup, exact pre/post hashes, rollback verification.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-051",
+      "title": "Interrupted update backup confusion",
+      "observed_failure": "New attempts risked using wrong backup.",
+      "required_prevention": "Persist operation identity and resume original backup.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-052",
+      "title": "Release asset parity incomplete",
+      "observed_failure": "Local, repo and GitHub packages could differ.",
+      "required_prevention": "Download and hash exact release assets after publication.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-053",
+      "title": "ZIP action packet incompatible with UI",
+      "observed_failure": "Antigravity attachment filter did not accept ZIP workflow.",
+      "required_prevention": "Use JSON action packet and automatic Downloads import.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-054",
+      "title": "Action Bridge not end-to-end proven",
+      "observed_failure": "Import/injection/replay flow was mostly conceptual.",
+      "required_prevention": "Real worker, scheduled task, schema, activation and canary tests.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-055",
+      "title": "Repair budget required owner approval",
+      "observed_failure": "Owner was asked to approve internal batch 4/4.",
+      "required_prevention": "Progress/no-progress policy; no numeric budget in owner interaction.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-056",
+      "title": "Owner output excessively technical",
+      "observed_failure": "Comments were low-value to a non-specialist.",
+      "required_prevention": "Four plain-language sections; technical detail only in action packet/evidence.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-057",
+      "title": "Execution lease detected writes after the fact",
+      "observed_failure": "Pre-write control was advisory.",
+      "required_prevention": "Executable PreToolUse/PreInvocation guard before mutation.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-058",
+      "title": "Malformed findings ignored by closure compiler",
+      "observed_failure": "Unknown lifecycle/materiality could disappear.",
+      "required_prevention": "Fail-closed schema validation before route/closure.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-059",
+      "title": "Audit matrix incomplete but consumed",
+      "observed_failure": "Initial audit was not comprehensive.",
+      "required_prevention": "Coverage completeness validator before audit state transition.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-060",
+      "title": "Work-item activation non-atomic",
+      "observed_failure": "Work item, lease, firewall and handshake drifted.",
+      "required_prevention": "Transactional activation with rollback.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-061",
+      "title": "Candidate manifest included ambient dirtiness",
+      "observed_failure": "Unrelated runtime files polluted product candidate.",
+      "required_prevention": "Lease-scoped candidate manifest and separate ambient inventory.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-062",
+      "title": "Validation stopped on first issue",
+      "observed_failure": "User runs discovered errors serially.",
+      "required_prevention": "Aggregate preflight failures before mutation.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "executable_regression",
+      "evidence": "tests/regression/finalization-known-failure-regression.cjs; scripts/windows/Test-FinalizationWindowsRegressions.ps1"
+    },
+    {
+      "id": "KF-063",
+      "title": "Companion deployment mistaken for canonical source",
+      "observed_failure": "Downloads staging appeared authoritative.",
+      "required_prevention": "Repository source -> built asset -> derivative deployment model.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-064",
+      "title": "Tag/release/current main mismatch",
+      "observed_failure": "Published tag could identify an older commit.",
+      "required_prevention": "Release identity audit and immutable-version policy.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-065",
+      "title": "Runtime updater risked product leakage",
+      "observed_failure": "Broad Replace changed project docs/contracts.",
+      "required_prevention": "Strict framework-owned allowlist and product baseline comparison.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-066",
+      "title": "Local main/origin/tag drift",
+      "observed_failure": "Different refs were treated as one state.",
+      "required_prevention": "Explicit ref equality and release target checks.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-067",
+      "title": "Many obsolete kits in Downloads",
+      "observed_failure": "Wrong package was repeatedly launched.",
+      "required_prevention": "Archive superseded kits and publish one canonical deployment entry point.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-068",
+      "title": "No authoritative live-state snapshot",
+      "observed_failure": "Static handoffs went stale.",
+      "required_prevention": "Read-only live-state collector at every major resume.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-069",
+      "title": "No same-surface canary",
+      "observed_failure": "Simulation was used instead of real integration.",
+      "required_prevention": "Real queue/worker/hook canary where feasible.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    },
+    {
+      "id": "KF-070",
+      "title": "Resume scripts repeated or diverged",
+      "observed_failure": "Patch chain became non-idempotent.",
+      "required_prevention": "One state machine, completed-step receipts, and idempotent second run.",
+      "review_status": "reviewed",
+      "material": true,
+      "verification_mode": "live_acceptance",
+      "evidence": "FINAL_ACCEPTANCE_REPORT.json"
+    }
+  ]
+}

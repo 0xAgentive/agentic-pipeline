@@ -1,5 +1,5 @@
 [CmdletBinding()]param([string]$RepoRoot='.')
-Set-StrictMode -Version 3.0;$ErrorActionPreference='Stop';$Root=(Resolve-Path -LiteralPath $RepoRoot).Path;$Expected='1.2.13'
+Set-StrictMode -Version 3.0;$ErrorActionPreference='Stop';$Root=(Resolve-Path -LiteralPath $RepoRoot).Path;$Expected='1.2.14'
 $E=Get-Content (Join-Path $Root 'ECOSYSTEM_VERSION.json') -Raw -Encoding UTF8|ConvertFrom-Json
 if([string]$E.ecosystem_version-ne$Expected){throw 'ECOSYSTEM_VERSION mismatch.'}
 foreach($Name in @('pipeline','runtime','playbook','companion','action_bridge','context_handoff')){if([string]$E.components.$Name-ne$Expected){throw "Component version mismatch: $Name"}}
@@ -8,7 +8,7 @@ foreach($Name in @('ecosystem_version','package_version','runtime_version','play
 $C=Get-Content (Join-Path $Root 'docs\companion\VERSION.json') -Raw -Encoding UTF8|ConvertFrom-Json
 foreach($Name in @('ecosystem_version','companion_version','compatible_pipeline_package','compatible_runtime')){if([string]$C.$Name-ne$Expected){throw "Companion VERSION mismatch: $Name"}}
 if([string]$C.action_packet_version-ne'1.2.9'){throw 'Companion Action Packet schema version mismatch.'}
-foreach($Path in @('docs\companion\00_AGENTIC_PIPELINE_INDEX_v1.2.13.md','docs\companion\01_PROJECT_INSTRUCTIONS_v1.2.13.md','docs\companion\02_AGENT_TASK_PACK_CONTRACT_v1.2.13.md','docs\companion\SYSTEM_PROMPT_GPT56_COMPANION_v1.2.13.md','scripts\windows\companion\Build-CompanionPack-v1.2.13.ps1','scripts\windows\Build-AgenticProjectRuntimeOverlay-v1.2.13.ps1','scripts\bridge\Build-CompanionActionBridgePackage-v1.2.13.ps1','integrations\companion-handoff-1.2.13\Build-AgenticContextHandoffPackage-v1.2.13.ps1')){if(!(Test-Path (Join-Path $Root $Path)-PathType Leaf)){throw "Unified active file missing: $Path"}}
+foreach($Path in @('docs\companion\00_AGENTIC_PIPELINE_INDEX_v1.2.14.md','docs\companion\01_PROJECT_INSTRUCTIONS_v1.2.14.md','docs\companion\02_AGENT_TASK_PACK_CONTRACT_v1.2.14.md','docs\companion\SYSTEM_PROMPT_GPT56_COMPANION_v1.2.14.md','scripts\windows\companion\Build-CompanionPack-v1.2.14.ps1','scripts\windows\Build-AgenticProjectRuntimeOverlay-v1.2.14.ps1','scripts\bridge\Build-CompanionActionBridgePackage-v1.2.14.ps1','integrations\companion-handoff-1.2.14\Build-AgenticContextHandoffPackage-v1.2.14.ps1')){if(!(Test-Path (Join-Path $Root $Path)-PathType Leaf)){throw "Unified active file missing: $Path"}}
 $ActiveRoots=@('docs\companion','scripts\release','scripts\bridge','integrations')
 $StalePattern='(?i)(?:v|version[-_]?)(?:1\.2\.[0-9](?!\d)|4\.3\.5|1\.0\.0)|(?:pipeline|runtime|companion|action[-_ ]bridge|context[-_ ]handoff)[-_ ](?:1\.2\.[0-9](?!\d)|4\.3\.5|1\.0\.0)'
 foreach($RelativeRoot in $ActiveRoots){

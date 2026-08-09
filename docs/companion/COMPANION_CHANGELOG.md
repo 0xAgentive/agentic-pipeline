@@ -1,5 +1,11 @@
 # Companion changelog
 
+## 1.2.14 — Context Handoff Command Wrapper
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.14.
+- Launches the Context Stop hook through a Unicode-safe transactional `.cmd` wrapper with exact stream and exit-code forwarding.
+
 ## 1.2.13 — Antigravity Hook Working Directory
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.14 — Context Handoff Command Wrapper
+
+- Supersedes 1.2.13 without moving or rewriting its public tag or release.
+- Replaces the fragile direct executable Stop-hook command with an ASCII `.cmd` wrapper that is safe for Unicode and space-containing Windows paths.
+- Preserves hook stdin, stdout and exit status through the hidden Windows PowerShell relay while keeping JSON payloads UTF-8.
+- Adds executable `cmd.exe` coverage, byte-identical second apply checks and exact transactional rollback coverage.
+- Rebinds all five ecosystem assets to one immutable 1.2.14 source commit while retaining schema 1.2.9 compatibility.
+
 ## 1.2.13 — Antigravity Hook Working Directory
 
 - Supersedes 1.2.12 without moving or rewriting its public tag or release.

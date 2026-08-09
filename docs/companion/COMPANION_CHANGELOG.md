@@ -1,5 +1,11 @@
 # Companion changelog
 
+## 1.2.16 — Context Handoff Scheduler Idempotence
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.16.
+- Makes Context Handoff idempotent apply robust to bounded transient Windows scheduler states while still requiring final `Ready/0` health.
+
 ## 1.2.15 — Cross-Platform Validation and Stop Launch
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

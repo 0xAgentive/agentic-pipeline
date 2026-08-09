@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.16 — Context Handoff Scheduler Idempotence
+
+- Supersedes 1.2.15 without moving or rewriting its public tag or release.
+- Uses one bounded task-health wait for Context Handoff idempotent apply and canary verification.
+- Tolerates only known transient `Queued`, `Running` and `0x41301` scheduler observations, then requires an enabled `Ready/0` task.
+- Fails immediately on terminal non-zero results and times out persistent in-progress states without reporting false success.
+- Adds deterministic split-read, timeout and terminal-failure regressions without mutating Scheduled Tasks.
+- Rebinds all five ecosystem assets to one immutable 1.2.16 source commit while retaining schema 1.2.9 and Context engine 4.3.4 compatibility.
+
 ## 1.2.15 — Cross-Platform Validation and Stop Launch
 
 - Supersedes 1.2.14 without moving or rewriting its public tag or release.

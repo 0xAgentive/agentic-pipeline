@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "source_path": "evals/companion/golden_cases.json",
-  "source_sha256": "a4a56f1d534ada01119e713020139cd7c05c0401b7e497b662bb44211069d93f",
+  "source_sha256": "f48f644b0549e968701f978417965574489ebf22268478075e3dfa7536c32c9f",
   "case_count": 56,
   "case_ids": [
     "unknown_slash_command_is_rejected",
@@ -61,5 +61,5 @@
     "dirty_state_overrides_state_declared_fixcritical",
     "repeated_no_progress_stops_without_repair_override_prompt"
   ],
-  "release_baseline": "1.2.15-cross-platform-validation-stop-launch"
+  "release_baseline": "1.2.16-context-handoff-scheduler-idempotence"
 }

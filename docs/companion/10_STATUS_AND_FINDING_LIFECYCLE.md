@@ -1,4 +1,4 @@
-# Status and Finding Lifecycle v1.2.15
+# Status and Finding Lifecycle v1.2.16
 
 ## Independent status dimensions
 

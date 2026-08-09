@@ -1,6 +1,6 @@
 # Runtime Agent Instructions
 
-Framework Runtime Version: `1.2.15`
+Framework Runtime Version: `1.2.16`
 Primary runtime: Google Antigravity
 Hook mode: active project-local enforcement
 

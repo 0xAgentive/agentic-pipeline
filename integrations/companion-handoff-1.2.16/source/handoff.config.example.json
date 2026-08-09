@@ -1,0 +1,37 @@
+{
+  "$schema": "./schemas/handoff.config.schema.json",
+  "version": "4.3.4",
+  "engine_schema_version": "4.3.4",
+  "ecosystem_version": "1.2.16",
+  "local_root": "C:\\Scripts\\AntigravityProjects\\companion-handoff",
+  "default_profile": "handoff",
+  "clipboard_content": "zip_path",
+  "open_explorer_after_publish": false,
+  "select_zip_in_explorer": false,
+  "create_windows_notification": true,
+  "history_retention_per_conversation": 20,
+  "soft_bundle_limit_mb": 20,
+  "hard_bundle_limit_mb": 100,
+  "max_member_count": 5000,
+  "max_expanded_zip_mb": 1024,
+  "max_compression_ratio": 200,
+  "legacy_fallback_cycles": 2,
+  "pipeline_target_sources": [],
+  "privacy": {
+    "fail_closed_patterns": [
+      ".env*",
+      "*credentials*",
+      "*token*",
+      "*.pem",
+      "*.key",
+      "*.sqlite*",
+      "conversations.db*",
+      "*.db",
+      "*.db-wal",
+      "*.db-shm",
+      "*raw_ecg*",
+      "*raw_biometrics*"
+    ],
+    "raw_biometrics_excluded": true
+  }
+}

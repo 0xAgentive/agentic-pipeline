@@ -30,6 +30,43 @@ function Invoke-Checked {
   return [string[]]$Output
 }
 
+function Invoke-Utf8CapturedProcess {
+  param(
+    [Parameter(Mandatory = $true)][string]$FilePath,
+    [Parameter(Mandatory = $true)][string[]]$ArgumentList,
+    [int]$TimeoutSeconds = 30
+  )
+  $StartInfo = [Diagnostics.ProcessStartInfo]::new()
+  $StartInfo.FileName = $FilePath
+  $StartInfo.UseShellExecute = $false
+  $StartInfo.CreateNoWindow = $true
+  $StartInfo.RedirectStandardOutput = $true
+  $StartInfo.RedirectStandardError = $true
+  $StartInfo.StandardOutputEncoding = $Utf8NoBom
+  $StartInfo.StandardErrorEncoding = $Utf8NoBom
+  $StartInfo.Environment['PYTHONIOENCODING'] = 'cp1252:strict'
+  $StartInfo.Environment['PYTHONDONTWRITEBYTECODE'] = '1'
+  foreach ($Argument in $ArgumentList) { [void]$StartInfo.ArgumentList.Add($Argument) }
+  $Process = [Diagnostics.Process]::new()
+  $Process.StartInfo = $StartInfo
+  try {
+    if (-not $Process.Start()) { throw 'Unable to start UTF-8 regression process.' }
+    $StdoutTask = $Process.StandardOutput.ReadToEndAsync()
+    $StderrTask = $Process.StandardError.ReadToEndAsync()
+    if (-not $Process.WaitForExit($TimeoutSeconds * 1000)) {
+      $Process.Kill($true)
+      throw "UTF-8 regression process timed out after $TimeoutSeconds seconds."
+    }
+    $Process.WaitForExit()
+    return [pscustomobject]@{
+      exit_code = $Process.ExitCode
+      stdout = $StdoutTask.GetAwaiter().GetResult()
+      stderr = $StderrTask.GetAwaiter().GetResult()
+    }
+  }
+  finally { $Process.Dispose() }
+}
+
 try {
   New-Item -ItemType Directory -Force -Path $Project | Out-Null
   Copy-Item -LiteralPath (Join-Path $Root 'templates\agy-project-base\.agents') -Destination (Join-Path $Project '.agents') -Recurse -Force
@@ -119,12 +156,27 @@ try {
   }
   [System.IO.File]::WriteAllText($PacketPath, ($Packet | ConvertTo-Json -Depth 20), $Utf8NoBom)
   $Bridge = Join-Path $Root 'scripts\bridge\companion_action_bridge.py'
-  Invoke-Checked -FilePath $Python -ArgumentList @(
-    $Bridge, 'import',
+  $BridgeRun = Invoke-Utf8CapturedProcess -FilePath $Python -ArgumentList @(
+    '-B', $Bridge, 'import',
     '--packet', $PacketPath,
     '--registry', $Registry,
     '--state-root', $StateRoot
-  ) -FailureMessage 'Action Bridge import failed.' | Out-Null
+  )
+  if ($BridgeRun.exit_code -ne 0) { throw "Action Bridge import failed under forced cp1252. ExitCode=$($BridgeRun.exit_code)" }
+  if ($BridgeRun.stdout.Contains($CapabilityToken, [StringComparison]::Ordinal) -or $BridgeRun.stderr.Contains($CapabilityToken, [StringComparison]::Ordinal)) { throw 'Action Bridge leaked the local capability through process output.' }
+  if (-not [string]::IsNullOrEmpty($BridgeRun.stderr)) { throw 'Action Bridge emitted unexpected stderr during successful import.' }
+  $BridgeOutputText = $BridgeRun.stdout.TrimEnd([char[]]@("`r", "`n"))
+  $ExpectedBridgeOutput = '{"status": "PASS", "project_root": ' + ($Project | ConvertTo-Json -Compress) + ', "packet_id": ' + ([string]$Packet.packet_id | ConvertTo-Json -Compress) + '}'
+  if ($BridgeOutputText -cne $ExpectedBridgeOutput) { throw 'Action Bridge UTF-8 JSON output did not match the exact expected bytes.' }
+  $BridgeResult = $BridgeOutputText | ConvertFrom-Json
+  if ([string]$BridgeResult.project_root -cne $Project) { throw 'Action Bridge did not preserve the exact Cyrillic project root in JSON output.' }
+
+  $InvalidCommand = 'неизвестная-команда'
+  $DiagnosticRun = Invoke-Utf8CapturedProcess -FilePath $Python -ArgumentList @('-B', $Bridge, $InvalidCommand)
+  if ($DiagnosticRun.exit_code -ne 2) { throw "Action Bridge invalid-command diagnostic returned ExitCode=$($DiagnosticRun.exit_code), expected 2." }
+  if ($DiagnosticRun.stdout.Contains($CapabilityToken, [StringComparison]::Ordinal) -or $DiagnosticRun.stderr.Contains($CapabilityToken, [StringComparison]::Ordinal)) { throw 'Action Bridge leaked the local capability through diagnostic output.' }
+  if (-not [string]::IsNullOrEmpty($DiagnosticRun.stdout)) { throw 'Action Bridge invalid-command diagnostic unexpectedly wrote stdout.' }
+  if (-not $DiagnosticRun.stderr.Contains($InvalidCommand, [StringComparison]::Ordinal)) { throw 'Action Bridge stderr did not preserve exact Cyrillic diagnostics under forced cp1252.' }
 
   $ActiveTask = Join-Path $Project '.agy\inbox\ACTIVE_ACTION_PACKET\AGENT_TASK.md'
   if (-not (Test-Path -LiteralPath $ActiveTask -PathType Leaf)) { throw 'Action Bridge did not materialize AGENT_TASK.md.' }

@@ -10,6 +10,7 @@ This stable release supersedes 1.2.14 without rewriting its public tag or releas
 - Runtime, release-overlay, Action Bridge and hook-contract confinement use the host directory separator and the correct case comparison on Windows and Unix.
 - Hermetic cleanup rejects volume roots, siblings and non-exact temporary leaves; runtime-handshake cleanup is bound to the exact selected fallback directory and generated filename pattern.
 - Windows-only Context launch execution remains fully covered by a complete Distribution Integrity run on `windows-latest`; Ubuntu keeps the portable distribution contract.
+- Action Bridge configures stdout and stderr as UTF-8 before emitting JSON or diagnostics, preventing English Windows code pages from rejecting Unicode project paths while retaining diagnostic-safe stderr escaping.
 
 ## Compatibility
 

@@ -7,6 +7,7 @@
 - Rejects over-limit Stop commands before any installation write and binds hermetic cleanup to exact temporary roots and generated handshake leaves.
 - Makes runtime, overlay, Action Bridge and hook-contract path confinement executable on both Windows and Ubuntu without weakening Windows-only canaries.
 - Runs the complete Distribution Integrity contract on `windows-latest` while retaining the Ubuntu distribution gate.
+- Forces Action Bridge stdout and stderr to UTF-8 before JSON or diagnostics so English Windows code pages preserve Unicode paths exactly.
 - Rebinds all five ecosystem assets to one immutable 1.2.15 source commit while retaining schema 1.2.9 and Context engine 4.3.4 compatibility.
 
 ## 1.2.14 — Context Handoff Command Wrapper

@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse,datetime as dt,hashlib,hmac,json,os,re,shutil,tempfile,time,zipfile
+import argparse,datetime as dt,hashlib,hmac,json,os,re,shutil,sys,tempfile,time,zipfile
 from pathlib import Path
 from typing import Any
+
+def configure_utf8_standard_streams():
+ for stream,errors in ((sys.stdout,'strict'),(sys.stderr,'backslashreplace')):
+  reconfigure=getattr(stream,'reconfigure',None)
+  if callable(reconfigure):reconfigure(encoding='utf-8',errors=errors)
+
 SCHEMA_VERSION='1.2.9'
 ECOSYSTEM_VERSION='1.2.15'
 VALID_OPERATIONS={'new_work_item','continue_work_item'}
@@ -144,6 +150,7 @@ def scan(inbox:Path,registry:Path,state_root:Path)->int:
    shutil.move(str(source),str(target));target.with_suffix(target.suffix+'.error.txt').write_text(str(e),encoding='utf-8')
  return failures
 def main():
+ configure_utf8_standard_streams()
  p=argparse.ArgumentParser();sub=p.add_subparsers(dest='command',required=True);i=sub.add_parser('import');i.add_argument('--packet',type=Path,required=True);i.add_argument('--registry',type=Path,required=True);i.add_argument('--state-root',type=Path,required=True);s=sub.add_parser('scan');s.add_argument('--inbox',type=Path,required=True);s.add_argument('--registry',type=Path,required=True);s.add_argument('--state-root',type=Path,required=True);a=p.parse_args()
  if a.command=='import':print(json.dumps(import_packet(a.packet,a.registry,a.state_root),ensure_ascii=False));return 0
  return 1 if scan(a.inbox,a.registry,a.state_root) else 0

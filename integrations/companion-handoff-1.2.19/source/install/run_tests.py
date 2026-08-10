@@ -203,7 +203,14 @@ def create_authority_fixture(env, conversation_id="conv-authority"):
         "release_blockers": [],
         "service_warnings": [],
         "changed_files": [],
-        "tests": [{**test_entry, "finished_at_utc": test_time.isoformat()}],
+        # Compile-ResultAuthority emits a canonical RUN_RESULT projection. Optional
+        # receipt fields that are absent are represented as empty strings there.
+        "tests": [{
+            **test_entry,
+            "finished_at_utc": test_time.isoformat(),
+            "supersedes_run_id": "",
+            "summary": "",
+        }],
         "next_workflow": None,
         "generated_at_utc": compiled_time.isoformat(),
         "compiled_at_utc": compiled_time.isoformat(),
@@ -1777,6 +1784,23 @@ def test_T71_bounded_quiescence_requires_stability_and_times_out_closed():
     assert wait_for_quiescence({"fullyIdle": False})["reason"] == "stop_payload_not_fully_idle"
 
 
+def test_T72_compiler_optional_test_defaults_are_semantically_bound():
+    env = setup_temp_env()
+    fixture = create_authority_fixture(env, "conv-compiler-optional-defaults")
+    assert fixture["authority"]["ready"] is True, fixture["authority"]
+
+    with open(fixture["run_result_path"], "r", encoding="utf-8") as handle:
+        run_result = json.load(handle)
+    run_result["tests"][0]["supersedes_run_id"] = "different-run"
+    write_json(fixture["run_result_path"], run_result)
+    rejected = fixture["validator"](
+        fixture["queue_item"]["stop_payload"],
+        fixture["queue_item"]["received_at_utc"],
+    )
+    assert rejected == {"ready": False, "reason": "run_result_receipt_test_mismatch"}, rejected
+    teardown_temp_env(env)
+
+
 def main():
     print("Running Tests...\n")
     tests = [
@@ -1851,6 +1875,7 @@ def main():
         ("T69", test_T69_authority_mutation_before_swap_preserves_old_latest),
         ("T70", test_T70_atomic_publish_rollback_and_reader_never_observes_partial_bytes),
         ("T71", test_T71_bounded_quiescence_requires_stability_and_times_out_closed),
+        ("T72", test_T72_compiler_optional_test_defaults_are_semantically_bound),
     ]
 
     for name, func in tests:

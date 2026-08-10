@@ -398,12 +398,48 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
             return {"ready": False, "reason": "verification_tests_missing"}
         if any(not isinstance(test, dict) or not isinstance(test.get("required"), bool) for test in tests):
             return {"ready": False, "reason": "verification_test_contract_invalid"}
-        expected_run_tests = []
-        for test in tests:
-            expected = dict(test)
-            expected["finished_at_utc"] = test.get("completed_at_utc")
-            expected_run_tests.append(expected)
-        if run_result.get("tests") != expected_run_tests:
+        run_tests = run_result.get("tests")
+        allowed_run_test_fields = {
+            "run_id", "required", "exit_code", "started_at_utc", "finished_at_utc",
+            "completed_at_utc", "evidence_path", "evidence_sha256",
+            "evidence_size_bytes", "supersedes_run_id", "summary",
+        }
+
+        def run_test_matches_receipt(run_test, receipt_test):
+            if not isinstance(run_test, dict) or set(run_test) - allowed_run_test_fields:
+                return False
+            exact_fields = (
+                "run_id", "required", "exit_code", "evidence_path",
+                "evidence_sha256", "evidence_size_bytes",
+            )
+            if any(run_test.get(field) != receipt_test.get(field) for field in exact_fields):
+                return False
+            if (run_test.get("supersedes_run_id") or "") != (receipt_test.get("supersedes_run_id") or ""):
+                return False
+            if (run_test.get("summary") or "") != (receipt_test.get("summary") or ""):
+                return False
+            try:
+                completed = parse_utc(receipt_test.get("completed_at_utc"))
+                if parse_utc(run_test.get("completed_at_utc")) != completed:
+                    return False
+                if parse_utc(run_test.get("finished_at_utc")) != completed:
+                    return False
+                receipt_started = receipt_test.get("started_at_utc")
+                run_started = run_test.get("started_at_utc")
+                if receipt_started is None:
+                    if run_started is not None:
+                        return False
+                elif parse_utc(run_started) != parse_utc(receipt_started):
+                    return False
+            except (TypeError, ValueError):
+                return False
+            return True
+
+        if (
+            not isinstance(run_tests, list)
+            or len(run_tests) != len(tests)
+            or any(not run_test_matches_receipt(run_test, test) for run_test, test in zip(run_tests, tests))
+        ):
             return {"ready": False, "reason": "run_result_receipt_test_mismatch"}
         required_tests = [test for test in tests if isinstance(test, dict) and test.get("required") is True]
         if not required_tests:

@@ -2,7 +2,7 @@
 'use strict';
 const fs=require('fs');const path=require('path');
 const SCHEMA_VERSION='1.2.9';
-const ECOSYSTEM_VERSION='1.2.20';
+const ECOSYSTEM_VERSION='1.2.21';
 const ROUTES=new Set(['/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck']);
 function parseTime(v){const n=Date.parse(String(v||''));return Number.isFinite(n)?n:null;}
 function validateOwnerSummary(text){const errors=[];for(const h of ['## Что происходит','## Что уже сделано','## Что будет дальше','## Нужно ли что-то от владельца'])if(!String(text||'').includes(h))errors.push(`OWNER_SUMMARY:${h}`);if(String(text||'').length>2400||String(text||'').includes('```'))errors.push('OWNER_SUMMARY_FORMAT');return errors;}

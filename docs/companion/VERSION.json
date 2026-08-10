@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.20",
-  "companion_version": "1.2.20",
-  "release_name": "Semantic Verification Test Binding",
-  "compatible_pipeline_package": "1.2.20",
-  "compatible_runtime": "1.2.20",
+  "ecosystem_version": "1.2.21",
+  "companion_version": "1.2.21",
+  "release_name": "Hosted Runner Reparse Fixture",
+  "compatible_pipeline_package": "1.2.21",
+  "compatible_runtime": "1.2.21",
   "action_packet_version": "1.2.9",
   "status": "stable"
 }

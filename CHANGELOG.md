@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.21 — Hosted Runner Reparse Fixture
+
+- Supersedes 1.2.20 without moving or rewriting its public tag or release.
+- Canonicalizes the temporary fixture root before simulating a Windows reparse-point component, matching the path normalization used by the production confinement check.
+- Keeps the fail-closed reparse-point rejection intact while removing a hosted-runner alias mismatch from the executable T66 regression.
+- Adds the corrected T66 fixture to the exact 1.2.21 Context Handoff package and retains the complete 1.2.20 semantic authority binding.
+- Rebinds all five ecosystem assets to one immutable 1.2.21 source commit while retaining Action Packet/Bridge schema 1.2.9 and Context engine 4.3.4.
+
 ## 1.2.20 — Semantic Verification Test Binding
 
 - Supersedes 1.2.19 without moving or rewriting its public tag or release.

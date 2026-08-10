@@ -1,5 +1,12 @@
 # Companion changelog
 
+## 1.2.21 — Hosted Runner Reparse Fixture
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.21.
+- Canonicalizes the T66 temporary verification root so hosted Windows runners exercise the same confined path seen by production code.
+- Preserves fail-closed reparse rejection and the complete 1.2.20 verification-test authority checks.
+
 ## 1.2.20 — Semantic Verification Test Binding
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

@@ -104,7 +104,7 @@ try {
   foreach ($Name in @('WORK_ITEM_TRANSACTION.json', 'STAGE_FIREWALL.json', 'PROGRESS_STATE.json', 'NEXT_ACTION.json')) {
     Remove-Item -LiteralPath (Join-Path $Project ('.agy\' + $Name)) -Force -ErrorAction SilentlyContinue
   }
-  $Updater = Join-Path $Root 'scripts\windows\Update-AgenticProjectRuntime-v1.2.20.ps1'
+  $Updater = Join-Path $Root 'scripts\windows\Update-AgenticProjectRuntime-v1.2.21.ps1'
   Invoke-Checked -FilePath $Pwsh -ArgumentList @(
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Updater,
     '-ProjectRoot', $Project,
@@ -118,27 +118,27 @@ try {
   $InstallManifest = Get-Content -LiteralPath (Join-Path $Project '.agy\INSTALLATION_MANIFEST.json') -Raw -Encoding UTF8 | ConvertFrom-Json
   if ([string]$InstallManifest.mode -ne 'runtime-update') { throw 'Runtime update manifest mode is not runtime-update.' }
   if ($null -ne $InstallManifest.next_command) { throw 'Runtime update incorrectly opened a product route.' }
-  if ([string]$InstallManifest.runtime_version -ne '1.2.20') { throw 'Runtime version mismatch after update.' }
+  if ([string]$InstallManifest.runtime_version -ne '1.2.21') { throw 'Runtime version mismatch after update.' }
 
   # JSON Action Packet import must materialize the task in the registered project.
   $CapabilityToken = 'a' * 64
   $RegistryObject = [ordered]@{
     schema_version = '1.2.9'
-    ecosystem_version = '1.2.20'
+    ecosystem_version = '1.2.21'
     projects = @([ordered]@{
       project_id = 'operational-test'
       project_root = $Project
       logical_name = 'Operational Test'
-      ecosystem_version = '1.2.20'
+      ecosystem_version = '1.2.21'
       capability_token = $CapabilityToken
     })
   }
   [System.IO.File]::WriteAllText($Registry, ($RegistryObject | ConvertTo-Json -Depth 10), $Utf8NoBom)
-  [System.IO.File]::WriteAllText((Join-Path $Project '.agy\ACTION_BRIDGE_CAPABILITY.json'), ([ordered]@{schema_version='1.2.9';ecosystem_version='1.2.20';project_id='operational-test';capability_token=$CapabilityToken}|ConvertTo-Json), $Utf8NoBom)
+  [System.IO.File]::WriteAllText((Join-Path $Project '.agy\ACTION_BRIDGE_CAPABILITY.json'), ([ordered]@{schema_version='1.2.9';ecosystem_version='1.2.21';project_id='operational-test';capability_token=$CapabilityToken}|ConvertTo-Json), $Utf8NoBom)
   $Now = (Get-Date).ToUniversalTime()
   $Packet = [ordered]@{
     schema_version = '1.2.9'
-    ecosystem_version = '1.2.20'
+    ecosystem_version = '1.2.21'
     packet_format = 'single_json'
     packet_id = 'operational-' + [Guid]::NewGuid().ToString('N')
     project_id = 'operational-test'

@@ -144,6 +144,16 @@ function Wait-ForFile {
   throw "Timed out waiting for fixture evidence: $Path"
 }
 
+function Wait-ForProcessExit {
+  param([int]$TargetProcessId, [int]$TimeoutSeconds = 5)
+  $Deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+  while ([DateTimeOffset]::UtcNow -lt $Deadline) {
+    if ($null -eq (Get-Process -Id $TargetProcessId -ErrorAction SilentlyContinue)) { return }
+    Start-Sleep -Milliseconds 50
+  }
+  throw "Timed out waiting for fixture process $TargetProcessId to exit."
+}
+
 function Write-Validator {
   param([string]$Project, [ValidateSet('quick','slow','barrier','child')][string]$Mode, [int]$DelayMilliseconds = 1800)
   $Path = Join-Path $Project 'scripts\windows\companion\Test-FindingSet.ps1'
@@ -175,11 +185,15 @@ exit 0
 [CmdletBinding()]param([string]$ProjectRoot='.',[string]$FindingSetPath='')
 $runtime=Join-Path $ProjectRoot '.agy/.runtime/result-authority'
 New-Item -ItemType Directory -Force -Path $runtime|Out-Null
+Start-Sleep -Milliseconds __DELAY__
 $pwsh=(Get-Command pwsh -ErrorAction Stop).Source
 $start=@{FilePath=$pwsh;ArgumentList=@('-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30');PassThru=$true}
 if($IsWindows){$start.WindowStyle='Hidden'}
 $child=Start-Process @start
-[IO.File]::WriteAllText((Join-Path $runtime 'child.pid'),[string]$child.Id,[Text.UTF8Encoding]::new($false))
+$childPidPath=Join-Path $runtime 'child.pid'
+$childPidTemporary="$childPidPath.$PID.tmp"
+[IO.File]::WriteAllText($childPidTemporary,[string]$child.Id,[Text.UTF8Encoding]::new($false))
+[IO.File]::Move($childPidTemporary,$childPidPath,$true)
 $child.WaitForExit()
 exit 0
 '@ }
@@ -436,13 +450,21 @@ try {
   Assert-True ($MaliciousResult.ExitCode -ne 0 -and ($MaliciousResult.StdErr + $MaliciousResult.StdOut) -match 'RESULT_AUTHORITY_JOURNAL_INVALID') 'Journal with a product-owned target did not fail closed.'
   Assert-True ([Convert]::ToBase64String([IO.File]::ReadAllBytes($MaliciousJournal.CandidatePath)) -ceq $MaliciousCandidateBefore) 'Rejected journal changed product bytes.'
 
-  $Timeout = New-Fixture 'timeout-tree' 'child'
-  $TimeoutResult = Invoke-Compiler $Timeout.Project $Timeout.ReceiptPath -Apply -TimeoutSeconds 3
-  Assert-True ($TimeoutResult.ExitCode -ne 0 -and ($TimeoutResult.StdErr + $TimeoutResult.StdOut) -match 'RESULT_AUTHORITY_TIMEOUT') "Worker timeout did not fail with the timeout code: stdout=$($TimeoutResult.StdOut) stderr=$($TimeoutResult.StdErr)"
+  # The controlled pre-child delay is longer than the legacy three-second fixture budget.
+  # This keeps hosted-runner startup load from consuming the process-tree assertion itself.
+  $TimeoutSeconds = 15
+  $TimeoutStartupDelayMilliseconds = 4500
+  Assert-True ($TimeoutStartupDelayMilliseconds -gt 3000) 'Timeout fixture no longer reproduces the legacy startup-budget race.'
+  $Timeout = New-Fixture 'timeout-tree' 'child' $TimeoutStartupDelayMilliseconds
+  $TimeoutHandle = Start-Compiler $Timeout.Project $Timeout.ReceiptPath -Apply -TimeoutSeconds $TimeoutSeconds
   $ChildPidPath = Join-Path $Timeout.Agy '.runtime/result-authority/child.pid'
-  Wait-ForFile $ChildPidPath 2
+  Wait-ForFile $ChildPidPath 12
   $ChildPid = [int]([IO.File]::ReadAllText($ChildPidPath).Trim())
-  Start-Sleep -Milliseconds 400
+  Assert-True (-not $TimeoutHandle.Process.HasExited) 'Compiler timed out before the child-process readiness barrier.'
+  Assert-True ($null -ne (Get-Process -Id $ChildPid -ErrorAction SilentlyContinue)) 'Timeout fixture child was not running before the bounded compiler deadline.'
+  $TimeoutResult = Complete-Compiler $TimeoutHandle 25
+  Assert-True ($TimeoutResult.ExitCode -ne 0 -and ($TimeoutResult.StdErr + $TimeoutResult.StdOut) -match 'RESULT_AUTHORITY_TIMEOUT') "Worker timeout did not fail with the timeout code: stdout=$($TimeoutResult.StdOut) stderr=$($TimeoutResult.StdErr)"
+  Wait-ForProcessExit $ChildPid 5
   Assert-True ($null -eq (Get-Process -Id $ChildPid -ErrorAction SilentlyContinue)) 'Timed-out worker left its child process running.'
   foreach ($Name in @('VERIFICATION_RECEIPT.json','CLOSURE_STATE.json','RUN_RESULT.json','NEXT_ACTION.json')) { Assert-True (-not (Test-Path -LiteralPath (Join-Path $Timeout.Agy $Name))) "Timeout published $Name." }
   Write-Validator $Timeout.Project 'quick'

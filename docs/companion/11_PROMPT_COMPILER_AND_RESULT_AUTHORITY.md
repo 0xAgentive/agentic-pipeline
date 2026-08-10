@@ -10,7 +10,7 @@ After the initial brief, the machine authority is project-local:
 - `REVIEWER_ATTESTATION.json` for protected audit independence;
 - `RUN_RESULT.json` and `CLOSURE_STATE.json` for closure.
 
-`Compile-ResultAuthority.ps1` is the only supported closure compiler for runtime 1.2.18. Invoke it directly with non-interactive `pwsh -File`, an exact project root, a fresh bound verification receipt and a bounded timeout. Missing or stale receipts fail before runtime writes. Concurrent identical requests coalesce; a different newer request supersedes an intermediate waiter; worker and child processes are terminated at timeout.
+`Compile-ResultAuthority.ps1` is the only supported closure compiler for runtime 1.2.19. Invoke it directly with non-interactive `pwsh -File`, an exact project root, a fresh bound verification receipt and a bounded timeout. Missing or stale receipts fail before runtime writes. Concurrent identical requests coalesce; a different newer request supersedes an intermediate waiter; worker and child processes are terminated at timeout.
 
 The compiler validates required test evidence only under `.agy/verification/**`, binds exact path/hash/size/completion time to the current work item, lease, candidate and HEAD, and publishes `.agy/VERIFICATION_RECEIPT.json`, `RUN_RESULT.json`, `CLOSURE_STATE.json` and `NEXT_ACTION.json` as one rollback-safe transaction. Do not independently hand-author contradictory run, audit, handshake and closure statuses.
 

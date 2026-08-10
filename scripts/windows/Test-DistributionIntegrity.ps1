@@ -70,7 +70,7 @@ else {
 }
 
 $CoreTests = @(
-  [pscustomobject]@{ Name = 'companion pack and golden evals'; Path = 'scripts\windows\companion\Test-CompanionPack-v1.2.18.ps1'; Args = $CompanionArguments },
+  [pscustomobject]@{ Name = 'companion pack and golden evals'; Path = 'scripts\windows\companion\Test-CompanionPack-v1.2.19.ps1'; Args = $CompanionArguments },
   [pscustomobject]@{ Name = 'flow restoration contracts'; Path = 'scripts\windows\companion\Test-FlowRestorationContracts.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'autonomous convergence contracts'; Path = 'scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'result authority compiler transaction'; Path = 'tests\acceptance\Test-ResultAuthorityCompilerTransaction.ps1'; Args = @('-RepoRoot', $Root) },
@@ -89,7 +89,7 @@ $CoreTests = @(
 )
 
 $AdvisoryTests = @(
-  [pscustomobject]@{ Name = 'known failure regression playbook'; Path = 'scripts\windows\Test-KnownFailureRegressionPlaybook-v1.2.18.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'known failure regression playbook'; Path = 'scripts\windows\Test-KnownFailureRegressionPlaybook-v1.2.19.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'template hygiene'; Path = 'scripts\windows\Test-TemplateHygiene.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'project leakage'; Path = 'scripts\windows\Test-ProjectLeakage.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'cross-platform runtime edges'; Path = 'scripts\windows\Test-CrossPlatformRuntimeEdges.ps1'; Args = @('-RepoRoot', $Root) }

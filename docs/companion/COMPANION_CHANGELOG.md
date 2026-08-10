@@ -1,5 +1,12 @@
 # Companion changelog
 
+## 1.2.19 — Atomic Result Authority Publication
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.19.
+- Separates compiler-owned `NEXT_ACTION` output from immutable payload authority and verifies its exact intended hash after atomic publication.
+- Preserves compatibility with 1.2.18 candidate manifests and proves byte/mtime-identical repeated compilation.
+
 ## 1.2.18 — Candidate Manifest Multi-Record Integrity
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

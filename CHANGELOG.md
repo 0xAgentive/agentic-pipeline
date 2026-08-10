@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.19 — Atomic Result Authority Publication
+
+- Supersedes 1.2.18 without moving or rewriting its public tag or release.
+- Excludes compiler-owned `NEXT_ACTION.json` from new candidate authority inputs while preserving compatibility with already-published 1.2.18 manifests.
+- Revalidates the exact intended `NEXT_ACTION` hash after journaled publication and keeps every true work-item, lease, candidate, test-evidence and audit input fail-closed.
+- Adds an executable regression covering a candidate-bound prior next action, atomic first apply, rollback safety and byte/mtime-identical repeated apply.
+- Rebinds all five ecosystem assets to one immutable 1.2.19 source commit while retaining Action Packet/Bridge schema 1.2.9 and Context engine 4.3.4.
+
 ## 1.2.18 — Candidate Manifest Multi-Record Integrity
 
 - Supersedes 1.2.17 without moving or rewriting its public tag or release.

@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.18",
-  "release_name": "Candidate Manifest Multi-Record Integrity",
+  "ecosystem_version": "1.2.19",
+  "release_name": "Atomic Result Authority Publication",
   "components": {
-    "pipeline": "1.2.18",
-    "runtime": "1.2.18",
-    "playbook": "1.2.18",
-    "companion": "1.2.18",
-    "action_bridge": "1.2.18",
-    "context_handoff": "1.2.18"
+    "pipeline": "1.2.19",
+    "runtime": "1.2.19",
+    "playbook": "1.2.19",
+    "companion": "1.2.19",
+    "action_bridge": "1.2.19",
+    "context_handoff": "1.2.19"
   },
   "status": "stable"
 }

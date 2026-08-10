@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.18",
+  "ecosystem_version": "1.2.19",
   "artifact": "pipeline_source_snapshot",
   "source": "complete canonical tree",
-  "generated_at_utc": "2026-08-10T11:47:21Z",
+  "generated_at_utc": "2026-08-10T12:54:08Z",
   "operational_gate_policy": {
     "blocking": [
       "syntax/runtime safety",
@@ -53,6 +53,11 @@
   "candidate_manifest_multi_record_integrity": {
     "status": "PASS",
     "reason": "Candidate publication normalizes every NUL-delimited Git status record before sorting, rejects portable path collisions, and preserves the exact leased and ambient sets with UTF-8 output.",
+    "regression": "tests/acceptance/Test-ResultAuthorityCompilerTransaction.ps1"
+  },
+  "atomic_result_authority_publication": {
+    "status": "PASS",
+    "reason": "Compiler-owned NEXT_ACTION is excluded from new candidate authority inputs, legacy manifests remain compatible, and post-publication validation accepts only the exact intended NEXT_ACTION hash while every true authority input remains unchanged.",
     "regression": "tests/acceptance/Test-ResultAuthorityCompilerTransaction.ps1"
   }
 }

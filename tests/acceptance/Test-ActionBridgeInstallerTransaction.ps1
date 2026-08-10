@@ -72,9 +72,9 @@ function Initialize-ProjectFixture {
   New-Item -ItemType Directory -Force -Path (Join-Path $Path '.agy'), (Join-Path $Path '.agents') | Out-Null
   Write-JsonFile -Path (Join-Path $Path '.agy/INSTALLATION_MANIFEST.json') -Value ([ordered]@{
     schema_version = '1.0.0'
-    ecosystem_version = '1.2.18'
-    package_version = '1.2.18'
-    runtime_version = '1.2.18'
+    ecosystem_version = '1.2.19'
+    package_version = '1.2.19'
+    runtime_version = '1.2.19'
   })
 }
 
@@ -134,7 +134,7 @@ $TempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd($PathSepa
 $TempRoot = [IO.Path]::GetFullPath((Join-Path $TempPrefix ('action-bridge-installer-' + [Guid]::NewGuid().ToString('N'))))
 if (-not $TempRoot.StartsWith($TempPrefix, $PathComparison)) { throw 'Unsafe Action Bridge installer fixture path.' }
 $PackageRoot = Join-Path $TempRoot 'package'
-$PackageArchivePath = Join-Path $TempRoot 'agentic-action-bridge-1.2.18.zip'
+$PackageArchivePath = Join-Path $TempRoot 'agentic-action-bridge-1.2.19.zip'
 $HarnessPath = Join-Path $TempRoot 'Invoke-HermeticInstaller.ps1'
 $InstallerPath = Join-Path $PackageRoot 'Install-CompanionActionBridge.ps1'
 $Commit = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -150,13 +150,13 @@ try {
   Copy-Item -LiteralPath $InstallerSource -Destination $InstallerPath
   Copy-Item -LiteralPath $BridgeSource -Destination (Join-Path $PackageRoot 'companion_action_bridge.py')
   Write-JsonFile -Path (Join-Path $PackageRoot 'VERSION.json') -Value ([ordered]@{
-    schema_version = '1.0.0'; ecosystem_version = '1.2.18'; component = 'action_bridge'; version = '1.2.18'; source_commit = $Commit
+    schema_version = '1.0.0'; ecosystem_version = '1.2.19'; component = 'action_bridge'; version = '1.2.19'; source_commit = $Commit
   })
   $PackageFiles = foreach ($File in Get-ChildItem -LiteralPath $PackageRoot -File | Sort-Object Name) {
     [ordered]@{ path = $File.Name; size_bytes = [long]$File.Length; sha256 = Get-Sha256 -Path $File.FullName }
   }
   Write-JsonFile -Path (Join-Path $PackageRoot 'MANIFEST.json') -Value ([ordered]@{
-    schema_version = '1.0.0'; ecosystem_version = '1.2.18'; component = 'action_bridge'; source_commit = $Commit; files = @($PackageFiles)
+    schema_version = '1.0.0'; ecosystem_version = '1.2.19'; component = 'action_bridge'; source_commit = $Commit; files = @($PackageFiles)
   })
   [IO.Compression.ZipFile]::CreateFromDirectory($PackageRoot, $PackageArchivePath, [IO.Compression.CompressionLevel]::Optimal, $true)
   $AssetSha = Get-Sha256 -Path $PackageArchivePath

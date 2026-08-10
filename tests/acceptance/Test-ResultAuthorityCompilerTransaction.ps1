@@ -7,6 +7,8 @@ $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 . (Join-Path $Root 'scripts\windows\common\NativeProcess.ps1')
 $Compiler = Join-Path $Root 'scripts\windows\companion\Compile-ResultAuthority.ps1'
 $TemplateCompiler = Join-Path $Root 'templates\agy-project-base\scripts\windows\companion\Compile-ResultAuthority.ps1'
+$CandidatePublisher = Join-Path $Root 'scripts\windows\companion\Publish-CandidateManifest.ps1'
+$TemplateCandidatePublisher = Join-Path $Root 'templates\agy-project-base\scripts\windows\companion\Publish-CandidateManifest.ps1'
 $ReceiptSchema = Join-Path $Root 'schemas\companion\verification-receipt.schema.json'
 $TemplateReceiptSchema = Join-Path $Root 'templates\agy-project-base\schemas\companion\verification-receipt.schema.json'
 $CompanionControl = Join-Path $Root 'scripts\companion\companion-control.cjs'
@@ -33,6 +35,51 @@ function Write-Json {
 function Get-Sha256 {
   param([string]$Path)
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Test-CandidatePublisherMultiRecord {
+  $Project = Join-Path $script:TempRoot 'candidate-publisher-multi-record'
+  $Source = Join-Path $Project 'src'
+  New-Item -ItemType Directory -Force -Path $Source | Out-Null
+  foreach ($Name in @('modified.txt','deleted.txt','rename-old.txt')) {
+    [IO.File]::WriteAllText((Join-Path $Source $Name), "baseline-$Name`n", $Utf8)
+  }
+  & git -C $Project init --quiet --initial-branch=main
+  & git -C $Project config user.name 'Candidate Publisher Regression'
+  & git -C $Project config user.email 'candidate-publisher@local.invalid'
+  & git -C $Project add --all
+  & git -C $Project -c commit.gpgsign=false commit --quiet -m baseline
+  if ($LASTEXITCODE -ne 0) { throw 'Unable to initialize candidate-publisher fixture.' }
+
+  [IO.File]::WriteAllText((Join-Path $Source 'modified.txt'), "modified`n", $Utf8)
+  Remove-Item -LiteralPath (Join-Path $Source 'deleted.txt')
+  & git -C $Project mv -- 'src/rename-old.txt' 'src/renamed.txt'
+  if ($LASTEXITCODE -ne 0) { throw 'Unable to create candidate-publisher rename fixture.' }
+  [IO.File]::WriteAllText((Join-Path $Source 'юникод name.txt'), "unicode`n", $Utf8)
+  New-Item -ItemType Directory -Force -Path (Join-Path $Project 'outside') | Out-Null
+  [IO.File]::WriteAllText((Join-Path $Project 'outside/ambient.txt'), "ambient`n", $Utf8)
+  Write-Json (Join-Path $Project '.agy/EXECUTION_LEASE.json') ([ordered]@{
+    schema_version='1.0.0';lease_id='lease-candidate-publisher';status='active';work_item_id='work-candidate-publisher';goal_epoch=1;branch='main';baseline_head=(& git -C $Project rev-parse HEAD).Trim();issued_at_utc=[DateTimeOffset]::UtcNow.AddMinutes(-1).ToString('o');allowed_paths=@('src/**')
+  })
+
+  $Arguments = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$CandidatePublisher,'-ProjectRoot',$Project)
+  $Dry = Invoke-AgenticNativeProcess -FilePath $Pwsh -ArgumentList $Arguments
+  Assert-True ($Dry.ExitCode -eq 0) "Candidate publisher multi-record dry-run failed: $($Dry.StdErr)"
+  $Plan = $Dry.StdOut | ConvertFrom-Json -DateKind String
+  $ExpectedCandidate = @('src/deleted.txt','src/modified.txt','src/renamed.txt','src/юникод name.txt')
+  $ActualCandidate = @($Plan.manifest.candidate_files | ForEach-Object { [string]$_.path })
+  $ActualAmbient = @($Plan.manifest.ambient_git_status | ForEach-Object { [string]$_.path })
+  Assert-True ([int]$Plan.status.candidate_file_count -eq 4 -and $ActualCandidate.Count -eq 4) 'Candidate publisher collapsed multiple leased Git records.'
+  Assert-True ([int]$Plan.status.ambient_file_count -eq 2 -and $ActualAmbient.Count -eq 2) 'Candidate publisher collapsed or omitted ambient Git records.'
+  Assert-True (@(Compare-Object $ExpectedCandidate $ActualCandidate -CaseSensitive).Count -eq 0) "Candidate publisher emitted the wrong leased path set: $($ActualCandidate -join ', ')"
+  Assert-True (@(Compare-Object @('.agy/EXECUTION_LEASE.json','outside/ambient.txt') $ActualAmbient -CaseSensitive).Count -eq 0) "Candidate publisher emitted the wrong ambient path set: $($ActualAmbient -join ', ')"
+
+  $Apply = Invoke-AgenticNativeProcess -FilePath $Pwsh -ArgumentList ($Arguments + '-Apply')
+  Assert-True ($Apply.ExitCode -eq 0) "Candidate publisher multi-record apply failed: $($Apply.StdErr)"
+  $Published = Get-Content -LiteralPath (Join-Path $Project '.agy/CANDIDATE_MANIFEST.json') -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $PublishedStatus = Get-Content -LiteralPath (Join-Path $Project '.agy/CANDIDATE_MANIFEST_STATUS.json') -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  Assert-True (@($Published.candidate_files).Count -eq 4 -and [int]$PublishedStatus.candidate_file_count -eq 4) 'Published candidate manifest lost multi-record Git state.'
+  Assert-True ([string]$PublishedStatus.manifest_sha256 -ceq (Get-Sha256 (Join-Path $Project '.agy/CANDIDATE_MANIFEST.json'))) 'Published candidate status is not bound to exact manifest bytes.'
 }
 
 function Invoke-Compiler {
@@ -240,7 +287,9 @@ if (-not $TempRoot.StartsWith($TempBase, [StringComparison]::OrdinalIgnoreCase) 
 try {
   New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
   Assert-True ((Get-Sha256 $Compiler) -eq (Get-Sha256 $TemplateCompiler)) 'Canonical and template compiler bytes differ.'
+  Assert-True ((Get-Sha256 $CandidatePublisher) -eq (Get-Sha256 $TemplateCandidatePublisher)) 'Canonical and template candidate publisher bytes differ.'
   Assert-True ((Get-Sha256 $ReceiptSchema) -eq (Get-Sha256 $TemplateReceiptSchema)) 'Canonical and template receipt schema bytes differ.'
+  Test-CandidatePublisherMultiRecord
 
   $NoArgument = New-Fixture 'no-argument'
   $NoArgumentResult = Invoke-AgenticNativeProcess -FilePath $Pwsh -ArgumentList @('-NoProfile','-NonInteractive','-Command',"& '$($Compiler.Replace("'","''"))'") -WorkingDirectory $NoArgument.Project

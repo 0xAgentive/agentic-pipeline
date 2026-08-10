@@ -49,7 +49,7 @@ foreach($Entry in @($Changed.ToArray() | Sort-Object path)){
     else{$Candidate.Add([ordered]@{status=$Entry.status;path=$Entry.path;exists=$false;size_bytes=$null;sha256=$null})|Out-Null}
   }else{$Ambient.Add($Entry)|Out-Null}
 }
-$ControlNames=@('WORK_ITEM.json','WORK_ITEM_TRANSACTION.json','EXECUTION_SCOPE.json','EXECUTION_LEASE.json','EXECUTION_AUTHORITY_TRANSACTION.json','STAGE_FIREWALL.json','RUNTIME_HANDSHAKE.json','FINDINGS.json','FINDING_DELTA.json','REPAIR_DELTA.json','PROGRESS_STATE.json','NEXT_ACTION.json','AUDIT_COVERAGE_MATRIX.json','REVIEWER_ATTESTATION.json')
+$ControlNames=@('WORK_ITEM.json','WORK_ITEM_TRANSACTION.json','EXECUTION_SCOPE.json','EXECUTION_LEASE.json','EXECUTION_AUTHORITY_TRANSACTION.json','STAGE_FIREWALL.json','RUNTIME_HANDSHAKE.json','FINDINGS.json','FINDING_DELTA.json','REPAIR_DELTA.json','PROGRESS_STATE.json','AUDIT_COVERAGE_MATRIX.json','REVIEWER_ATTESTATION.json')
 $Control=New-Object System.Collections.Generic.List[object]
 foreach($Name in $ControlNames){$Full=Join-Path $Agy $Name;if(Test-Path -LiteralPath $Full -PathType Leaf){$Item=Get-Item -LiteralPath $Full;$Control.Add([ordered]@{path='.agy/'+$Name;size_bytes=[int64]$Item.Length;sha256=(Get-FileHash -LiteralPath $Full -Algorithm SHA256).Hash.ToLowerInvariant()})|Out-Null}}
 $HeadResult=Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Root,'rev-parse','HEAD')

@@ -256,8 +256,16 @@ function Get-ValidatedCompilationContext {
     [Parameter(Mandatory = $true)][string]$Root,
     [Parameter(Mandatory = $true)][string]$ReceiptInput,
     [string]$AuditInput = '',
-    [string]$ExpectedReceiptHash = ''
+    [string]$ExpectedReceiptHash = '',
+    [Collections.IDictionary]$PublishedControlHashes = $null
   )
+  if ($null -ne $PublishedControlHashes) {
+    foreach ($PublishedPath in @($PublishedControlHashes.Keys)) {
+      if ([string]$PublishedPath -cne '.agy/NEXT_ACTION.json' -or [string]$PublishedControlHashes[$PublishedPath] -cnotmatch '^[0-9a-f]{64}$') {
+        Throw-ResultAuthorityError 'RESULT_AUTHORITY_INTERNAL_CONTRACT' 'Published control hash override is not the exact NEXT_ACTION output contract.'
+      }
+    }
+  }
   $Root = (Resolve-Path -LiteralPath $Root).Path
   $Agy = Join-Path $Root '.agy'
   if (-not (Test-Path -LiteralPath $Agy -PathType Container)) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_STATE_MISSING' '.agy directory is missing.' }
@@ -333,11 +341,20 @@ function Get-ValidatedCompilationContext {
     $DeclaredPath = Get-RequiredString $File 'path' 'RESULT_AUTHORITY_CANDIDATE_BINDING'
     $NormalizedPath = Normalize-DeclaredRelativePath $DeclaredPath 'RESULT_AUTHORITY_CANDIDATE_BINDING'
     if ($DeclaredPath.Replace('\', '/') -cne $NormalizedPath) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_BINDING' "Control-plane path is not canonical: $DeclaredPath" }
-    $ControlFull = Get-ConfinedFile $Root $NormalizedPath 'RESULT_AUTHORITY_CANDIDATE_BINDING' '.agy'
     $Size = [long](Get-RequiredValue $File 'size_bytes' 'RESULT_AUTHORITY_CANDIDATE_BINDING')
     $Hash = Get-RequiredString $File 'sha256' 'RESULT_AUTHORITY_CANDIDATE_BINDING'
-    $ControlBytes = [IO.File]::ReadAllBytes($ControlFull)
-    if ($Hash -cnotmatch '^[0-9a-f]{64}$' -or $ControlBytes.Length -ne $Size -or (Get-Sha256Bytes $ControlBytes) -ne $Hash) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_BINDING' "Control-plane file identity changed: $DeclaredPath" }
+    if ($Size -lt 0 -or $Hash -cnotmatch '^[0-9a-f]{64}$') { Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_BINDING' "Control-plane manifest identity is malformed: $DeclaredPath" }
+    $PublishedHash = if ($null -ne $PublishedControlHashes -and $PublishedControlHashes.Contains($NormalizedPath)) { [string]$PublishedControlHashes[$NormalizedPath] } else { '' }
+    if (-not [string]::IsNullOrWhiteSpace($PublishedHash)) {
+      $ControlFull = Get-ConfinedFile $Root $NormalizedPath 'RESULT_AUTHORITY_PUBLICATION_VERIFY' '.agy'
+      $CurrentControlHash = Get-Sha256File $ControlFull
+      if ($CurrentControlHash -ne $PublishedHash) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_PUBLICATION_VERIFY' "Published control-plane output hash mismatch: $DeclaredPath" }
+    }
+    elseif ($NormalizedPath -cne '.agy/NEXT_ACTION.json') {
+      $ControlFull = Get-ConfinedFile $Root $NormalizedPath 'RESULT_AUTHORITY_CANDIDATE_BINDING' '.agy'
+      $ControlBytes = [IO.File]::ReadAllBytes($ControlFull)
+      if ($ControlBytes.Length -ne $Size -or (Get-Sha256Bytes $ControlBytes) -ne $Hash) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_BINDING' "Control-plane file identity changed: $DeclaredPath" }
+    }
     $ControlPaths += $NormalizedPath
   }
   $ChangedPaths = @()
@@ -852,7 +869,9 @@ function Publish-CompilationTransaction {
       $TargetFull = [IO.Path]::GetFullPath((Join-Path $Root $Record.path))
       if ((Get-Sha256File $TargetFull) -ne $Record.intended_sha256) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_PUBLICATION_VERIFY' "Published output hash mismatch: $($Record.path)" }
     }
-    $PublicationContext = Get-ValidatedCompilationContext $Root $ReceiptInput $AuditInput $Context.ReceiptSha256
+    if ($Records.Count -ne 4 -or [string]$Records[3].path -cne '.agy/NEXT_ACTION.json') { Throw-ResultAuthorityError 'RESULT_AUTHORITY_INTERNAL_CONTRACT' 'Publication output order does not contain the exact NEXT_ACTION target.' }
+    $PublishedControlHashes = [ordered]@{ '.agy/NEXT_ACTION.json' = [string]$Records[3].intended_sha256 }
+    $PublicationContext = Get-ValidatedCompilationContext $Root $ReceiptInput $AuditInput $Context.ReceiptSha256 $PublishedControlHashes
     if ((Get-RequestFingerprint $PublicationContext $true) -ne $ExpectedFingerprint) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_INPUT_CHANGED' 'Payload authority changed during publication.' }
     $Journal.status = 'committed'; $Journal.updated_at_utc = [DateTimeOffset]::UtcNow.ToString('o')
     Write-AtomicJson $JournalPath $Journal 30

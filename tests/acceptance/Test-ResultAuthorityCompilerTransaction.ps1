@@ -44,6 +44,7 @@ function Test-CandidatePublisherMultiRecord {
   foreach ($Name in @('modified.txt','deleted.txt','rename-old.txt')) {
     [IO.File]::WriteAllText((Join-Path $Source $Name), "baseline-$Name`n", $Utf8)
   }
+  Write-Json (Join-Path $Project '.agy/NEXT_ACTION.json') ([ordered]@{schema_version='1.1.0';work_item_id='work-candidate-publisher';route='/nextphase';auto_continue=$true;updated_at_utc=[DateTimeOffset]::UtcNow.AddMinutes(-2).ToString('o')})
   & git -C $Project init --quiet --initial-branch=main
   & git -C $Project config user.name 'Candidate Publisher Regression'
   & git -C $Project config user.email 'candidate-publisher@local.invalid'
@@ -73,6 +74,7 @@ function Test-CandidatePublisherMultiRecord {
   Assert-True ([int]$Plan.status.ambient_file_count -eq 2 -and $ActualAmbient.Count -eq 2) 'Candidate publisher collapsed or omitted ambient Git records.'
   Assert-True (@(Compare-Object $ExpectedCandidate $ActualCandidate -CaseSensitive).Count -eq 0) "Candidate publisher emitted the wrong leased path set: $($ActualCandidate -join ', ')"
   Assert-True (@(Compare-Object @('.agy/EXECUTION_LEASE.json','outside/ambient.txt') $ActualAmbient -CaseSensitive).Count -eq 0) "Candidate publisher emitted the wrong ambient path set: $($ActualAmbient -join ', ')"
+  Assert-True (@($Plan.manifest.control_plane_files | Where-Object { [string]$_.path -ceq '.agy/NEXT_ACTION.json' }).Count -eq 0) 'Candidate publisher bound compiler-owned NEXT_ACTION as an immutable payload authority input.'
 
   $Apply = Invoke-AgenticNativeProcess -FilePath $Pwsh -ArgumentList ($Arguments + '-Apply')
   Assert-True ($Apply.ExitCode -eq 0) "Candidate publisher multi-record apply failed: $($Apply.StdErr)"
@@ -187,7 +189,7 @@ exit 0
 }
 
 function New-Fixture {
-  param([string]$Name, [ValidateSet('none','quick','slow','barrier','child')][string]$Validator = 'none', [int]$SlowMilliseconds = 1800)
+  param([string]$Name, [ValidateSet('none','quick','slow','barrier','child')][string]$Validator = 'none', [int]$SlowMilliseconds = 1800, [switch]$BindExistingNextAction)
   $Project = Join-Path $script:TempRoot $Name
   New-Item -ItemType Directory -Force -Path (Join-Path $Project 'src') | Out-Null
   New-Item -ItemType Directory -Force -Path (Join-Path $Project '.agy\verification') | Out-Null
@@ -213,6 +215,9 @@ function New-Fixture {
   Write-Json (Join-Path $Agy 'EXECUTION_LEASE.json') $Lease
   $Progress = [ordered]@{schema_version='1.1.0';work_item_id=$WorkItem.work_item_id;status='progressing';observations_count=1;consecutive_no_progress=0;same_failure_count=0;owner_decision_required=$false;updated_at_utc=$Issued.ToString('o');history=@()}
   Write-Json (Join-Path $Agy 'PROGRESS_STATE.json') $Progress
+  if ($BindExistingNextAction) {
+    Write-Json (Join-Path $Agy 'NEXT_ACTION.json') ([ordered]@{schema_version='1.1.0';work_item_id=$WorkItem.work_item_id;route='/nextphase';auto_continue=$true;owner_decision_required=$false;owner_decision_reason=$null;technical_task_path=$null;updated_at_utc=$Issued.ToString('o')})
+  }
   if ($Validator -ne 'none') {
     Write-Validator $Project $Validator $SlowMilliseconds
     Write-Json (Join-Path $Agy 'FINDINGS.json') ([ordered]@{schema_version='1.0.0';work_item_id=$WorkItem.work_item_id;findings=@();updated_at_utc=$Issued.ToString('o')})
@@ -220,7 +225,7 @@ function New-Fixture {
   $EvidencePath = Join-Path $Agy 'verification\required-test.log'
   [IO.File]::WriteAllText($EvidencePath, "required test passed`n", $Utf8)
   (Get-Item -LiteralPath $EvidencePath).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-3)
-  $Fixture = [pscustomobject]@{Project=$Project;Agy=$Agy;Head=$Head;Branch=$Branch;WorkItem=$WorkItem;Lease=$Lease;Progress=$Progress;CandidateRelative=$CandidateRelative;CandidatePath=$CandidatePath;EvidencePath=$EvidencePath;ReceiptPath=(Join-Path $Agy 'receipt-input.json');Validator=$Validator;Revision=0}
+  $Fixture = [pscustomobject]@{Project=$Project;Agy=$Agy;Head=$Head;Branch=$Branch;WorkItem=$WorkItem;Lease=$Lease;Progress=$Progress;CandidateRelative=$CandidateRelative;CandidatePath=$CandidatePath;EvidencePath=$EvidencePath;ReceiptPath=(Join-Path $Agy 'receipt-input.json');Validator=$Validator;Revision=0;BindExistingNextAction=[bool]$BindExistingNextAction}
   [void](Update-FixtureAuthority $Fixture)
   $DirtyName = if ($IsWindows) { 'untracked юникод name.txt' } else { "untracked`nюникод.txt" }
   [IO.File]::WriteAllText((Join-Path $Project $DirtyName), 'porcelain-v2-z regression', $Utf8)
@@ -239,6 +244,7 @@ function Update-FixtureAuthority {
   Write-Json (Join-Path $Fixture.Agy 'PROGRESS_STATE.json') $Fixture.Progress
   $ControlNames = @('WORK_ITEM.json','EXECUTION_LEASE.json','PROGRESS_STATE.json')
   if ($Fixture.Validator -ne 'none') { $ControlNames += 'FINDINGS.json' }
+  if ($Fixture.BindExistingNextAction) { $ControlNames += 'NEXT_ACTION.json' }
   $Controls = @($ControlNames | ForEach-Object {
     $Path = Join-Path $Fixture.Agy $_
     [ordered]@{path=".agy/$_";size_bytes=[long](Get-Item -LiteralPath $Path).Length;sha256=Get-Sha256 $Path}
@@ -365,6 +371,20 @@ try {
   $Second = Invoke-Compiler $Valid.Project $Valid.ReceiptPath -Apply
   Assert-True ($Second.ExitCode -eq 0 -and $Second.StdOut -match 'already_completed') 'Second identical apply was not coalesced with completed output.'
   Assert-True ((@((Compare-Object $BeforeSecond (Get-OutputSnapshot $Valid))).Count) -eq 0) 'Second identical apply changed output bytes or mtimes.'
+
+  $BoundOutput = New-Fixture 'bound-existing-next-action' -BindExistingNextAction
+  $BoundCandidate = Get-Content -LiteralPath (Join-Path $BoundOutput.Agy 'CANDIDATE_MANIFEST.json') -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $DeclaredNextAction = $BoundCandidate.control_plane_files | Where-Object { [string]$_.path -ceq '.agy/NEXT_ACTION.json' } | Select-Object -First 1
+  $InitialNextActionHash = Get-Sha256 (Join-Path $BoundOutput.Agy 'NEXT_ACTION.json')
+  Assert-True ($null -ne $DeclaredNextAction -and [string]$DeclaredNextAction.sha256 -ceq $InitialNextActionHash) 'Fixture did not bind the pre-publication NEXT_ACTION bytes.'
+  $BoundApply = Invoke-Compiler $BoundOutput.Project $BoundOutput.ReceiptPath -Apply
+  Assert-True ($BoundApply.ExitCode -eq 0) "Compiler rejected its own intentional NEXT_ACTION publication: $($BoundApply.StdErr)"
+  Assert-True ((Get-Sha256 (Join-Path $BoundOutput.Agy 'NEXT_ACTION.json')) -cne $InitialNextActionHash) 'Compiler did not replace the candidate-bound NEXT_ACTION output.'
+  $BoundBeforeSecond = @(Get-OutputSnapshot $BoundOutput)
+  Start-Sleep -Milliseconds 1100
+  $BoundSecond = Invoke-Compiler $BoundOutput.Project $BoundOutput.ReceiptPath -Apply
+  Assert-True ($BoundSecond.ExitCode -eq 0 -and $BoundSecond.StdOut -match 'already_completed') 'Bound NEXT_ACTION second apply was not verification-only.'
+  Assert-True ((@((Compare-Object $BoundBeforeSecond (Get-OutputSnapshot $BoundOutput))).Count) -eq 0) 'Bound NEXT_ACTION second apply changed output bytes or mtimes.'
 
   $Fault = New-Fixture 'fault-rollback'
   $Seed = @{}

@@ -11,6 +11,7 @@ import os
 import json
 import time
 import hashlib
+from datetime import datetime, timezone
 
 def get_sha256(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -31,6 +32,62 @@ def log_error(logs_dir, error_code, message):
             f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {error_code}: {message}\n")
     except Exception:
         pass
+
+def write_json_atomic(path, payload):
+    temp_path = f"{path}.tmp.{os.getpid()}"
+    with open(temp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    os.replace(temp_path, path)
+
+def enqueue_stop_payload(payload, base_dir):
+    """Queue one validated Stop payload, or defer it without publishing work."""
+    queue_dir = os.path.join(base_dir, "queue")
+    logs_dir = os.path.join(base_dir, "logs")
+    os.makedirs(queue_dir, exist_ok=True)
+    os.makedirs(logs_dir, exist_ok=True)
+
+    received_at_utc = datetime.now(timezone.utc).isoformat()
+    if payload.get("fullyIdle") is not True:
+        log_error(logs_dir, "DEFERRED_IN_FLIGHT", "Stop payload was not fully idle; no queue item or archive was created.")
+        return {"status": "DEFERRED", "reason": "stop_payload_not_fully_idle", "queue_path": None}
+
+    conv_id = payload["conversationId"]
+    exec_num = payload["executionNum"]
+    t_path = payload["transcriptPath"]
+    a_path = payload["artifactDirectoryPath"]
+    ws_paths = payload["workspacePaths"]
+    term_reason = payload["terminationReason"]
+    err_msg = payload.get("error", "")
+
+    timestamp_str = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
+    fingerprint_raw = f"{conv_id}_{exec_num}"
+    fingerprint = get_sha256(fingerprint_raw)
+    fingerprint_prefix = fingerprint[:8]
+
+    for f_name in os.listdir(queue_dir):
+        if f_name.startswith("queue_") and f_name.endswith(".json") and fingerprint_prefix in f_name:
+            log_error(logs_dir, "DUPLICATE_EVENT", f"Suppressed duplicate queue item for {conv_id} exec {exec_num}")
+            return {"status": "DUPLICATE", "reason": "pending_event_exists", "queue_path": None}
+
+    queue_item = {
+        "schema_version": "4.3.4",
+        "conversation_id": conv_id,
+        "workspace_paths": ws_paths,
+        "transcript_path": t_path,
+        "artifact_directory_path": a_path,
+        "execution_num": exec_num,
+        "termination_reason": term_reason,
+        "error": err_msg,
+        "fully_idle": True,
+        "received_at_utc": received_at_utc,
+        "event_fingerprint": fingerprint,
+        "stop_payload": payload,
+    }
+
+    target_name = f"queue_{timestamp_str}_ex{exec_num}_{conv_id[:8]}_{fingerprint_prefix}.json"
+    final_path = os.path.join(queue_dir, target_name)
+    write_json_atomic(final_path, queue_item)
+    return {"status": "QUEUED", "reason": "fully_idle", "queue_path": final_path}
 
 def main():
     base_dir = r"C:\Scripts\AntigravityProjects\companion-handoff"
@@ -90,65 +147,7 @@ def main():
         
     if valid_payload:
         try:
-            conv_id = payload["conversationId"]
-            exec_num = payload["executionNum"]
-            t_path = payload["transcriptPath"]
-            a_path = payload["artifactDirectoryPath"]
-            ws_paths = payload["workspacePaths"]
-            term_reason = payload["terminationReason"]
-            err_msg = payload.get("error", "")
-            fully_idle = payload["fullyIdle"]
-            
-            t_size = os.path.getsize(t_path) if os.path.exists(t_path) else 0
-            line_count = 0
-            if os.path.exists(t_path):
-                try:
-                    with open(t_path, "r", encoding="utf-8", errors="ignore") as f:
-                        line_count = sum(1 for l in f if l.strip())
-                except Exception:
-                    pass
-            
-            timestamp_str = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
-            
-            # Stable event fingerprint based on conversationId + executionNum
-            fingerprint_raw = f"{conv_id}_{exec_num}"
-            fingerprint = get_sha256(fingerprint_raw)
-            
-            # Duplicate Stop suppression
-            is_duplicate = False
-            for f_name in os.listdir(queue_dir):
-                if f_name.startswith("queue_") and fingerprint in f_name:
-                    is_duplicate = True
-                    break
-            
-            if not is_duplicate:
-                queue_item = {
-                    "schema_version": "4.3.4",
-                    "conversation_id": conv_id,
-                    "workspace_paths": ws_paths,
-                    "transcript_path": t_path,
-                    "artifact_directory_path": a_path,
-                    "execution_num": exec_num,
-                    "termination_reason": term_reason,
-                    "error": err_msg,
-                    "fully_idle": fully_idle,
-                    "received_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                    "event_fingerprint": fingerprint,
-                    "stop_payload": payload
-                }
-                
-                # Include fingerprint in filename for O(1) duplicate check
-                target_name = f"queue_{timestamp_str}_ex{exec_num}_{conv_id[:8]}_{fingerprint[:8]}.json"
-                temp_path = os.path.join(queue_dir, f".tmp_{target_name}")
-                final_path = os.path.join(queue_dir, target_name)
-                
-                with open(temp_path, "w", encoding="utf-8") as f:
-                    json.dump(queue_item, f, ensure_ascii=False, indent=2)
-                    
-                os.replace(temp_path, final_path)
-            else:
-                log_error(logs_dir, "DUPLICATE_EVENT", f"Suppressed duplicate queue item for {conv_id} exec {exec_num}")
-                
+            enqueue_stop_payload(payload, base_dir)
         except Exception as e:
             log_error(logs_dir, "QUEUE_WRITE_FAILED", f"Queue item write exception: {str(e)}")
             

@@ -6,6 +6,9 @@ import traceback
 import json
 import zipfile
 import ast
+import hashlib
+import threading
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
 print("="*60)
@@ -46,6 +49,200 @@ def teardown_temp_env(env=None):
         for e in _temp_envs:
             shutil.rmtree(e, ignore_errors=True)
         _temp_envs.clear()
+
+def write_json(path, value):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(value, handle, ensure_ascii=False, indent=2)
+
+def make_queue_job(env, conversation_id="conv-test", execution_num=1, fully_idle=True):
+    transcript_path = os.path.join(env, "transcript.jsonl")
+    artifact_dir = os.path.join(env, "artifacts")
+    os.makedirs(artifact_dir, exist_ok=True)
+    if not os.path.exists(transcript_path):
+        with open(transcript_path, "w", encoding="utf-8") as handle:
+            handle.write('{"type":"USER_INPUT","content":"test"}\n')
+    stop_payload = {
+        "conversationId": conversation_id,
+        "workspacePaths": [env],
+        "transcriptPath": transcript_path,
+        "artifactDirectoryPath": artifact_dir,
+        "executionNum": execution_num,
+        "terminationReason": "NO_TOOL_CALL",
+        "fullyIdle": fully_idle,
+    }
+    fingerprint = hashlib.sha256(f"{conversation_id}_{execution_num}".encode("utf-8")).hexdigest()
+    return {
+        "schema_version": "4.3.4",
+        "conversation_id": conversation_id,
+        "workspace_paths": [env],
+        "transcript_path": transcript_path,
+        "artifact_directory_path": artifact_dir,
+        "execution_num": execution_num,
+        "termination_reason": "NO_TOOL_CALL",
+        "error": "",
+        "fully_idle": fully_idle,
+        "received_at_utc": (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat(),
+        "event_fingerprint": fingerprint,
+        "stop_payload": stop_payload,
+    }
+
+def ready_gate(*_args, **_kwargs):
+    return {"ready": True, "reason": "test_gate_confirmed", "stable_samples": 3}
+
+def create_authority_fixture(env, conversation_id="conv-authority"):
+    from run_ag_handoff_worker import validate_authority_freshness
+
+    queue_item = make_queue_job(env, conversation_id, 7)
+    agy = os.path.join(env, ".agy")
+    os.makedirs(agy, exist_ok=True)
+    branch = "main"
+    head = "a" * 40
+    work_item_id = "wi-current-authority"
+    lease_id = "lease-current-authority"
+    now = datetime.now(timezone.utc)
+    candidate_time = now - timedelta(seconds=30)
+    test_time = now - timedelta(seconds=20)
+    receipt_time = now - timedelta(seconds=10)
+    compiled_time = now - timedelta(seconds=5)
+    stop_time = now + timedelta(seconds=10)
+    queue_item["received_at_utc"] = stop_time.isoformat()
+
+    write_json(os.path.join(agy, "WORK_ITEM.json"), {
+        "schema_version": "1.1.0",
+        "work_item_id": work_item_id,
+        "goal_epoch": 3,
+        "goal": "Verify current result",
+        "assurance_mode": "guarded",
+        "status": "active",
+        "project_root": env,
+        "branch": branch,
+        "updated_at_utc": candidate_time.isoformat(),
+    })
+    write_json(os.path.join(agy, "EXECUTION_LEASE.json"), {
+        "schema_version": "1.1.0",
+        "lease_id": lease_id,
+        "status": "active",
+        "work_item_id": work_item_id,
+        "goal_epoch": 3,
+        "branch": branch,
+        "baseline_head": head,
+    })
+    candidate = {
+        "schema_version": "1.1.0",
+        "work_item_id": work_item_id,
+        "lease_id": lease_id,
+        "branch": branch,
+        "head": head,
+        "candidate_files": [],
+        "control_plane_files": [],
+        "ambient_git_status": [],
+        "generated_at_utc": candidate_time.isoformat(),
+    }
+    candidate_path = os.path.join(agy, "CANDIDATE_MANIFEST.json")
+    write_json(candidate_path, candidate)
+    candidate_hash = hashlib.sha256(open(candidate_path, "rb").read()).hexdigest()
+    write_json(os.path.join(agy, "CANDIDATE_MANIFEST_STATUS.json"), {
+        "schema_version": "1.1.0",
+        "status": "current",
+        "manifest_path": ".agy/CANDIDATE_MANIFEST.json",
+        "manifest_sha256": candidate_hash,
+        "candidate_file_count": 0,
+        "ambient_file_count": 0,
+        "invalidated_by": [],
+        "updated_at_utc": candidate_time.isoformat(),
+    })
+
+    evidence_relative = ".agy/verification/verification-current.log"
+    evidence_path = os.path.join(env, *evidence_relative.split("/"))
+    os.makedirs(os.path.dirname(evidence_path), exist_ok=True)
+    evidence_bytes = "260 files, 708 tests: PASS\nПроверка завершена.\n".encode("utf-8")
+    with open(evidence_path, "wb") as handle:
+        handle.write(evidence_bytes)
+    os.utime(evidence_path, (test_time.timestamp(), test_time.timestamp()))
+    evidence_hash = hashlib.sha256(evidence_bytes).hexdigest()
+    test_entry = {
+        "run_id": "vitest-current",
+        "required": True,
+        "exit_code": 0,
+        "started_at_utc": (test_time - timedelta(minutes=1)).isoformat(),
+        "completed_at_utc": test_time.isoformat(),
+        "evidence_path": evidence_relative,
+        "evidence_sha256": evidence_hash,
+        "evidence_size_bytes": len(evidence_bytes),
+    }
+    receipt = {
+        "work_item_id": work_item_id,
+        "goal_epoch": 3,
+        "branch": branch,
+        "head": head,
+        "execution_lease_id": lease_id,
+        "candidate_manifest_sha256": candidate_hash,
+        "completed_at_utc": receipt_time.isoformat(),
+        "changed_files": [],
+        "tests": [test_entry],
+        "evidence_artifacts": [evidence_relative],
+        "product_artifacts": [],
+    }
+    receipt_path = os.path.join(agy, "VERIFICATION_RECEIPT.json")
+    write_json(receipt_path, receipt)
+    receipt_hash = hashlib.sha256(open(receipt_path, "rb").read()).hexdigest()
+    run_result = {
+        "schema_version": "1.0.0",
+        "work_item_id": work_item_id,
+        "assurance_mode": "guarded",
+        "branch": branch,
+        "head": head,
+        "git_state": "clean",
+        "implementation_status": "completed",
+        "verification_status": "passed",
+        "audit_status": "passed",
+        "acceptance_status": "accepted",
+        "product_blockers": [],
+        "verification_blockers": [],
+        "release_blockers": [],
+        "service_warnings": [],
+        "changed_files": [],
+        "tests": [{**test_entry, "finished_at_utc": test_time.isoformat()}],
+        "next_workflow": None,
+        "generated_at_utc": compiled_time.isoformat(),
+        "compiled_at_utc": compiled_time.isoformat(),
+        "evidence_artifacts": [evidence_relative],
+        "product_artifacts": [],
+        "execution_lease_id": lease_id,
+        "verification_receipt": {
+            "path": ".agy/VERIFICATION_RECEIPT.json",
+            "sha256": receipt_hash,
+            "completed_at_utc": receipt_time.isoformat(),
+            "work_item_id": work_item_id,
+            "head": head,
+            "execution_lease_id": lease_id,
+            "candidate_manifest_sha256": candidate_hash,
+        },
+    }
+    run_result_path = os.path.join(agy, "RUN_RESULT.json")
+    write_json(run_result_path, run_result)
+
+    git_identity = lambda _workspace: {"branch": branch, "head": head}
+    validator = lambda payload, received: validate_authority_freshness(
+        payload,
+        received,
+        git_identity_getter=git_identity,
+    )
+    authority = validator(queue_item["stop_payload"], queue_item["received_at_utc"])
+    assert authority.get("ready") is True, f"Fixture authority invalid: {authority}"
+    return {
+        "queue_item": queue_item,
+        "authority": authority,
+        "validator": validator,
+        "receipt_path": receipt_path,
+        "run_result_path": run_result_path,
+        "candidate_path": candidate_path,
+        "candidate_status_path": os.path.join(agy, "CANDIDATE_MANIFEST_STATUS.json"),
+        "evidence_path": evidence_path,
+        "evidence_bytes": evidence_bytes,
+        "archive_member": "verification_evidence/vitest-current/verification-current.log",
+    }
 
 # --- Unit Tests (T01-T30) ---
 
@@ -650,7 +847,7 @@ def test_T38_queue_deduplication():
     queue_dir = os.path.join(env, "queue")
     os.makedirs(queue_dir, exist_ok=True)
     
-    job1 = {"event_fingerprint": "fp_dup", "schema_version": "4.3.4", "conversation_id": "conv_dup"}
+    job1 = make_queue_job(env, "conv_dup", 0)
     with open(os.path.join(queue_dir, "queue_20260725_000001_ex0_dup.json"), "w") as f:
         json.dump(job1, f)
         
@@ -660,7 +857,7 @@ def test_T38_queue_deduplication():
     
     with patch("export_ag_handoff.CompanionExporter", return_value=mock_exporter), \
          patch("run_ag_ux_helper.process_ux_request", side_effect=mock_ux):
-        processed = process_queue_once(env, SRC_DIR)
+        processed = process_queue_once(env, SRC_DIR, quiescence_waiter=ready_gate, authority_validator=ready_gate)
         assert processed is True
         assert mock_exporter.export.call_count == 1
         
@@ -678,15 +875,7 @@ def test_T39_worker_uses_returned_archive_path():
     with open(custom_archive, "wb") as f:
         f.write(b"PK\x03\x04test_zip")
         
-    job_data = {
-        "event_fingerprint": "fp_test39",
-        "schema_version": "4.3.4",
-        "conversation_id": "conv_test39",
-        "stop_payload": {
-            "conversationId": "conv_test39",
-            "workspacePaths": [env]
-        }
-    }
+    job_data = make_queue_job(env, "conv_test39", 0)
     with open(os.path.join(queue_dir, job_id), "w", encoding="utf-8") as f:
         json.dump(job_data, f)
         
@@ -701,7 +890,7 @@ def test_T39_worker_uses_returned_archive_path():
     with patch("export_ag_handoff.CompanionExporter", return_value=mock_exporter), \
          patch("run_ag_ux_helper.process_ux_request", side_effect=mock_ux):
         
-        processed = process_queue_once(env, SRC_DIR)
+        processed = process_queue_once(env, SRC_DIR, quiescence_waiter=ready_gate, authority_validator=ready_gate)
         assert processed is True
         
         ev_file = os.path.join(env, "logs", "DESKTOP_STOP_EVIDENCE.json")
@@ -929,12 +1118,7 @@ def test_T46_worker_uses_returned_archive_path():
     os.makedirs(os.path.dirname(custom_archive), exist_ok=True)
     with open(custom_archive, "wb") as f:
         f.write(b"PK\x03\x04test_zip")
-    job_data = {
-        "event_fingerprint": "fp_test46",
-        "schema_version": "4.3.4",
-        "conversation_id": "conv_test46",
-        "stop_payload": {"conversationId": "conv_test46", "workspacePaths": [env]}
-    }
+    job_data = make_queue_job(env, "conv_test46", 0)
     with open(os.path.join(queue_dir, "queue_20260725_100000_ex0_test46.json"), "w", encoding="utf-8") as f:
         json.dump(job_data, f)
         
@@ -944,7 +1128,7 @@ def test_T46_worker_uses_returned_archive_path():
     
     with patch("export_ag_handoff.CompanionExporter", return_value=mock_exporter), \
          patch("run_ag_ux_helper.process_ux_request", side_effect=mock_ux):
-        processed = process_queue_once(env, SRC_DIR)
+        processed = process_queue_once(env, SRC_DIR, quiescence_waiter=ready_gate, authority_validator=ready_gate)
         assert processed is True
         ev_file = os.path.join(env, "logs", "DESKTOP_STOP_EVIDENCE.json")
         assert os.path.exists(ev_file)
@@ -1112,7 +1296,7 @@ def test_T56_attestation_after_artifacts():
         source = f.read()
     hash_index = source.index('archive_sha256 = h.hexdigest()')
     evidence_index = source.index('evidence = {', hash_index)
-    write_index = source.index('json.dump(evidence', evidence_index)
+    write_index = source.index('write_json_atomic(ev_file, evidence)', evidence_index)
     assert hash_index < evidence_index < write_index, "Evidence must be written only after the delivered archive is hashed"
 
 def test_T57_attestation_sha_matches():
@@ -1254,6 +1438,318 @@ def test_T64_meta_test_no_false_green_tests():
             
     assert len(placeholders) == 0, f"Placeholder/false-green tests found: {placeholders}"
 
+def test_T65_non_idle_stop_does_not_publish_or_overwrite_evidence():
+    from enqueue_ag_handoff import enqueue_stop_payload
+
+    env = setup_temp_env()
+    evidence_path = os.path.join(env, "logs", "DESKTOP_STOP_EVIDENCE.json")
+    latest_path = os.path.join(env, "handoffs", "project", "conv", "latest", "LATEST_CONTEXT.zip")
+    state_path = os.path.join(env, "state", "conv.json")
+    ux_path = os.path.join(env, "queue", "ux_requests", "sentinel.json")
+    sentinels = {
+        evidence_path: b'{"verdict":"OLD_PASS"}',
+        latest_path: b"old-latest",
+        state_path: b'{"cursor":41}',
+        ux_path: b'{"status":"old"}',
+    }
+    for path, content in sentinels.items():
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(content)
+    before = {path: (open(path, "rb").read(), os.stat(path).st_mtime_ns) for path in sentinels}
+    payload = make_queue_job(env, "conv-non-idle", 3, fully_idle=False)["stop_payload"]
+    result = enqueue_stop_payload(payload, env)
+    assert result == {"status": "DEFERRED", "reason": "stop_payload_not_fully_idle", "queue_path": None}
+    assert not [name for name in os.listdir(os.path.join(env, "queue")) if name.startswith("queue_")]
+    after = {path: (open(path, "rb").read(), os.stat(path).st_mtime_ns) for path in sentinels}
+    assert before == after, "A non-idle Stop changed LATEST, completion evidence, state, or UX."
+    teardown_temp_env(env)
+
+def test_T66_current_authority_required_and_stale_run_result_deferred():
+    from run_ag_handoff_worker import validate_authority_freshness, is_safe_verification_evidence_path
+
+    env = setup_temp_env()
+    fixture = create_authority_fixture(env, "conv-stale-authority")
+    valid = fixture["validator"](
+        fixture["queue_item"]["stop_payload"],
+        fixture["queue_item"]["received_at_utc"],
+    )
+    assert valid.get("ready") is True
+    assert is_safe_verification_evidence_path(".agy/verification/vitest-current.log") is True
+    for unsafe_path in (
+        ".env", ".agy/verification/.env", ".agy/verification/ACTION_BRIDGE_CAPABILITY.json",
+        ".agy/verification/client-secret.log", "artifacts/test.log", ".agy/verification/../secret.log",
+    ):
+        assert is_safe_verification_evidence_path(unsafe_path) is False, unsafe_path
+
+    with open(fixture["run_result_path"], "r", encoding="utf-8") as handle:
+        stale = json.load(handle)
+    stale_time = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    stale["generated_at_utc"] = stale_time
+    stale["compiled_at_utc"] = stale_time
+    write_json(fixture["run_result_path"], stale)
+    rejected = validate_authority_freshness(
+        fixture["queue_item"]["stop_payload"],
+        fixture["queue_item"]["received_at_utc"],
+        git_identity_getter=lambda _workspace: {"branch": "main", "head": "a" * 40},
+    )
+    assert rejected == {"ready": False, "reason": "authority_not_fresh_for_stop"}, rejected
+
+    stale.pop("verification_receipt")
+    write_json(fixture["run_result_path"], stale)
+    legacy = validate_authority_freshness(
+        fixture["queue_item"]["stop_payload"],
+        fixture["queue_item"]["received_at_utc"],
+        git_identity_getter=lambda _workspace: {"branch": "main", "head": "a" * 40},
+    )
+    assert legacy == {"ready": False, "reason": "run_result_missing_verification_provenance"}, legacy
+    teardown_temp_env(env)
+
+def test_T67_forged_queue_envelope_deferred_without_side_effects():
+    from run_ag_handoff_worker import process_queue_once, validate_queue_envelope
+
+    env = setup_temp_env()
+    queue_dir = os.path.join(env, "queue")
+    os.makedirs(queue_dir, exist_ok=True)
+    job = make_queue_job(env, "conv-envelope", 4)
+    for field, forged_value in (
+        ("fully_idle", False),
+        ("event_fingerprint", "0" * 64),
+        ("workspace_paths", [os.path.join(env, "other")]),
+        ("execution_num", 99),
+    ):
+        forged = dict(job)
+        forged[field] = forged_value
+        assert validate_queue_envelope(forged, job["stop_payload"])["ready"] is False, field
+    job["conversation_id"] = "forged-outer-id"
+    queue_path = os.path.join(queue_dir, "queue_forged.json")
+    write_json(queue_path, job)
+    evidence_path = os.path.join(env, "logs", "DESKTOP_STOP_EVIDENCE.json")
+    latest_path = os.path.join(env, "handoffs", "project", "conv", "latest", "LATEST_CONTEXT.zip")
+    state_path = os.path.join(env, "state", "conv.json")
+    ux_path = os.path.join(queue_dir, "ux_requests", "sentinel.json")
+    sentinels = {evidence_path: b"old-evidence", latest_path: b"old-latest", state_path: b"old-state", ux_path: b"old-ux"}
+    for path, content in sentinels.items():
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(content)
+    before = {path: (open(path, "rb").read(), os.stat(path).st_mtime_ns) for path in sentinels}
+    mock_exporter = MagicMock()
+    with patch("export_ag_handoff.CompanionExporter", mock_exporter):
+        processed = process_queue_once(env, SRC_DIR, quiescence_waiter=ready_gate, authority_validator=ready_gate)
+    assert processed is True and mock_exporter.call_count == 0
+    assert os.path.isfile(os.path.join(queue_dir, "deferred", "queue_forged.json"))
+    after = {path: (open(path, "rb").read(), os.stat(path).st_mtime_ns) for path in sentinels}
+    assert before == after, "Forged envelope changed LATEST, evidence, state, or UX."
+    teardown_temp_env(env)
+
+def test_T68_true_idle_export_contains_exact_current_receipt_and_test_evidence():
+    from run_ag_handoff_worker import process_queue_once
+
+    env = setup_temp_env()
+    fixture = create_authority_fixture(env, "conv-current-export")
+    queue_dir = os.path.join(env, "queue")
+    os.makedirs(queue_dir, exist_ok=True)
+    write_json(os.path.join(queue_dir, "queue_current.json"), fixture["queue_item"])
+    source_files = [
+        os.path.join(SRC_DIR, name) for name in (
+            "enqueue_ag_handoff.py", "run_ag_handoff_worker.py", "export_ag_handoff.py",
+            "authority_collector.py", "package_builder.py",
+        )
+    ]
+    source_before = {path: hashlib.sha256(open(path, "rb").read()).hexdigest() for path in source_files}
+    mock_ux = MagicMock(return_value={
+        "verdict": "PASS",
+        "clipboard_roundtrip_match": True,
+        "explorer_open_success": True,
+        "notification_success": True,
+    })
+    with patch("run_ag_ux_helper.process_ux_request", side_effect=mock_ux):
+        processed = process_queue_once(
+            env,
+            SRC_DIR,
+            quiescence_waiter=ready_gate,
+            authority_validator=fixture["validator"],
+        )
+    assert processed is True
+    evidence_path = os.path.join(env, "logs", "DESKTOP_STOP_EVIDENCE.json")
+    with open(evidence_path, "r", encoding="utf-8") as handle:
+        evidence = json.load(handle)
+    assert evidence["verdict"] == "PASS" and evidence["fully_idle"] is True
+    assert evidence["quiescence"]["status"] == "PASS" and evidence["quiescence"]["samples"] >= 2
+    assert evidence["atomic_latest_publish"] is True
+    archive_path = evidence["archive_path"]
+    with open(fixture["run_result_path"], "r", encoding="utf-8") as handle:
+        compiled_at = datetime.fromisoformat(json.load(handle)["compiled_at_utc"])
+    quiescence_at = datetime.fromisoformat(evidence["quiescence"]["observed_at_utc"])
+    archive_mtime = datetime.fromtimestamp(os.path.getmtime(archive_path), tz=timezone.utc)
+    published_at = datetime.fromisoformat(evidence["archive_published_at_utc"])
+    recorded_at = datetime.fromisoformat(evidence["recorded_at_utc"])
+    assert compiled_at <= quiescence_at <= archive_mtime <= published_at <= recorded_at, (
+        compiled_at, quiescence_at, archive_mtime, published_at, recorded_at
+    )
+    exact_sources = {
+        "authorities/RUN_RESULT.json": fixture["run_result_path"],
+        "authorities/VERIFICATION_RECEIPT.json": fixture["receipt_path"],
+        "authorities/CANDIDATE_MANIFEST.json": fixture["candidate_path"],
+        "authorities/CANDIDATE_MANIFEST_STATUS.json": fixture["candidate_status_path"],
+    }
+    with zipfile.ZipFile(archive_path) as archive:
+        manifest = json.loads(archive.read("MANIFEST.json").decode("utf-8"))
+        for member, source_path in exact_sources.items():
+            expected = open(source_path, "rb").read()
+            actual = archive.read(member)
+            assert actual == expected, f"{member} was not packaged byte-exactly."
+            assert manifest["files"][member]["sha256"] == hashlib.sha256(expected).hexdigest()
+        test_bytes = archive.read(fixture["archive_member"])
+        assert test_bytes == fixture["evidence_bytes"]
+        assert manifest["files"][fixture["archive_member"]]["sha256"] == hashlib.sha256(test_bytes).hexdigest()
+    source_after = {path: hashlib.sha256(open(path, "rb").read()).hexdigest() for path in source_files}
+    assert source_before == source_after, "Export mutated immutable source files."
+    teardown_temp_env(env)
+
+def test_T69_authority_mutation_before_swap_preserves_old_latest():
+    from package_builder import PackageBuilder
+    from run_ag_handoff_worker import get_quiescence_snapshot, make_pre_publish_guard
+
+    env = setup_temp_env()
+    fixture = create_authority_fixture(env, "conv-pre-publish-race")
+    latest_dir = os.path.join(env, "published", "latest")
+    history_dir = os.path.join(env, "published", "history", "gen-race")
+    os.makedirs(latest_dir, exist_ok=True)
+    latest_path = os.path.join(latest_dir, "LATEST_CONTEXT.zip")
+    with open(latest_path, "wb") as handle:
+        handle.write(b"old-complete-latest")
+    os.utime(latest_path, (1700000000, 1700000000))
+    old_identity = (open(latest_path, "rb").read(), os.stat(latest_path).st_mtime_ns)
+    expected_snapshot = get_quiescence_snapshot(fixture["queue_item"]["stop_payload"])
+    guard = make_pre_publish_guard(
+        fixture["queue_item"]["stop_payload"],
+        fixture["queue_item"]["received_at_utc"],
+        expected_snapshot,
+        fixture["authority"],
+        fixture["validator"],
+    )
+    mutated = {"done": False}
+    def mutate_then_guard():
+        if not mutated["done"]:
+            with open(fixture["receipt_path"], "ab") as handle:
+                handle.write(b"\n")
+            mutated["done"] = True
+        return guard()
+    builder = PackageBuilder(latest_dir, history_dir, "gen-race")
+    result = builder.build_and_publish(
+        {"CONTEXT_READINESS.json": b'{"transport_verdict":"PASS"}', "payload.txt": b"new"},
+        pre_publish_guard=mutate_then_guard,
+    )
+    assert result["status"] == "DEFERRED" and result["error"] == "PRE_PUBLISH_GUARD_FAILED", result
+    assert (open(latest_path, "rb").read(), os.stat(latest_path).st_mtime_ns) == old_identity
+    assert not os.path.exists(os.path.join(history_dir, "LATEST_CONTEXT.zip"))
+    assert not any(name.startswith((".tmp_", ".rollback_")) for name in os.listdir(latest_dir))
+    teardown_temp_env(env)
+
+def test_T70_atomic_publish_rollback_and_reader_never_observes_partial_bytes():
+    import package_builder as package_builder_module
+    from package_builder import PackageBuilder
+
+    env = setup_temp_env()
+    latest_dir = os.path.join(env, "latest")
+    history_dir = os.path.join(env, "history")
+    os.makedirs(latest_dir, exist_ok=True)
+    os.makedirs(history_dir, exist_ok=True)
+    targets = {
+        os.path.join(latest_dir, "LATEST_CONTEXT.zip"): b"old-latest",
+        os.path.join(history_dir, "LATEST_CONTEXT.zip"): b"old-history",
+        os.path.join(latest_dir, "LATEST_CONTEXT.zip.sha256"): b"old-latest-sha",
+        os.path.join(history_dir, "LATEST_CONTEXT.zip.sha256"): b"old-history-sha",
+        os.path.join(latest_dir, "CONTEXT_READINESS.json"): b"old-readiness",
+    }
+    for path, content in targets.items():
+        with open(path, "wb") as handle:
+            handle.write(content)
+        os.utime(path, (1700000000, 1700000000))
+    before = {path: (open(path, "rb").read(), os.stat(path).st_mtime_ns) for path in targets}
+    real_replace = package_builder_module.os.replace
+    fail_once = {"done": False}
+    def injected_replace(source, target):
+        if target == os.path.join(latest_dir, "LATEST_CONTEXT.zip.sha256") and not fail_once["done"]:
+            fail_once["done"] = True
+            raise RuntimeError("injected sidecar publish failure")
+        return real_replace(source, target)
+    builder = PackageBuilder(latest_dir, history_dir, "gen-rollback")
+    with patch("package_builder.os.replace", side_effect=injected_replace):
+        failed = builder.build_and_publish(
+            {"CONTEXT_READINESS.json": b'{"transport_verdict":"PASS"}', "payload.bin": b"new" * 1000},
+            pre_publish_guard=ready_gate,
+        )
+    assert failed["status"] == "FAILED" and failed["error"] == "ATOMIC_SWAP_FAILED", failed
+    after = {path: (open(path, "rb").read(), os.stat(path).st_mtime_ns) for path in targets}
+    assert before == after, "Failed publish did not restore old LATEST/sidecars/readiness exactly."
+
+    observed = []
+    read_errors = []
+    stop_reader = threading.Event()
+    latest_path = os.path.join(latest_dir, "LATEST_CONTEXT.zip")
+    old_bytes = open(latest_path, "rb").read()
+    def reader():
+        while not stop_reader.is_set():
+            try:
+                with open(latest_path, "rb") as handle:
+                    observed.append(handle.read())
+            except Exception as error:
+                read_errors.append(type(error).__name__)
+            stop_reader.wait(0.0005)
+    thread = threading.Thread(target=reader, daemon=True)
+    thread.start()
+    succeeded = PackageBuilder(latest_dir, history_dir, "gen-reader").build_and_publish(
+        {"CONTEXT_READINESS.json": b'{"transport_verdict":"PASS"}', "payload.bin": b"complete-new" * 10000},
+        pre_publish_guard=ready_gate,
+    )
+    stop_reader.set()
+    thread.join(timeout=2)
+    assert succeeded["status"] == "SUCCESS" and succeeded["atomic_latest_publish"] is True, succeeded
+    new_bytes = open(latest_path, "rb").read()
+    observed.append(new_bytes)
+    assert not read_errors, f"Reader observed a missing/unreadable LATEST: {read_errors}"
+    assert all(value in (old_bytes, new_bytes) for value in observed), "Reader observed partial LATEST bytes."
+    teardown_temp_env(env)
+
+def test_T71_bounded_quiescence_requires_stability_and_times_out_closed():
+    from run_ag_handoff_worker import wait_for_quiescence
+
+    payload = {"fullyIdle": True}
+    sequence = iter((("a",), ("b",), ("b",), ("b",)))
+    clock = {"value": 0.0}
+    def sleep_fn(seconds):
+        clock["value"] += seconds
+    ready = wait_for_quiescence(
+        payload,
+        timeout_seconds=1.0,
+        poll_interval_seconds=0.1,
+        required_stable_samples=3,
+        snapshot_fn=lambda: next(sequence),
+        sleep_fn=sleep_fn,
+        monotonic_fn=lambda: clock["value"],
+    )
+    assert ready == {"ready": True, "reason": "bounded_stability_confirmed", "stable_samples": 3}
+
+    clock["value"] = 0.0
+    counter = {"value": 0}
+    def changing_snapshot():
+        counter["value"] += 1
+        return (counter["value"],)
+    blocked = wait_for_quiescence(
+        payload,
+        timeout_seconds=0.25,
+        poll_interval_seconds=0.1,
+        required_stable_samples=3,
+        snapshot_fn=changing_snapshot,
+        sleep_fn=sleep_fn,
+        monotonic_fn=lambda: clock["value"],
+    )
+    assert blocked["ready"] is False and blocked["reason"] == "quiescence_timeout"
+    assert wait_for_quiescence({"fullyIdle": False})["reason"] == "stop_payload_not_fully_idle"
+
 
 def main():
     print("Running Tests...\n")
@@ -1322,6 +1818,13 @@ def main():
         ("T62", test_T62_no_alias_copy_in_attestation),
         ("T63", test_T63_source_package_no_old_release),
         ("T64", test_T64_meta_test_no_false_green_tests),
+        ("T65", test_T65_non_idle_stop_does_not_publish_or_overwrite_evidence),
+        ("T66", test_T66_current_authority_required_and_stale_run_result_deferred),
+        ("T67", test_T67_forged_queue_envelope_deferred_without_side_effects),
+        ("T68", test_T68_true_idle_export_contains_exact_current_receipt_and_test_evidence),
+        ("T69", test_T69_authority_mutation_before_swap_preserves_old_latest),
+        ("T70", test_T70_atomic_publish_rollback_and_reader_never_observes_partial_bytes),
+        ("T71", test_T71_bounded_quiescence_requires_stability_and_times_out_closed),
     ]
 
     for name, func in tests:

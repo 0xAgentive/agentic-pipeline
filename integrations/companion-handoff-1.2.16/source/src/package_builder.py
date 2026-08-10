@@ -86,12 +86,28 @@ class PackageBuilder:
         }
         return manifest
 
-    def build_and_publish(self, file_contents: dict, validator_class=None) -> dict:
+    def _replace_atomically(self, source: str, target: str):
+        """Bounded retry for transient Windows readers; every attempt is atomic."""
+        last_error = None
+        for attempt in range(20):
+            try:
+                os.replace(source, target)
+                return
+            except PermissionError as error:
+                last_error = error
+                if attempt == 19:
+                    break
+                time.sleep(0.025)
+        raise last_error
+
+    def build_and_publish(self, file_contents: dict, validator_class=None, pre_publish_guard=None) -> dict:
         """Build ZIP, validate, and atomically publish.
 
         Args:
             file_contents: dict of member_name → bytes
             validator_class: PackageValidator class (injected to avoid circular import)
+            pre_publish_guard: callable revalidating idle/authority state immediately
+                before any externally visible file is replaced
 
         Returns:
             dict with status, archive_path, transport_verdict, etc.
@@ -146,38 +162,170 @@ class PackageBuilder:
                 self._cleanup(temp_zip)
                 return {"status": "FAILED", "error": "FINAL_ZIP_VALIDATION_FAILED", "details": str(e)}
 
-        # 5. Atomic swap
+        # 5. Stage every published file on its destination volume.
         final_latest = os.path.join(self.latest_dir, "LATEST_CONTEXT.zip")
         final_history = os.path.join(self.history_dir, "LATEST_CONTEXT.zip")
-
+        final_latest_sha = final_latest + ".sha256"
+        final_history_sha = final_history + ".sha256"
+        final_readiness = os.path.join(self.latest_dir, "CONTEXT_READINESS.json")
+        latest_sha = get_file_sha256(temp_zip)
+        history_stage = os.path.join(self.history_dir, f".tmp_history_{self.gen_id}.zip")
+        latest_sha_stage = os.path.join(self.latest_dir, f".tmp_latest_sha_{self.gen_id}")
+        history_sha_stage = os.path.join(self.history_dir, f".tmp_history_sha_{self.gen_id}")
+        readiness_stage = os.path.join(self.latest_dir, f".tmp_readiness_{self.gen_id}")
+        staged_paths = [temp_zip, history_stage, latest_sha_stage, history_sha_stage]
+        replacements = []
         try:
-            # Never delete last successful generation on failure
-            shutil.copy2(temp_zip, final_latest)
-            shutil.move(temp_zip, final_history)
+            shutil.copy2(temp_zip, history_stage)
+            sha_bytes = f"{latest_sha}  LATEST_CONTEXT.zip\n".encode("utf-8")
+            with open(latest_sha_stage, "wb") as handle:
+                handle.write(sha_bytes)
+                handle.flush()
+                os.fsync(handle.fileno())
+            with open(history_sha_stage, "wb") as handle:
+                handle.write(sha_bytes)
+                handle.flush()
+                os.fsync(handle.fileno())
+
+            replacements = [
+                (temp_zip, final_latest),
+                (history_stage, final_history),
+                (latest_sha_stage, final_latest_sha),
+                (history_sha_stage, final_history_sha),
+            ]
+            readiness = file_contents.get("CONTEXT_READINESS.json")
+            if readiness is not None:
+                readiness_bytes = readiness if isinstance(readiness, bytes) else str(readiness).encode("utf-8")
+                with open(readiness_stage, "wb") as handle:
+                    handle.write(readiness_bytes)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                staged_paths.append(readiness_stage)
+                replacements.append((readiness_stage, final_readiness))
         except Exception as e:
+            for path in staged_paths:
+                self._cleanup(path)
+            if self.diag:
+                self.diag.exception("package_builder", "PUBLISH_STAGING_FAILED", e)
+            return {"status": "FAILED", "error": "PUBLISH_STAGING_FAILED", "details": str(e)}
+
+        # 6. Prepare rollback copies before the last authority check. A large
+        # previous archive must not widen the check-to-swap race window.
+        backups = {}
+        try:
+            for _, target in replacements:
+                if os.path.exists(target):
+                    backup = os.path.join(
+                        os.path.dirname(target),
+                        f".rollback_{self.gen_id}_{os.path.basename(target)}",
+                    )
+                    shutil.copy2(target, backup)
+                    backups[target] = backup
+                else:
+                    backups[target] = None
+        except Exception as e:
+            for path in staged_paths:
+                self._cleanup(path)
+            for backup in backups.values():
+                if backup:
+                    self._cleanup(backup)
+            return {"status": "FAILED", "error": "ROLLBACK_STAGING_FAILED", "details": str(e)}
+
+        # 7. Recheck the exact authority/quiescence snapshot after build,
+        # validation and rollback staging, immediately before the first swap.
+        guard_result = None
+        if pre_publish_guard:
+            try:
+                guard_result = pre_publish_guard()
+            except Exception as e:
+                guard_result = {"ready": False, "reason": f"guard_exception:{type(e).__name__}"}
+            if not isinstance(guard_result, dict) or not guard_result.get("ready"):
+                for path in staged_paths:
+                    self._cleanup(path)
+                for backup in backups.values():
+                    if backup:
+                        self._cleanup(backup)
+                return {
+                    "status": "DEFERRED",
+                    "error": "PRE_PUBLISH_GUARD_FAILED",
+                    "details": guard_result,
+                }
+            # os.replace preserves the staged file timestamp. Advance both ZIP
+            # stages only after the guard so final mtime is a publication-time
+            # boundary, never an earlier build-time timestamp.
+            try:
+                publication_mtime_ns = time.time_ns()
+                checked_at_utc = guard_result.get("checked_at_utc")
+                if checked_at_utc:
+                    checked_at = datetime.fromisoformat(checked_at_utc.replace("Z", "+00:00"))
+                    checked_ns = int(checked_at.timestamp() * 1_000_000_000)
+                    publication_mtime_ns = max(publication_mtime_ns, checked_ns + 1_000_000)
+                os.utime(temp_zip, ns=(publication_mtime_ns, publication_mtime_ns))
+                os.utime(history_stage, ns=(publication_mtime_ns, publication_mtime_ns))
+            except Exception as e:
+                for path in staged_paths:
+                    self._cleanup(path)
+                for backup in backups.values():
+                    if backup:
+                        self._cleanup(backup)
+                return {"status": "FAILED", "error": "PUBLISH_TIMESTAMP_FAILED", "details": str(e)}
+
+        # 8. Each visible file is replaced atomically. The transaction keeps
+        # metadata-preserving backups and restores the complete prior set if a
+        # later replacement fails.
+        published_targets = []
+        try:
+            for stage, target in replacements:
+                self._replace_atomically(stage, target)
+                published_targets.append(target)
+            if get_file_sha256(final_latest) != latest_sha or get_file_sha256(final_history) != latest_sha:
+                raise RuntimeError("post_publish_archive_hash_mismatch")
+            with open(final_latest_sha, "rb") as handle:
+                if handle.read() != sha_bytes:
+                    raise RuntimeError("post_publish_latest_sidecar_mismatch")
+            with open(final_history_sha, "rb") as handle:
+                if handle.read() != sha_bytes:
+                    raise RuntimeError("post_publish_history_sidecar_mismatch")
+            if readiness is not None:
+                with open(final_readiness, "rb") as handle:
+                    if handle.read() != readiness_bytes:
+                        raise RuntimeError("post_publish_readiness_mismatch")
+        except Exception as e:
+            rollback_errors = []
+            retained_backups = set()
+            for target in reversed(published_targets):
+                backup = backups.get(target)
+                try:
+                    if backup and os.path.exists(backup):
+                        self._replace_atomically(backup, target)
+                    elif os.path.exists(target):
+                        os.remove(target)
+                except Exception as rollback_error:
+                    rollback_errors.append(f"{os.path.basename(target)}:{type(rollback_error).__name__}")
+                    if backup and os.path.exists(backup):
+                        retained_backups.add(backup)
+            for path in staged_paths:
+                self._cleanup(path)
+            for backup in backups.values():
+                if backup and backup not in retained_backups:
+                    self._cleanup(backup)
             if self.diag:
                 self.diag.exception("package_builder", "ATOMIC_SWAP_FAILED", e)
-            # Don't cleanup temp_zip — it's the only copy
-            return {"status": "FAILED", "error": "ATOMIC_SWAP_FAILED", "details": str(e)}
+            return {
+                "status": "FAILED",
+                "error": "ATOMIC_ROLLBACK_FAILED" if rollback_errors else "ATOMIC_SWAP_FAILED",
+                "details": {"publish_error": str(e), "rollback_errors": rollback_errors},
+            }
 
-        # 6. Sidecar SHA-256
-        latest_sha = get_file_sha256(final_latest)
-        try:
-            with open(final_latest + ".sha256", "w", encoding="utf-8") as f:
-                f.write(f"{latest_sha}  LATEST_CONTEXT.zip\n")
-            with open(os.path.join(self.history_dir, "LATEST_CONTEXT.zip.sha256"), "w", encoding="utf-8") as f:
-                f.write(f"{latest_sha}  LATEST_CONTEXT.zip\n")
-        except Exception:
-            pass
+        for backup in backups.values():
+            if backup:
+                self._cleanup(backup)
 
-        # 7. Write sidecar readiness JSON
-        readiness = file_contents.get("CONTEXT_READINESS.json")
-        if readiness:
-            try:
-                with open(os.path.join(self.latest_dir, "CONTEXT_READINESS.json"), "w", encoding="utf-8") as f:
-                    f.write(readiness.decode("utf-8") if isinstance(readiness, bytes) else readiness)
-            except Exception:
-                pass
+        final_mtime_ns = os.stat(final_latest).st_mtime_ns
+        now_ns = time.time_ns()
+        if now_ns < final_mtime_ns:
+            time.sleep((final_mtime_ns - now_ns) / 1_000_000_000)
+        published_at_utc = datetime.now(timezone.utc).isoformat()
 
         return {
             "status": "SUCCESS",
@@ -185,6 +333,9 @@ class PackageBuilder:
             "archive_sha256": latest_sha,
             "member_count": len(file_contents),
             "generation_id": self.gen_id,
+            "published_at_utc": published_at_utc,
+            "atomic_latest_publish": True,
+            "quiescence_checked_at_utc": guard_result.get("checked_at_utc") if guard_result else None,
         }
 
     def _cleanup(self, temp_path: str):

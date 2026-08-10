@@ -9,6 +9,7 @@ from typing import List, Dict, Any, Optional
 
 AUTHORITY_FILES = [
     "RUN_RESULT.json",
+    "VERIFICATION_RECEIPT.json",
     "AUDIT_RESULT.json",
     "PHASE_RESULT.json",
     "PHASE_STATUS.json",
@@ -19,6 +20,7 @@ AUTHORITY_FILES = [
     "PROGRESS_POLICY.json",
     "PROGRESS_STATE.json",
     "NEXT_ACTION.json",
+    "CANDIDATE_MANIFEST.json",
     "CANDIDATE_MANIFEST_STATUS.json",
     "ACTION_PACKET_RECEIPT.json"
 ]

@@ -12,6 +12,7 @@ import os
 import json
 import time
 import shutil
+import hashlib
 from datetime import datetime, timezone
 
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -41,10 +42,20 @@ def json_bytes(data):
     return json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8-sig")
 
 class CompanionExporter:
-    def __init__(self, stop_payload_file=None, conversation_id=None, mode="handoff", override_base_dir=None):
+    def __init__(
+        self,
+        stop_payload_file=None,
+        conversation_id=None,
+        mode="handoff",
+        override_base_dir=None,
+        required_authority=None,
+        pre_publish_guard=None,
+    ):
         self.base_dir = override_base_dir or r"C:\Scripts\AntigravityProjects\companion-handoff"
         self.logs_dir = os.path.join(self.base_dir, "logs")
         self.mode = mode
+        self.required_authority = required_authority
+        self.pre_publish_guard = pre_publish_guard
         
         self.diag = DiagnosticsCollector()
         self.diag.start_timer("total_export")
@@ -193,6 +204,58 @@ class CompanionExporter:
             search_roots.append(self.artifact_dir)
             
         authorities_data = collect_and_select(search_roots, self.artifact_dir)
+        if self.required_authority:
+            required_files = {
+                "RUN_RESULT.json": (
+                    self.required_authority.get("run_result_path"),
+                    self.required_authority.get("run_result_sha256"),
+                ),
+                "VERIFICATION_RECEIPT.json": (
+                    self.required_authority.get("receipt_path"),
+                    self.required_authority.get("receipt_sha256"),
+                ),
+                "CANDIDATE_MANIFEST.json": (
+                    self.required_authority.get("candidate_manifest_path"),
+                    self.required_authority.get("candidate_manifest_sha256"),
+                ),
+                "CANDIDATE_MANIFEST_STATUS.json": (
+                    self.required_authority.get("candidate_status_path"),
+                    self.required_authority.get("candidate_status_sha256"),
+                ),
+            }
+            captured_authority_bytes = {}
+            for authority_name, (authority_path, expected_sha256) in required_files.items():
+                if not authority_path or not os.path.isfile(authority_path):
+                    return {"status": "DEFERRED", "error": "REQUIRED_AUTHORITY_MISSING"}
+                with open(authority_path, "rb") as authority_file:
+                    authority_bytes = authority_file.read()
+                if hashlib.sha256(authority_bytes).hexdigest() != expected_sha256:
+                    return {"status": "DEFERRED", "error": "REQUIRED_AUTHORITY_CHANGED"}
+                captured_authority_bytes[authority_name] = authority_bytes
+                authority_data = safe_read_json(authority_path)
+                if not isinstance(authority_data, dict):
+                    return {"status": "DEFERRED", "error": "REQUIRED_AUTHORITY_INVALID"}
+                authorities_data[authority_name] = {
+                    "path": authority_path,
+                    "data": authority_data,
+                    "selection_reason": "Exact worker-validated authority binding",
+                    "score": 100,
+                }
+            captured_test_evidence = {}
+            for evidence in self.required_authority.get("test_evidence", []):
+                evidence_path = evidence.get("path")
+                archive_member = evidence.get("archive_member")
+                expected_sha256 = evidence.get("sha256")
+                expected_size = evidence.get("size_bytes")
+                if not evidence_path or not archive_member or not os.path.isfile(evidence_path):
+                    return {"status": "DEFERRED", "error": "REQUIRED_TEST_EVIDENCE_MISSING"}
+                with open(evidence_path, "rb") as evidence_file:
+                    evidence_bytes = evidence_file.read()
+                if len(evidence_bytes) != expected_size or hashlib.sha256(evidence_bytes).hexdigest() != expected_sha256:
+                    return {"status": "DEFERRED", "error": "REQUIRED_TEST_EVIDENCE_CHANGED"}
+                if archive_member in captured_test_evidence:
+                    return {"status": "DEFERRED", "error": "REQUIRED_TEST_EVIDENCE_DUPLICATE"}
+                captured_test_evidence[archive_member] = evidence_bytes
         
         # Format for ResultIdentityResolver
         authorities_for_resolver = {}
@@ -340,7 +403,12 @@ Primary Implementation Root: `{primary_impl_root}`
             file_contents[snap_key] = snap_bytes
             
         for af_name, af_info in authorities_for_resolver.items():
-            file_contents[f"authorities/{af_name}"] = json_bytes(af_info["data"])
+            if self.required_authority and af_name in captured_authority_bytes:
+                file_contents[f"authorities/{af_name}"] = captured_authority_bytes[af_name]
+            else:
+                file_contents[f"authorities/{af_name}"] = json_bytes(af_info["data"])
+        if self.required_authority:
+            file_contents.update(captured_test_evidence)
 
         # Diagnostics dump
         self.diag.stop_timer("total_export")
@@ -348,8 +416,14 @@ Primary Implementation Root: `{primary_impl_root}`
 
         # q. PackageBuilder
         builder = PackageBuilder(latest_dir, history_dir, gen_id, self.diag)
-        build_res = builder.build_and_publish(file_contents, PackageValidator)
+        build_res = builder.build_and_publish(
+            file_contents,
+            PackageValidator,
+            pre_publish_guard=self.pre_publish_guard,
+        )
 
+        if build_res["status"] == "DEFERRED":
+            return {"status": "DEFERRED", "error": build_res["error"], "details": build_res.get("details")}
         if build_res["status"] != "SUCCESS":
             return {"status": "FAILED", "error": build_res["error"], "details": build_res.get("details")}
 
@@ -372,6 +446,10 @@ Primary Implementation Root: `{primary_impl_root}`
             "status": "SUCCESS",
             "last_successful_generation_id": gen_id,
             "archive_path": build_res["archive_path"],
+            "archive_sha256": build_res.get("archive_sha256"),
+            "published_at_utc": build_res.get("published_at_utc"),
+            "atomic_latest_publish": build_res.get("atomic_latest_publish") is True,
+            "quiescence_checked_at_utc": build_res.get("quiescence_checked_at_utc"),
             "transport_verdict": "PASS",
             "conversation_resume_verdict": conversation_resume_verdict,
             "implementation_resume_verdict": implementation_resume_verdict,

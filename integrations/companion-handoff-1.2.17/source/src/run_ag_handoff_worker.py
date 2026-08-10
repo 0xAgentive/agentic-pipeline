@@ -549,33 +549,33 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
     quarantine_dir = os.path.join(queue_dir, "quarantine")
     deferred_dir = os.path.join(queue_dir, "deferred")
     logs_dir = os.path.join(base_dir, "logs")
-    
+
     os.makedirs(queue_dir, exist_ok=True)
     os.makedirs(proc_dir, exist_ok=True)
     os.makedirs(failed_dir, exist_ok=True)
     os.makedirs(quarantine_dir, exist_ok=True)
     os.makedirs(deferred_dir, exist_ok=True)
     os.makedirs(logs_dir, exist_ok=True)
-    
+
     sys.path.insert(0, src_dir)
     from export_ag_handoff import CompanionExporter
-    
+
     queue_files = [f for f in os.listdir(queue_dir) if f.startswith("queue_") and f.endswith(".json")]
     queue_files.sort()
-    
+
     processed_any = False
     for qf in queue_files:
         q_path = os.path.join(queue_dir, qf)
         if not os.path.exists(q_path):
             continue
-            
+
         print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [Worker] Processing job: {qf}")
         try:
             with open(q_path, "r", encoding="utf-8-sig") as f:
                 q_data = json.load(f)
-                
+
             retry_count = q_data.get("retry_count", 0)
-                
+
             stop_payload = q_data.get("stop_payload", q_data)
             conv_id = q_data.get("conversation_id") or stop_payload.get("conversationId")
 
@@ -613,7 +613,7 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                 authority,
                 validator,
             )
-            
+
             exp = CompanionExporter(
                 stop_payload_file=q_path,
                 conversation_id=conv_id,
@@ -621,20 +621,20 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                 pre_publish_guard=pre_publish_guard,
             )
             res = exp.export()
-            
+
             if res.get("status") == "SUCCESS":
                 gen_id = res.get("last_successful_generation_id") or res.get("generation_id", "unknown_gen")
                 dest_proc = os.path.join(proc_dir, qf)
                 shutil.move(q_path, dest_proc)
                 print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [Worker] Successfully processed {qf}")
-                
+
                 archive_p = res.get("archive_path")
                 ws_paths = stop_payload.get("workspacePaths", [])
-                
+
                 # Create UX request for clipboard/explorer/notification
                 ux_req_dir = os.path.join(queue_dir, "ux_requests")
                 os.makedirs(ux_req_dir, exist_ok=True)
-                
+
                 # Read config for UX options
                 cfg_path = os.path.join(base_dir, "handoff.config.json")
                 cfg = {}
@@ -644,7 +644,7 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                             cfg = json.load(f)
                     except Exception:
                         pass
-                
+
                 ux_request = {
                     "generation_id": gen_id,
                     "zip_path": archive_p,
@@ -659,11 +659,11 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                     ) if archive_p else None,
                     "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 }
-                
+
                 ux_req_path = os.path.join(ux_req_dir, f"UX_REQUEST_{gen_id}.json")
                 with open(ux_req_path, "w", encoding="utf-8") as f:
                     json.dump(ux_request, f, ensure_ascii=False, indent=2)
-                
+
                 # Invoke UX helper directly
                 ux_result = None
                 try:
@@ -677,12 +677,12 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                 except Exception as ux_err:
                     print(f"[Worker Warning] UX delivery failed: {ux_err}")
                     # UX failure does NOT delete the ZIP
-                
+
                 # Determine trigger source from queue item metadata
                 has_fingerprint = bool(q_data.get("event_fingerprint"))
                 has_schema = bool(q_data.get("schema_version"))
                 is_hook_triggered = has_fingerprint and has_schema
-                
+
                 # Compute archive SHA256
                 archive_sha256 = ""
                 if archive_p and os.path.exists(archive_p):
@@ -691,7 +691,7 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                         while chunk := af.read(65536):
                             h.update(chunk)
                     archive_sha256 = h.hexdigest()
-                
+
                 # Derive project_slug from archive path
                 # handoffs/<slug>/<conv_id>/latest/LATEST_CONTEXT.zip
                 proj_slug = ""
@@ -703,7 +703,7 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                             proj_slug = parts[hi + 1]
                     except ValueError:
                         pass
-                
+
                 evidence = {
                     "trigger_source": "antigravity_desktop_stop_hook" if is_hook_triggered else "manual_queue_injection",
                     "manual_queue_injection": not is_hook_triggered,
@@ -746,10 +746,10 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                     "workspacePaths": ws_paths,
                     "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
                 }
-                
+
                 ev_file = os.path.join(logs_dir, "DESKTOP_STOP_EVIDENCE.json")
                 write_json_atomic(ev_file, evidence)
-                    
+
                 processed_any = True
             elif res.get("status") == "DEFERRED":
                 details = res.get("details")
@@ -784,7 +784,7 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                         json.dump(q_data, f, ensure_ascii=False, indent=2)
             except Exception:
                 pass
-                
+
     return processed_any
 
 def main():
@@ -792,14 +792,14 @@ def main():
     src_dir = os.path.join(base_dir, "src")
     logs_dir = os.path.join(base_dir, "logs")
     os.makedirs(logs_dir, exist_ok=True)
-    
+
     lock_file = os.path.join(logs_dir, "worker.lock")
     if os.path.exists(lock_file):
         try:
             lock_age = time.time() - os.path.getctime(lock_file)
             with open(lock_file, "r") as f:
                 old_pid = int(f.read().strip())
-                
+
             if lock_age > 3600:
                 print("[Worker] Lock file is older than 1 hour. Removing stale lock.")
                 os.remove(lock_file)
@@ -811,10 +811,10 @@ def main():
                 os.remove(lock_file)
         except Exception:
             pass
-            
+
     with open(lock_file, "w", encoding="utf-8") as f:
         f.write(str(os.getpid()))
-        
+
     try:
         process_queue_once(base_dir, src_dir)
     finally:

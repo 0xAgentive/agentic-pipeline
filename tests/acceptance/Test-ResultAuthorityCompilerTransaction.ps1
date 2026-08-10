@@ -114,7 +114,9 @@ exit 0
 $runtime=Join-Path $ProjectRoot '.agy/.runtime/result-authority'
 New-Item -ItemType Directory -Force -Path $runtime|Out-Null
 $pwsh=(Get-Command pwsh -ErrorAction Stop).Source
-$child=Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30') -WindowStyle Hidden -PassThru
+$start=@{FilePath=$pwsh;ArgumentList=@('-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30');PassThru=$true}
+if($IsWindows){$start.WindowStyle='Hidden'}
+$child=Start-Process @start
 [IO.File]::WriteAllText((Join-Path $runtime 'child.pid'),[string]$child.Id,[Text.UTF8Encoding]::new($false))
 $child.WaitForExit()
 exit 0

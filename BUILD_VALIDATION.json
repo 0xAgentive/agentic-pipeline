@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.17",
+  "ecosystem_version": "1.2.18",
   "artifact": "pipeline_source_snapshot",
   "source": "complete canonical tree",
-  "generated_at_utc": "2026-08-10T09:58:53Z",
+  "generated_at_utc": "2026-08-10T11:47:21Z",
   "operational_gate_policy": {
     "blocking": [
       "syntax/runtime safety",
@@ -49,5 +49,10 @@
     "status": "PASS",
     "reason": "Context Handoff requires the current work-item and HEAD-bound verification receipt, candidate identity and confined required-test evidence before exporting or publishing RUN_RESULT.",
     "regression": "tests/acceptance/Test-ContextHandoffAssetBinding.ps1"
+  },
+  "candidate_manifest_multi_record_integrity": {
+    "status": "PASS",
+    "reason": "Candidate publication normalizes every NUL-delimited Git status record before sorting, rejects portable path collisions, and preserves the exact leased and ambient sets with UTF-8 output.",
+    "regression": "tests/acceptance/Test-ResultAuthorityCompilerTransaction.ps1"
   }
 }

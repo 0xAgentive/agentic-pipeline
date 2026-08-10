@@ -1,5 +1,12 @@
 # Companion changelog
 
+## 1.2.18 — Candidate Manifest Multi-Record Integrity
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.18.
+- Preserves every changed Git path in the candidate manifest, including Unicode, rename and deletion records, while keeping ambient paths separate.
+- Requires the existing quiescent, verified 1.2.17 handoff authority chain and adds a multi-record false-green regression before publication.
+
 ## 1.2.17 — Quiescent Verified Handoff
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

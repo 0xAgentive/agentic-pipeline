@@ -42,12 +42,12 @@ function baseFacts() {
     installation_facts: {
       installation_manifest_path: '.agy/INSTALLATION_MANIFEST.json',
       installation_manifest_sha256: 'b'.repeat(64),
-      installed_project_package_version: '1.2.17',
+      installed_project_package_version: '1.2.18',
       installed_project_runtime_version: '1.2.1',
       installed_project_source_commit: 'fixture'
     },
     central_inventory_advisory: {
-      package_version: '1.2.17',
+      package_version: '1.2.18',
       runtime_version: '1.2.1',
       commands: ['/landing', '/auditphase', '/fixcritical', '/shipcheck', '/nextphase']
     },

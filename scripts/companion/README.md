@@ -1,6 +1,6 @@
 # Companion control tooling
 
-The current Companion is 1.2.17 and the current runtime is 1.2.17.
+The current Companion is 1.2.18 and the current runtime is 1.2.18.
 
 The control plane validates exact execution authority, complete audit coverage, finding schemas, protected-review identity, material progress and fail-closed result authority. Legacy counters are compatibility data only and never authorize or block work.
 

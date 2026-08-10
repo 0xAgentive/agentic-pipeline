@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.18 — Candidate Manifest Multi-Record Integrity
+
+- Supersedes 1.2.17 without moving or rewriting its public tag or release.
+- Fixes candidate-manifest publication so every NUL-delimited Git porcelain record is retained instead of collapsing raw ordered dictionaries to one path.
+- Emits UTF-8 machine output for Unicode paths, rejects duplicate or case-colliding status paths, and preserves the exact leased-versus-ambient split.
+- Adds an executable modified/deleted/renamed/Unicode multi-record regression to the result-authority transaction suite.
+- Rebinds all five ecosystem assets to one immutable 1.2.18 source commit while retaining Action Packet/Bridge schema 1.2.9 and Context engine 4.3.4.
+
 ## 1.2.17 — Quiescent Verified Handoff
 
 - Supersedes 1.2.16 without moving or rewriting its public tag or release.

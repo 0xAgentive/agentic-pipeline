@@ -14,6 +14,7 @@ import ctypes
 import hashlib
 import subprocess
 import re
+import stat
 from datetime import datetime, timezone
 
 def is_pid_running(pid):
@@ -178,6 +179,16 @@ def validate_queue_envelope(queue_item, stop_payload):
         "reason": "queue_envelope_confirmed" if matches else "queue_envelope_payload_mismatch",
     }
 
+def has_windows_reparse_attribute(path, platform_name=None, lstat_fn=None):
+    """Fail closed when an existing Windows path has any reparse-point attribute."""
+    if (platform_name or os.name) != "nt":
+        return False
+    try:
+        attributes = getattr((lstat_fn or os.lstat)(path), "st_file_attributes", 0)
+    except OSError:
+        return True
+    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+
 def confined_project_file(workspace, relative_path, expected_relative=None):
     if not isinstance(relative_path, str) or not relative_path.strip():
         raise ValueError("authority_path_missing")
@@ -199,7 +210,13 @@ def confined_project_file(workspace, relative_path, expected_relative=None):
     is_junction = getattr(os.path, "isjunction", lambda _path: False)
     for part in relative_parts:
         current = os.path.join(current, part)
-        if os.path.islink(current) or is_junction(current):
+        if not os.path.lexists(current):
+            continue
+        if (
+            os.path.islink(current)
+            or is_junction(current)
+            or has_windows_reparse_attribute(current)
+        ):
             has_reparse_component = True
             break
     if not confined or has_reparse_component or not os.path.isfile(candidate):
@@ -207,18 +224,28 @@ def confined_project_file(workspace, relative_path, expected_relative=None):
     return candidate
 
 def is_safe_verification_evidence_path(relative_path):
-    if not isinstance(relative_path, str) or "\\" in relative_path:
+    if not isinstance(relative_path, str) or "\\" in relative_path or len(relative_path) > 1024:
         return False
     parts = relative_path.split("/")
     if len(parts) < 3 or parts[0] != ".agy" or parts[1] != "verification":
         return False
-    if any(part in ("", ".", "..") for part in parts):
-        return False
+    reserved_basenames = {
+        "CON", "PRN", "AUX", "NUL", "CLOCK$", "CONIN$", "CONOUT$",
+        *(f"COM{index}" for index in range(1, 10)),
+        *(f"LPT{index}" for index in range(1, 10)),
+    }
     denied_markers = (
         ".env", "secret", "credential", "capability", "password",
         "private-key", "private_key", "access-token", "access_token",
     )
     for part in parts[2:]:
+        if (
+            len(part) > 255
+            or not re.fullmatch(r"[A-Za-z0-9_-][A-Za-z0-9._-]*", part)
+            or part.endswith(".")
+            or part.split(".", 1)[0].upper() in reserved_basenames
+        ):
+            return False
         lowered = part.lower()
         if any(marker in lowered for marker in denied_markers):
             return False

@@ -1466,7 +1466,13 @@ def test_T65_non_idle_stop_does_not_publish_or_overwrite_evidence():
     teardown_temp_env(env)
 
 def test_T66_current_authority_required_and_stale_run_result_deferred():
-    from run_ag_handoff_worker import validate_authority_freshness, is_safe_verification_evidence_path
+    import run_ag_handoff_worker as worker
+    from run_ag_handoff_worker import (
+        confined_project_file,
+        has_windows_reparse_attribute,
+        is_safe_verification_evidence_path,
+        validate_authority_freshness,
+    )
 
     env = setup_temp_env()
     fixture = create_authority_fixture(env, "conv-stale-authority")
@@ -1479,8 +1485,28 @@ def test_T66_current_authority_required_and_stale_run_result_deferred():
     for unsafe_path in (
         ".env", ".agy/verification/.env", ".agy/verification/ACTION_BRIDGE_CAPABILITY.json",
         ".agy/verification/client-secret.log", "artifacts/test.log", ".agy/verification/../secret.log",
+        ".agy/verification/result.log:private", ".agy/verification/bad*.log",
+        ".agy/verification/bad?.log", ".agy/verification/control\x01.log",
+        ".agy/verification/CON.txt", ".agy/verification/run/NUL.log",
+        ".agy/verification/trailing.", ".agy/verification/тест.log",
     ):
         assert is_safe_verification_evidence_path(unsafe_path) is False, unsafe_path
+
+    reparse_stat = MagicMock(st_file_attributes=0x400)
+    assert has_windows_reparse_attribute(
+        fixture["evidence_path"], platform_name="nt", lstat_fn=lambda _path: reparse_stat,
+    ) is True
+    evidence_parent = os.path.dirname(fixture["evidence_path"])
+    with patch.object(
+        worker,
+        "has_windows_reparse_attribute",
+        side_effect=lambda path: os.path.normcase(path) == os.path.normcase(evidence_parent),
+    ):
+        try:
+            confined_project_file(env, ".agy/verification/verification-current.log")
+            raise AssertionError("A reparse-point path component was accepted.")
+        except ValueError as exc:
+            assert str(exc) == "authority_path_not_safe_file"
 
     with open(fixture["run_result_path"], "r", encoding="utf-8") as handle:
         stale = json.load(handle)

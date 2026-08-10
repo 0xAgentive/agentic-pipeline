@@ -8,6 +8,7 @@ import zipfile
 import ast
 import hashlib
 import threading
+import re
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
@@ -1790,14 +1791,31 @@ def test_T72_compiler_optional_test_defaults_are_semantically_bound():
     assert fixture["authority"]["ready"] is True, fixture["authority"]
 
     with open(fixture["run_result_path"], "r", encoding="utf-8") as handle:
-        run_result = json.load(handle)
-    run_result["tests"][0]["supersedes_run_id"] = "different-run"
-    write_json(fixture["run_result_path"], run_result)
-    rejected = fixture["validator"](
-        fixture["queue_item"]["stop_payload"],
-        fixture["queue_item"]["received_at_utc"],
+        pristine = json.load(handle)
+
+    def rejected_after(mutator):
+        changed = json.loads(json.dumps(pristine))
+        mutator(changed["tests"][0])
+        write_json(fixture["run_result_path"], changed)
+        return fixture["validator"](
+            fixture["queue_item"]["stop_payload"],
+            fixture["queue_item"]["received_at_utc"],
+        )
+
+    mutations = (
+        lambda test: test.__setitem__("supersedes_run_id", "different-run"),
+        lambda test: test.__setitem__("supersedes_run_id", None),
+        lambda test: test.__setitem__("supersedes_run_id", False),
+        lambda test: test.__setitem__("supersedes_run_id", 0),
+        lambda test: test.pop("supersedes_run_id"),
+        lambda test: test.__setitem__(
+            "completed_at_utc",
+            re.sub(r"(\.\d{6})(?=[+-]\d{2}:\d{2}$)", r"\g<1>1", test["completed_at_utc"]),
+        ),
     )
-    assert rejected == {"ready": False, "reason": "run_result_receipt_test_mismatch"}, rejected
+    for mutate in mutations:
+        rejected = rejected_after(mutate)
+        assert rejected == {"ready": False, "reason": "run_result_receipt_test_mismatch"}, rejected
     teardown_temp_env(env)
 
 

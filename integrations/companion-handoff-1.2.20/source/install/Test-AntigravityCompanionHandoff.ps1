@@ -18,7 +18,7 @@ Write-Host "=============================================" -ForegroundColor Cyan
 
 # Compile check
 Write-Host "`nCompile check..." -ForegroundColor Cyan
-$compileResult = & $pythonPath -c "import py_compile; import os; src=r'$baseDir\src'; [py_compile.compile(os.path.join(src,f), doraise=True) for f in os.listdir(src) if f.endswith('.py')]; print('OK')" 2>&1
+$compileResult = & $pythonPath -B -c "import ast; import os; src=r'$baseDir\src'; [ast.parse(open(os.path.join(src,f),encoding='utf-8').read(), filename=f) for f in os.listdir(src) if f.endswith('.py')]; print('OK')" 2>&1
 if ($compileResult -match 'OK') {
     Write-Host "Compile: PASS" -ForegroundColor Green
 } else {
@@ -28,7 +28,7 @@ if ($compileResult -match 'OK') {
 
 # Full test suite
 Write-Host "`nRunning test suite..." -ForegroundColor Cyan
-& $pythonPath (Join-Path $baseDir "install\run_tests.py")
+& $pythonPath -B (Join-Path $baseDir "install\run_tests.py")
 $exitCode = $LASTEXITCODE
 
 if ($exitCode -eq 0) {

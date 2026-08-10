@@ -82,6 +82,7 @@ $CoreTests = @(
   [pscustomobject]@{ Name = 'unified ecosystem version'; Path = 'scripts\windows\Test-UnifiedEcosystemVersion.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'Action Bridge end-to-end'; Path = 'tests\acceptance\Test-ActionBridgeEndToEnd.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'Action Bridge installer transaction'; Path = 'tests\acceptance\Test-ActionBridgeInstallerTransaction.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'Context Handoff engine'; Path = 'tests\acceptance\Test-ContextHandoffEngine.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'Context Handoff asset binding'; Path = 'tests\acceptance\Test-ContextHandoffAssetBinding.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'progress-guard migration compatibility'; Path = 'tests\acceptance\Test-ProgressGuardMigrationCompatibility.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'runtime updater transaction'; Path = 'tests\acceptance\Test-RuntimeUpdaterTransaction.ps1'; Args = @('-RepoRoot', $Root) },

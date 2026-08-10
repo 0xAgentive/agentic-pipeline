@@ -55,7 +55,7 @@ pwsh -File install/Install-AntigravityCompanionHandoff.ps1
 ## Тестирование
 
 ```powershell
-python install/run_tests.py
+python -B install/run_tests.py
 ```
 
 ## Версия

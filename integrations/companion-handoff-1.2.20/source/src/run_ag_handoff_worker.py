@@ -116,6 +116,24 @@ def parse_utc(value):
         raise ValueError("timestamp_without_timezone")
     return parsed.astimezone(timezone.utc)
 
+def parse_utc_ticks(value):
+    """Parse an ISO-8601 timestamp without discarding PowerShell's seventh tick."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("missing_timestamp")
+    match = re.fullmatch(
+        r"(?P<base>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(?P<fraction>\d{1,7}))?(?P<zone>Z|[+-]\d{2}:\d{2})",
+        value.strip(),
+    )
+    if not match:
+        raise ValueError("invalid_timestamp")
+    zone = "+00:00" if match.group("zone") == "Z" else match.group("zone")
+    parsed = datetime.fromisoformat(match.group("base") + zone).astimezone(timezone.utc)
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    delta = parsed - epoch
+    whole_seconds = delta.days * 86400 + delta.seconds
+    fraction_ticks = int((match.group("fraction") or "").ljust(7, "0") or "0")
+    return whole_seconds * 10_000_000 + fraction_ticks
+
 def file_sha256(path):
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
@@ -406,7 +424,7 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
         }
 
         def run_test_matches_receipt(run_test, receipt_test):
-            if not isinstance(run_test, dict) or set(run_test) - allowed_run_test_fields:
+            if not isinstance(run_test, dict) or set(run_test) != allowed_run_test_fields:
                 return False
             exact_fields = (
                 "run_id", "required", "exit_code", "evidence_path",
@@ -414,22 +432,28 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
             )
             if any(run_test.get(field) != receipt_test.get(field) for field in exact_fields):
                 return False
-            if (run_test.get("supersedes_run_id") or "") != (receipt_test.get("supersedes_run_id") or ""):
-                return False
-            if (run_test.get("summary") or "") != (receipt_test.get("summary") or ""):
-                return False
-            try:
-                completed = parse_utc(receipt_test.get("completed_at_utc"))
-                if parse_utc(run_test.get("completed_at_utc")) != completed:
+            for field in ("supersedes_run_id", "summary"):
+                receipt_value = receipt_test.get(field)
+                if receipt_value is None:
+                    expected_value = ""
+                elif isinstance(receipt_value, str):
+                    expected_value = receipt_value
+                else:
                     return False
-                if parse_utc(run_test.get("finished_at_utc")) != completed:
+                if not isinstance(run_test.get(field), str) or run_test.get(field) != expected_value:
+                    return False
+            try:
+                completed = parse_utc_ticks(receipt_test.get("completed_at_utc"))
+                if parse_utc_ticks(run_test.get("completed_at_utc")) != completed:
+                    return False
+                if parse_utc_ticks(run_test.get("finished_at_utc")) != completed:
                     return False
                 receipt_started = receipt_test.get("started_at_utc")
                 run_started = run_test.get("started_at_utc")
                 if receipt_started is None:
                     if run_started is not None:
                         return False
-                elif parse_utc(run_started) != parse_utc(receipt_started):
+                elif parse_utc_ticks(run_started) != parse_utc_ticks(receipt_started):
                     return False
             except (TypeError, ValueError):
                 return False

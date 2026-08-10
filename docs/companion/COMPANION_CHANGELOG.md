@@ -1,5 +1,12 @@
 # Companion changelog
 
+## 1.2.17 — Quiescent Verified Handoff
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.17.
+- Requires a fresh, cryptographically bound verification receipt and confined test evidence before Context Handoff can publish a run result.
+- Makes result-authority compilation single-instance, bounded, rollback-safe and fail-fast when invoked without its required receipt.
+
 ## 1.2.16 — Context Handoff Scheduler Idempotence
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

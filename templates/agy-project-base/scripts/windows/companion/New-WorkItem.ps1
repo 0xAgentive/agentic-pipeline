@@ -57,7 +57,7 @@ if ([string]::IsNullOrWhiteSpace($WorkItemId)) {
 $Packet = [ordered]@{
   schema_version = '1.0.0'
   packet_id = 'local-' + [Guid]::NewGuid().ToString('N')
-  ecosystem_version = '1.2.16'
+  ecosystem_version = '1.2.17'
   packet_format = 'single_json'
   operation = 'new_work_item'
   route = $PreferredCommand

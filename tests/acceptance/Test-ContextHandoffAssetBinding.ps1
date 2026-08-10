@@ -5,8 +5,8 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
-$CanonicalUpdater = Join-Path $Root 'integrations/companion-handoff-1.2.16/Update-AgenticContextHandoff-v1.2.16.ps1'
-$CompleteScript = Join-Path $Root 'scripts/release/Complete-AgenticPipeline-v1.2.16-Deployment.ps1'
+$CanonicalUpdater = Join-Path $Root 'integrations/companion-handoff-1.2.17/Update-AgenticContextHandoff-v1.2.17.ps1'
+$CompleteScript = Join-Path $Root 'scripts/release/Complete-AgenticPipeline-v1.2.17-Deployment.ps1'
 $WorkflowPath = Join-Path $Root '.github/workflows/validate.yml'
 $Pwsh = (Get-Command pwsh -ErrorAction Stop | Select-Object -First 1).Source
 $RunningOnWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
@@ -26,7 +26,7 @@ $Cscript = Join-Path $env:WINDIR 'System32\cscript.exe'
 $Cmd = Join-Path $env:WINDIR 'System32\cmd.exe'
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $Commit = 'a' * 40
-$PackageName = 'agentic-context-handoff-1.2.16'
+$PackageName = 'agentic-context-handoff-1.2.17'
 $ExplicitExclusions = @('install/finalize_v432.py','install/finalize_v433.py','install/finalize_v434.py','install/fix_task.ps1')
 $Assertions = 0
 
@@ -134,7 +134,7 @@ function Invoke-Updater {
     [string[]]$ExtraArguments = @()
   )
   $Arguments = @(
-    '-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.16.ps1'),
+    '-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.17.ps1'),
     '-PackageRoot',$PackageRoot,
     '-HandoffRoot',(Join-Path $TempRoot 'never-live-handoff'),
     '-BackupRoot',(Join-Path $TempRoot 'never-live-backups'),
@@ -155,7 +155,7 @@ function Invoke-UpdaterPlanApply {
     [string[]]$ExtraArguments = @()
   )
   $Arguments = @(
-    '-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.16.ps1'),
+    '-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.17.ps1'),
     '-PackageRoot',$PackageRoot,
     '-HandoffRoot',$HandoffRoot,
     '-BackupRoot',$BackupRoot,
@@ -171,12 +171,12 @@ function New-ContextPackageFixture {
   param([Parameter(Mandatory = $true)][string]$ParentRoot)
   $PackageRoot = Join-Path $ParentRoot $PackageName
   New-Item -ItemType Directory -Force -Path (Join-Path $PackageRoot 'source\src') | Out-Null
-  Copy-Item -LiteralPath $CanonicalUpdater -Destination (Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.16.ps1')
+  Copy-Item -LiteralPath $CanonicalUpdater -Destination (Join-Path $PackageRoot 'Update-AgenticContextHandoff-v1.2.17.ps1')
   Write-Utf8Text -Path (Join-Path $PackageRoot 'README.md') -Text "Hermetic Context Handoff asset-binding fixture.`n"
   Write-JsonFile -Path (Join-Path $PackageRoot 'source\handoff.config.example.json') -Value ([ordered]@{
     version = '4.3.4'
     engine_schema_version = '4.3.4'
-    ecosystem_version = '1.2.16'
+    ecosystem_version = '1.2.17'
     local_root = ''
     privacy = [ordered]@{ fail_closed_patterns = @(); raw_biometrics_excluded = $true }
   })
@@ -208,17 +208,17 @@ raise SystemExit(0)
   })
   $SourceDigest = Get-RecordSetDigest -Records $SourceRecords
   Write-JsonFile -Path (Join-Path $PackageRoot 'VERSION.json') -Value ([ordered]@{
-    schema_version = '1.0.0'; ecosystem_version = '1.2.16'; component = 'context_handoff'; version = '1.2.16'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; source_payload_sha256 = $SourceDigest
+    schema_version = '1.0.0'; ecosystem_version = '1.2.17'; component = 'context_handoff'; version = '1.2.17'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; source_payload_sha256 = $SourceDigest
   })
   Write-JsonFile -Path (Join-Path $PackageRoot 'SOURCE_ATTESTATION.json') -Value ([ordered]@{
-    schema_version = '1.0.0'; ecosystem_version = '1.2.16'; component = 'context_handoff_source'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; source_payload_sha256 = $SourceDigest; explicit_exclusions = $ExplicitExclusions; source_files = $SourceRecords
+    schema_version = '1.0.0'; ecosystem_version = '1.2.17'; component = 'context_handoff_source'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; source_payload_sha256 = $SourceDigest; explicit_exclusions = $ExplicitExclusions; source_files = $SourceRecords
   })
   $ManifestRecords = @(Get-ChildItem -LiteralPath $PackageRoot -File -Recurse -Force | Where-Object Name -ne 'MANIFEST.json' | Sort-Object FullName | ForEach-Object {
     $Relative = Get-RelativeForwardPath -BasePath $PackageRoot -Path $_.FullName
     New-FileRecord -BasePath $PackageRoot -File $_ -Role $(if ($Relative.StartsWith('source/')) { 'immutable_source' } else { 'package_control' })
   })
   Write-JsonFile -Path (Join-Path $PackageRoot 'MANIFEST.json') -Value ([ordered]@{
-    schema_version = '1.0.0'; ecosystem_version = '1.2.16'; component = 'context_handoff'; version = '1.2.16'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; built_at_utc = '2026-08-08T00:00:00Z'; source_payload_sha256 = $SourceDigest; package_payload_sha256 = Get-RecordSetDigest -Records $ManifestRecords; explicit_exclusions = $ExplicitExclusions; files = $ManifestRecords
+    schema_version = '1.0.0'; ecosystem_version = '1.2.17'; component = 'context_handoff'; version = '1.2.17'; engine_schema_version = '4.3.4'; source_commit = $Commit; source_tree_dirty = $false; built_at_utc = '2026-08-08T00:00:00Z'; source_payload_sha256 = $SourceDigest; package_payload_sha256 = Get-RecordSetDigest -Records $ManifestRecords; explicit_exclusions = $ExplicitExclusions; files = $ManifestRecords
   })
   return $PackageRoot
 }
@@ -345,7 +345,7 @@ try {
   $BuildParent = Join-Path $TempRoot 'build'
   New-Item -ItemType Directory -Force -Path $BuildParent | Out-Null
   $BuiltPackage = New-ContextPackageFixture -ParentRoot $BuildParent
-  $ArchivePath = Join-Path $TempRoot 'agentic-context-handoff-1.2.16.zip'
+  $ArchivePath = Join-Path $TempRoot 'agentic-context-handoff-1.2.17.zip'
   New-ZipFromDirectory -SourceDirectory $BuildParent -ArchivePath $ArchivePath
   $AssetSha256 = Get-Sha256 -Path $ArchivePath
   $ExtractRoot = Join-Path $TempRoot 'extracted'

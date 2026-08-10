@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.17 — Quiescent Verified Handoff
+
+- Supersedes 1.2.16 without moving or rewriting its public tag or release.
+- Replaces prompt-prone result compilation with a fail-fast non-interactive entry point, a bounded worker tree and a project-scoped singleton that coalesces identical requests.
+- Publishes the verification receipt, run result, closure state and next action as one journaled transaction with exact rollback and stale-crash recovery.
+- Cryptographically binds every required test artifact and candidate file to the active work item, Git HEAD and captured authority inputs, restricted to the non-reparse `.agy/verification/**` subtree.
+- Requires Context Handoff to export and validate the exact fresh receipt and evidence before publishing a run, preventing stale pre-repair results from crossing the Stop boundary.
+- Adds executable regressions for unsafe invocation, timeout cancellation, concurrent/coalesced compilation, input races, tamper, privacy confinement and rollback.
+- Rebinds all five ecosystem assets to one immutable 1.2.17 source commit while retaining schema 1.2.9 and Context engine 4.3.4 compatibility.
+
 ## 1.2.16 — Context Handoff Scheduler Idempotence
 
 - Supersedes 1.2.15 without moving or rewriting its public tag or release.

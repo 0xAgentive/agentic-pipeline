@@ -1504,7 +1504,11 @@ def test_T66_current_authority_required_and_stale_run_result_deferred():
     assert has_windows_reparse_attribute(
         fixture["evidence_path"], platform_name="nt", lstat_fn=lambda _path: reparse_stat,
     ) is True
-    evidence_parent = os.path.dirname(fixture["evidence_path"])
+    # tempfile roots can be reached through a Windows junction on hosted runners.
+    # Match the canonical path used by confined_project_file, not the raw alias.
+    evidence_parent = os.path.join(
+        os.path.realpath(os.path.abspath(env)), ".agy", "verification",
+    )
     with patch.object(
         worker,
         "has_windows_reparse_attribute",

@@ -10,6 +10,14 @@ $Integration=Join-Path $Root ("integrations\companion-handoff-{0}" -f [string]$V
 $Source=Join-Path $Integration 'source'
 $Runner=Join-Path $Source 'install\run_tests.py'
 if(-not(Test-Path -LiteralPath $Runner -PathType Leaf)){throw "Context Handoff test runner is missing: $Runner"}
+if(-not $IsWindows){
+  $WorkflowText=[IO.File]::ReadAllText((Join-Path $Root '.github\workflows\validate.yml'))
+  if($WorkflowText -notmatch '(?s)validate-windows-unicode:.*?Full Windows distribution integrity.*?Test-DistributionIntegrity\.ps1'){
+    throw 'Context Handoff engine delegation is not backed by the full windows-latest Distribution Integrity job.'
+  }
+  Write-Host 'Context Handoff engine Windows regression delegated to the full windows-latest distribution job.'
+  exit 0
+}
 
 $Python=Get-Command python -ErrorAction SilentlyContinue
 if(-not $Python){$Python=Get-Command python3 -ErrorAction Stop}

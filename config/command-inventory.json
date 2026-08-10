@@ -87,6 +87,7 @@
       "command": "/shipcheck",
       "mode": "read-only-gate",
       "workflow": ".agents/workflows/shipcheck.md",
+      "invocation_template": "pwsh -NoProfile -NonInteractive -File scripts/windows/companion/Compile-ResultAuthority.ps1 -ProjectRoot <exact-project-root> -VerificationReceiptPath <fresh-bound-receipt> -TimeoutSeconds 120 [-AuditResultPath <bound-audit>] [-Apply]",
       "required_paths": [
         "scripts/windows/companion/Compile-ResultAuthority.ps1"
       ]

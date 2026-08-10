@@ -73,6 +73,7 @@ $CoreTests = @(
   [pscustomobject]@{ Name = 'companion pack and golden evals'; Path = 'scripts\windows\companion\Test-CompanionPack-v1.2.16.ps1'; Args = $CompanionArguments },
   [pscustomobject]@{ Name = 'flow restoration contracts'; Path = 'scripts\windows\companion\Test-FlowRestorationContracts.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'autonomous convergence contracts'; Path = 'scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'result authority compiler transaction'; Path = 'tests\acceptance\Test-ResultAuthorityCompilerTransaction.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'PowerShell runtime contracts'; Path = 'scripts\windows\Test-PowerShellRuntimeContracts.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'state profiles'; Path = 'scripts\windows\Test-StateProfiles.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'command inventory'; Path = 'scripts\windows\Test-CommandInventory.ps1'; Args = @('-RepoRoot', $Root) },

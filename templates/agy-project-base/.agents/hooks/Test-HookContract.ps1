@@ -115,6 +115,65 @@ try {
   $BuildInput = $Base.Clone(); $BuildInput.stepIdx = 5; $BuildInput.toolCall = @{name='run_command';args=@{CommandLine='npm run build';Cwd=$TempRoot}}
   $BuildOutput = ($BuildInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
   if ($BuildOutput.decision -ne 'deny') { throw 'Build command was incorrectly treated as read-only.' }
+  $NestedCompilerInput = $Base.Clone(); $NestedCompilerInput.stepIdx = 6; $NestedCompilerInput.toolCall = @{name='run_command';args=@{CommandLine="pwsh -Command `"& './scripts/windows/companion/Compile-ResultAuthority.ps1'`"";Cwd=$TempRoot}}
+  $NestedCompilerOutput = ($NestedCompilerInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
+  if ($NestedCompilerOutput.decision -ne 'deny') { throw 'Nested or interactive result-authority invocation was not denied.' }
+  $MissingReceiptInput = $Base.Clone(); $MissingReceiptInput.stepIdx = 7; $MissingReceiptInput.toolCall = @{name='run_command';args=@{CommandLine="pwsh -NoProfile -NonInteractive -File scripts/windows/companion/Compile-ResultAuthority.ps1 -ProjectRoot `"$TempRoot`" -TimeoutSeconds 120 -Apply";Cwd=$TempRoot}}
+  $MissingReceiptOutput = ($MissingReceiptInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
+  if ($MissingReceiptOutput.decision -ne 'deny') { throw 'Result-authority invocation without a receipt was not denied.' }
+  $CompilerCommand = "pwsh -NoProfile -NonInteractive -File scripts/windows/companion/Compile-ResultAuthority.ps1 -ProjectRoot `"$TempRoot`" -VerificationReceiptPath .agy/receipt-input.json -TimeoutSeconds 120 -Apply"
+  $CompilerInput = $Base.Clone(); $CompilerInput.stepIdx = 8; $CompilerInput.toolCall = @{name='run_command';args=@{CommandLine=$CompilerCommand;Cwd=$TempRoot}}
+  $CompilerOutput = ($CompilerInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
+  if ($CompilerOutput.decision -ne 'allow') { throw "Exact bounded result-authority invocation was denied: $($CompilerOutput | ConvertTo-Json -Compress)" }
+  $CandidateStatus = [ordered]@{schema_version='1.1.0';status='current';manifest_path='.agy/CANDIDATE_MANIFEST.json';manifest_sha256=('a' * 64);updated_at_utc=$Now}
+  $CandidateStatusPath = Join-Path $TempRoot '.agy/CANDIDATE_MANIFEST_STATUS.json'
+  [IO.File]::WriteAllText($CandidateStatusPath,($CandidateStatus | ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
+  $CandidateStatusSha = Get-FileSha $CandidateStatusPath
+  $CompilerRuntime = Join-Path $TempRoot '.agy/.runtime/result-authority'
+  New-Item -ItemType Directory -Force -Path $CompilerRuntime | Out-Null
+  $RunningStatus = [ordered]@{schema_version='1.0.0';state='running';deadline_at_utc=(Get-Date).ToUniversalTime().AddMinutes(2).ToString('o');updated_at_utc=$Now}
+  [IO.File]::WriteAllText((Join-Path $CompilerRuntime 'status.json'),($RunningStatus | ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
+  $ActiveWriteInput = $Base.Clone(); $ActiveWriteInput.stepIdx = 9; $ActiveWriteInput.toolCall = @{name='write_to_file';args=@{TargetFile=$AllowedPath}}
+  $ActiveWriteOutput = ($ActiveWriteInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook prewrite | ConvertFrom-Json
+  if ($ActiveWriteOutput.decision -ne 'deny') { throw 'Write was not frozen while result-authority compilation was active.' }
+  $ActiveCommandInput = $Base.Clone(); $ActiveCommandInput.stepIdx = 10; $ActiveCommandInput.toolCall = @{name='run_command';args=@{CommandLine='npm test';Cwd=$TempRoot}}
+  $ActiveCommandOutput = ($ActiveCommandInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
+  if ($ActiveCommandOutput.decision -ne 'deny') { throw 'Mutation-capable verification command was not frozen while compilation was active.' }
+  $ActiveCompilerInput = $Base.Clone(); $ActiveCompilerInput.stepIdx = 11; $ActiveCompilerInput.toolCall = @{name='run_command';args=@{CommandLine=$CompilerCommand;Cwd=$TempRoot}}
+  $ActiveCompilerOutput = ($ActiveCompilerInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
+  if ($ActiveCompilerOutput.decision -ne 'allow') { throw 'A same-contract compiler request was not allowed to coalesce.' }
+  $CompilerPostInput = $ActiveCompilerInput.Clone(); $CompilerPostInput.error = $null
+  ($CompilerPostInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook postcommand | Out-Null
+  $CompilerLedger = @((Get-Content -LiteralPath (Join-Path $TempRoot '.agy/COMMAND_LEDGER.ndjson') -Encoding UTF8) | ForEach-Object { $_ | ConvertFrom-Json })
+  $PendingLedger = $CompilerLedger[-1]
+  if ($PendingLedger.success -ne $false -or [string]$PendingLedger.error -notmatch 'RESULT_AUTHORITY_COMPLETION_PENDING') { throw 'Post-command hook falsely recorded an active compiler as successful.' }
+  if ((Get-FileSha $CandidateStatusPath) -cne $CandidateStatusSha) { throw 'Result-authority post hook invalidated the candidate manifest.' }
+  $ActiveStopInput = @{conversationId='hook-contract';workspacePaths=@($TempRoot);fullyIdle=$true;terminationReason='model_stop';executionNum=1}
+  $ActiveStopOutput = ($ActiveStopInput | ConvertTo-Json -Depth 10 -Compress) | & $Node $Hook stop | ConvertFrom-Json
+  if ($ActiveStopOutput.decision -ne 'stop') { throw 'Stop hook auto-continued while result-authority compilation was active.' }
+  $NotIdleStopInput = $ActiveStopInput.Clone(); $NotIdleStopInput.fullyIdle = $false
+  $NotIdleStopOutput = ($NotIdleStopInput | ConvertTo-Json -Depth 10 -Compress) | & $Node $Hook stop | ConvertFrom-Json
+  if ($NotIdleStopOutput.decision -ne 'stop') { throw 'Stop hook continued before true idle.' }
+  $RunningStatus.state = 'completed'; $RunningStatus.deadline_at_utc = (Get-Date).ToUniversalTime().AddMinutes(-1).ToString('o'); $RunningStatus.updated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+  [IO.File]::WriteAllText((Join-Path $CompilerRuntime 'status.json'),($RunningStatus | ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
+  $CompletedCompilerInput = $Base.Clone(); $CompletedCompilerInput.stepIdx = 12; $CompletedCompilerInput.toolCall = @{name='run_command';args=@{CommandLine=$CompilerCommand;Cwd=$TempRoot}}
+  $CompletedCompilerOutput = ($CompletedCompilerInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
+  if ($CompletedCompilerOutput.decision -ne 'allow') { throw 'Compiler invocation was denied after prior completion.' }
+  $RunningStatus.updated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+  [IO.File]::WriteAllText((Join-Path $CompilerRuntime 'status.json'),($RunningStatus | ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
+  $CompletedCompilerPost = $CompletedCompilerInput.Clone(); $CompletedCompilerPost.error = $null
+  ($CompletedCompilerPost | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook postcommand | Out-Null
+  $CompletedLedger = ((Get-Content -LiteralPath (Join-Path $TempRoot '.agy/COMMAND_LEDGER.ndjson') -Encoding UTF8)[-1] | ConvertFrom-Json)
+  if ($CompletedLedger.success -ne $true -or -not [string]::IsNullOrEmpty([string]$CompletedLedger.error)) { throw 'Completed compiler was not recorded as successful.' }
+  if ((Get-FileSha $CandidateStatusPath) -cne $CandidateStatusSha) { throw 'Completed compiler invalidated the candidate manifest.' }
+  $StalePendingRoot = Join-Path $TempRoot '.agy/.hook_pending'
+  New-Item -ItemType Directory -Force -Path $StalePendingRoot | Out-Null
+  $StalePending = Join-Path $StalePendingRoot 'stale-999.json'
+  [IO.File]::WriteAllText($StalePending,('{"kind":"command","data":{"resultAuthority":true,"command":"Compile-ResultAuthority.ps1"}}'),[Text.UTF8Encoding]::new($false))
+  (Get-Item -LiteralPath $StalePending).LastWriteTimeUtc = (Get-Date).ToUniversalTime().AddMinutes(-20)
+  $ReadInput = $Base.Clone(); $ReadInput.stepIdx = 13; $ReadInput.toolCall = @{name='run_command';args=@{CommandLine='git status';Cwd=$TempRoot}}
+  $ReadOutput = ($ReadInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
+  if ($ReadOutput.decision -ne 'allow' -or (Test-Path -LiteralPath $StalePending)) { throw 'Stale compiler pending marker was not pruned safely.' }
   $Next = [ordered]@{schema_version='1.0.0';work_item_id='hook-test';route='/fixcritical';auto_continue=$true;owner_decision_required=$false;updated_at_utc=$Now}
   $Progress = [ordered]@{schema_version='1.1.0';work_item_id='hook-test';status='progressing';observations_count=1;consecutive_no_progress=0;same_failure_count=0;owner_decision_required=$false;updated_at_utc=$Now;history=@()}
   [IO.File]::WriteAllText((Join-Path $TempRoot '.agy/NEXT_ACTION.json'),($Next | ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))

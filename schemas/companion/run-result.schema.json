@@ -253,6 +253,22 @@
               "null"
             ]
           },
+          "completed_at_utc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "evidence_size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
           "supersedes_run_id": {
             "type": [
               "string",
@@ -291,6 +307,52 @@
     "generated_at_utc": {
       "type": "string",
       "minLength": 1
+    },
+    "compiled_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verification_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "completed_at_utc",
+        "work_item_id",
+        "head",
+        "execution_lease_id",
+        "candidate_manifest_sha256"
+      ],
+      "properties": {
+        "path": {
+          "const": ".agy/VERIFICATION_RECEIPT.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "completed_at_utc": {
+          "type": "string",
+          "minLength": 1
+        },
+        "work_item_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "head": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{40}$"
+        },
+        "execution_lease_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
     },
     "evidence_artifacts": {
       "type": "array",

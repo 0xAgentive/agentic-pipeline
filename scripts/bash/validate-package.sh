@@ -6,7 +6,7 @@ required=(
   config/command-inventory.json schemas/phase-status.schema.json schemas/command-inventory.schema.json schemas/version.schema.json
   docs/companion/01_PROJECT_INSTRUCTIONS_v1.2.16.md docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.16.md docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.16.md
   docs/companion/08_PHASE_CONTRACT_AND_PROGRESS_POLICY.md docs/companion/14_AUTONOMOUS_CONVERGENCE_AND_AUDIT_COVERAGE.md docs/companion/15_OWNER_OUTPUT_PRESENTATION.md
-  schemas/companion/runtime-handshake.schema.json schemas/companion/phase-contract.schema.json schemas/companion/finding.schema.json schemas/companion/phase-result.schema.json schemas/companion/action-packet.schema.json
+  schemas/companion/runtime-handshake.schema.json schemas/companion/phase-contract.schema.json schemas/companion/finding.schema.json schemas/companion/phase-result.schema.json schemas/companion/action-packet.schema.json schemas/companion/verification-receipt.schema.json templates/agy-project-base/schemas/companion/verification-receipt.schema.json
   evals/companion/golden_cases.json evals/companion/autonomous_convergence_cases.json scripts/companion/companion-control.cjs scripts/control-plane/autonomous-convergence.cjs tests/acceptance/autonomous-convergence-contract.cjs
   scripts/windows/companion/Test-CompanionPack-v1.2.16.ps1 scripts/windows/companion/Test-AutonomousConvergenceContracts.ps1 scripts/windows/Test-UnifiedEcosystemVersion.ps1
   scripts/bridge/companion_action_bridge.py scripts/bridge/Install-CompanionActionBridge.ps1

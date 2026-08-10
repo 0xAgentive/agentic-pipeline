@@ -839,6 +839,7 @@ function validatePack(repoRoot) {
     'work-item.schema.json',
     'execution-scope.schema.json',
     'run-result.schema.json',
+    'verification-receipt.schema.json',
     'flow-policy.schema.json',
     'execution-lease.schema.json',
     'audit-coverage-matrix.schema.json',

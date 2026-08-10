@@ -1,4 +1,4 @@
-# Golden Evals v1.2.19
+# Golden Evals v1.2.20
 
 Run legacy, Flow Restoration and Autonomous Convergence suites.
 

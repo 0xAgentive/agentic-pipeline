@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "source_path": "evals/companion/golden_cases.json",
-  "source_sha256": "15131137813cf7658c41e3ed63e5704c78baf4709bfd3a331e6774d615d46a75",
+  "source_sha256": "7019b72b1e710055a78bc53852b7200bc7895f0ce566fd0d2eede63276710602",
   "case_count": 56,
   "case_ids": [
     "unknown_slash_command_is_rejected",
@@ -61,5 +61,5 @@
     "dirty_state_overrides_state_declared_fixcritical",
     "repeated_no_progress_stops_without_repair_override_prompt"
   ],
-  "release_baseline": "1.2.19-atomic-result-authority-publication"
+  "release_baseline": "1.2.20-semantic-verification-test-binding"
 }

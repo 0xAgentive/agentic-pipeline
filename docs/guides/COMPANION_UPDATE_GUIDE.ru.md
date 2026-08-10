@@ -1,3 +1,3 @@
-# Обновление единого стека 1.2.19
+# Обновление единого стека 1.2.20
 
-Pipeline, runtime, Companion, Action Bridge и Context Handoff integration используют одну версию `1.2.19`. Замените Project Instructions файлом `01_PROJECT_INSTRUCTIONS_v1.2.19.md`, загрузите одну копию модулей 00–15 и используйте новый restart bootstrap.
+Pipeline, runtime, Companion, Action Bridge и Context Handoff integration используют одну версию `1.2.20`. Замените Project Instructions файлом `01_PROJECT_INSTRUCTIONS_v1.2.20.md`, загрузите одну копию модулей 00–15 и используйте новый restart bootstrap.

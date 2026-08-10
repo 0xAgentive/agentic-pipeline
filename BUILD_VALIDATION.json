@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.19",
+  "ecosystem_version": "1.2.20",
   "artifact": "pipeline_source_snapshot",
   "source": "complete canonical tree",
-  "generated_at_utc": "2026-08-10T12:54:08Z",
+  "generated_at_utc": "2026-08-10T14:16:00Z",
   "operational_gate_policy": {
     "blocking": [
       "syntax/runtime safety",
@@ -59,5 +59,10 @@
     "status": "PASS",
     "reason": "Compiler-owned NEXT_ACTION is excluded from new candidate authority inputs, legacy manifests remain compatible, and post-publication validation accepts only the exact intended NEXT_ACTION hash while every true authority input remains unchanged.",
     "regression": "tests/acceptance/Test-ResultAuthorityCompilerTransaction.ps1"
+  },
+  "semantic_verification_test_binding": {
+    "status": "PASS",
+    "reason": "Context Handoff accepts compiler-canonical empty defaults for omitted optional verification-test fields while preserving exact identity, evidence, timestamp and non-empty lineage checks.",
+    "regression": "integrations/companion-handoff-1.2.20/source/install/run_tests.py"
   }
 }

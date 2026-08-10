@@ -8,7 +8,7 @@ $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ('agentic-runtime-transaction-' + [Guid]::NewGuid().ToString('N'))
 $BackupRoot = Join-Path $TempRoot 'backups'
 $Pwsh = (Get-Command pwsh -ErrorAction Stop).Source
-$Updater = Join-Path $Root 'scripts\windows\Update-AgenticProjectRuntime-v1.2.19.ps1'
+$Updater = Join-Path $Root 'scripts\windows\Update-AgenticProjectRuntime-v1.2.20.ps1'
 $Utf8 = [Text.UTF8Encoding]::new($false)
 $ExpectedEcosystemVersion = [string](Get-Content -LiteralPath (Join-Path $Root 'VERSION.json') -Raw -Encoding UTF8 | ConvertFrom-Json).ecosystem_version
 $LegacyFindingsArchiveRelative = ".agy/history/legacy-findings/runtime-$ExpectedEcosystemVersion/FINDINGS.json"
@@ -177,7 +177,7 @@ function New-LegacyAuthorityFixture([string]$Name, [string]$Fault = '') {
 
 function New-StaleTransaction([string]$Project, [string]$Name, [string]$Phase, [object[]]$Paths, [object[]]$Directories) {
   $ProjectSlug = ([IO.Path]::GetFileName($Project) -replace '[^A-Za-z0-9._-]', '_')
-  $TransactionId = 'runtime-1.2.19-' + $Name
+  $TransactionId = 'runtime-1.2.20-' + $Name
   $StaleBackupRoot = Join-Path ([IO.Path]::GetFullPath($BackupRoot)) (Join-Path $ProjectSlug $TransactionId)
   $JournalPath = Join-Path $StaleBackupRoot 'journal.json'
   New-Item -ItemType Directory -Force -Path $StaleBackupRoot | Out-Null

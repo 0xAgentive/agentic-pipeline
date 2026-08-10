@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.19",
-  "package_version": "1.2.19",
-  "release_name": "Atomic Result Authority Publication",
-  "playbook_version": "1.2.19",
-  "runtime_version": "1.2.19",
-  "companion_version": "1.2.19",
-  "action_bridge_version": "1.2.19",
-  "context_handoff_version": "1.2.19",
-  "handoff_compatibility": "1.2.19",
+  "ecosystem_version": "1.2.20",
+  "package_version": "1.2.20",
+  "release_name": "Semantic Verification Test Binding",
+  "playbook_version": "1.2.20",
+  "runtime_version": "1.2.20",
+  "companion_version": "1.2.20",
+  "action_bridge_version": "1.2.20",
+  "context_handoff_version": "1.2.20",
+  "handoff_compatibility": "1.2.20",
   "status": "stable"
 }

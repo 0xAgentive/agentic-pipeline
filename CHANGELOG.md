@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.20 — Semantic Verification Test Binding
+
+- Supersedes 1.2.19 without moving or rewriting its public tag or release.
+- Compares verification-test provenance semantically across the compiler and Context Handoff instead of rejecting equivalent omitted-versus-empty optional fields.
+- Keeps identity, evidence hash, size, timestamp and non-empty optional values fail-closed while accepting the canonical compiler projection already emitted by 1.2.19.
+- Adds an executable cross-component regression for the exact natural Stop failure and a negative mismatch case.
+- Rebinds all five ecosystem assets to one immutable 1.2.20 source commit while retaining Action Packet/Bridge schema 1.2.9 and Context engine 4.3.4.
+
 ## 1.2.19 — Atomic Result Authority Publication
 
 - Supersedes 1.2.18 without moving or rewriting its public tag or release.

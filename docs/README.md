@@ -60,7 +60,7 @@ Checklists and templates for pipeline development and future scoping:
 
 ## ChatGPT Companion
 
-- [ChatGPT Companion Pack v1.2.19](companion/README.md)
+- [ChatGPT Companion Pack v1.2.20](companion/README.md)
 
 ## Distribution and maintenance
 

@@ -1,5 +1,12 @@
 # Companion changelog
 
+## 1.2.20 — Semantic Verification Test Binding
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.20.
+- Accepts compiler-canonical empty defaults only when the verification receipt omits the corresponding optional test fields.
+- Continues to reject any different non-empty test lineage, evidence identity, timestamp or required-test result before ZIP or clipboard publication.
+
 ## 1.2.19 — Atomic Result Authority Publication
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

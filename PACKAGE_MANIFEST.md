@@ -1,13 +1,13 @@
 # Agentic Pipeline Package Manifest
 
-Active ecosystem version: `1.2.19`.
+Active ecosystem version: `1.2.20`.
 
 Release assets:
 
-- `agentic-pipeline-1.2.19.zip`
-- `agentic-companion-1.2.19.zip`
-- `agentic-project-runtime-1.2.19.zip`
-- `agentic-action-bridge-1.2.19.zip`
-- `agentic-context-handoff-1.2.19.zip`
+- `agentic-pipeline-1.2.20.zip`
+- `agentic-companion-1.2.20.zip`
+- `agentic-project-runtime-1.2.20.zip`
+- `agentic-action-bridge-1.2.20.zip`
+- `agentic-context-handoff-1.2.20.zip`
 
 All owner-visible elements use the same release number. Historical files remain under explicit archive paths only.

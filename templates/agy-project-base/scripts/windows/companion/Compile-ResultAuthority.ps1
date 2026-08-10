@@ -634,13 +634,31 @@ function Read-SharedLockMetadata {
   catch { return $null }
 }
 
+function Get-CompilationMutexName {
+  param([Parameter(Mandatory = $true)][string]$Root)
+  $Identity = [IO.Path]::GetFullPath($Root).Replace('\', '/')
+  if ($IsWindows) { $Identity = $Identity.ToUpperInvariant() }
+  return 'AgenticPipelineResultAuthority-' + (Get-Sha256Bytes $script:Utf8NoBom.GetBytes($Identity))
+}
+
 function Open-OwnerLock {
-  param([Parameter(Mandatory = $true)][string]$Path)
+  param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][string]$MutexName)
+  $Mutex = $null
+  $Owned = $false
   try {
-    if (Test-Path -LiteralPath $Path -PathType Leaf) { return [IO.FileStream]::new($Path, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::Read) }
-    return [IO.FileStream]::new($Path, [IO.FileMode]::CreateNew, [IO.FileAccess]::ReadWrite, [IO.FileShare]::Read)
+    $Mutex = [Threading.Mutex]::new($false, $MutexName)
+    try { $Owned = $Mutex.WaitOne(0) }
+    catch [Threading.AbandonedMutexException] { $Owned = $true }
+    if (-not $Owned) { $Mutex.Dispose(); return $null }
+    $Share = [IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete
+    $Stream = [IO.FileStream]::new($Path, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, $Share)
+    return [pscustomobject]@{ Stream = $Stream; Mutex = $Mutex }
   }
-  catch [IO.IOException] { return $null }
+  catch {
+    if ($Owned -and $null -ne $Mutex) { try { $Mutex.ReleaseMutex() } catch {} }
+    if ($null -ne $Mutex) { $Mutex.Dispose() }
+    throw
+  }
 }
 
 function Write-LockMetadata {
@@ -665,15 +683,23 @@ function Acquire-CompilationLease {
   param([Parameter(Mandatory = $true)][string]$RuntimeRoot, [Parameter(Mandatory = $true)]$Context, [Parameter(Mandatory = $true)][string]$Fingerprint, [Parameter(Mandatory = $true)][string]$Token, [int]$Timeout)
   $LockPath = Join-Path $RuntimeRoot 'compile.lock'
   $PendingPath = Join-Path $RuntimeRoot 'pending.json'
-  $Stream = Open-OwnerLock $LockPath
-  if ($null -ne $Stream) {
-    $Metadata = New-LockMetadata $Context $Fingerprint $Token $Timeout
-    Write-LockMetadata $Stream $Metadata
-    return [pscustomobject]@{ State = 'owner'; Stream = $Stream; Metadata = $Metadata; LockPath = $LockPath }
+  $MutexName = Get-CompilationMutexName $Context.Root
+  $OwnerLock = Open-OwnerLock $LockPath $MutexName
+  if ($null -ne $OwnerLock) {
+    try {
+      $Metadata = New-LockMetadata $Context $Fingerprint $Token $Timeout
+      Write-LockMetadata $OwnerLock.Stream $Metadata
+      return [pscustomobject]@{ State = 'owner'; Stream = $OwnerLock.Stream; Mutex = $OwnerLock.Mutex; Metadata = $Metadata; LockPath = $LockPath }
+    }
+    catch {
+      $OwnerLock.Stream.Dispose()
+      try { $OwnerLock.Mutex.ReleaseMutex() } finally { $OwnerLock.Mutex.Dispose() }
+      throw
+    }
   }
   $Active = Read-SharedLockMetadata $LockPath
-  if ($null -ne $Active -and [string](Get-OptionalValue $Active 'request_fingerprint' '') -eq $Fingerprint) {
-    return [pscustomobject]@{ State = 'coalesced_active'; Stream = $null; Metadata = $Active; LockPath = $LockPath }
+  if ($null -ne $Active -and [string](Get-OptionalValue $Active 'state' '') -eq 'running' -and [string](Get-OptionalValue $Active 'request_fingerprint' '') -eq $Fingerprint) {
+    return [pscustomobject]@{ State = 'coalesced_active'; Stream = $null; Mutex = $null; Metadata = $Active; LockPath = $LockPath }
   }
   $Pending = [ordered]@{ schema_version = '1.0.0'; token = $Token; request_fingerprint = $Fingerprint; requested_at_utc = [DateTimeOffset]::UtcNow.ToString('o') }
   Write-AtomicJson $PendingPath $Pending 10
@@ -691,11 +717,18 @@ function Acquire-CompilationLease {
     if ($null -eq $Latest -or [string](Get-OptionalValue $Latest 'token' '') -ne $Token) {
       return [pscustomobject]@{ State = 'superseded'; Stream = $null; Metadata = $Latest; LockPath = $LockPath }
     }
-    $Stream = Open-OwnerLock $LockPath
-    if ($null -ne $Stream) {
-      $Metadata = New-LockMetadata $Context $Fingerprint $Token $Timeout
-      Write-LockMetadata $Stream $Metadata
-      return [pscustomobject]@{ State = 'owner'; Stream = $Stream; Metadata = $Metadata; LockPath = $LockPath }
+    $OwnerLock = Open-OwnerLock $LockPath $MutexName
+    if ($null -ne $OwnerLock) {
+      try {
+        $Metadata = New-LockMetadata $Context $Fingerprint $Token $Timeout
+        Write-LockMetadata $OwnerLock.Stream $Metadata
+        return [pscustomobject]@{ State = 'owner'; Stream = $OwnerLock.Stream; Mutex = $OwnerLock.Mutex; Metadata = $Metadata; LockPath = $LockPath }
+      }
+      catch {
+        $OwnerLock.Stream.Dispose()
+        try { $OwnerLock.Mutex.ReleaseMutex() } finally { $OwnerLock.Mutex.Dispose() }
+        throw
+      }
     }
   }
   Throw-ResultAuthorityError 'RESULT_AUTHORITY_COALESCE_TIMEOUT' 'Timed out waiting for the active result-authority compiler.'
@@ -964,5 +997,9 @@ finally {
     }
     catch {}
     $Lease.Stream.Dispose()
+    if ($null -ne $Lease.Mutex) {
+      try { $Lease.Mutex.ReleaseMutex() }
+      finally { $Lease.Mutex.Dispose() }
+    }
   }
 }

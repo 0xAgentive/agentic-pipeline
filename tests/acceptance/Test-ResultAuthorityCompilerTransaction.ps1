@@ -96,7 +96,7 @@ function Wait-ForFile {
 }
 
 function Write-Validator {
-  param([string]$Project, [ValidateSet('quick','slow','child')][string]$Mode, [int]$DelayMilliseconds = 1800)
+  param([string]$Project, [ValidateSet('quick','slow','barrier','child')][string]$Mode, [int]$DelayMilliseconds = 1800)
   $Path = Join-Path $Project 'scripts\windows\companion\Test-FindingSet.ps1'
   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Path) | Out-Null
   $Body = switch ($Mode) {
@@ -107,6 +107,19 @@ $runtime=Join-Path $ProjectRoot '.agy/.runtime/result-authority'
 New-Item -ItemType Directory -Force -Path $runtime|Out-Null
 Add-Content -LiteralPath (Join-Path $runtime 'validator-count.txt') -Value 'run' -Encoding utf8
 Start-Sleep -Milliseconds __DELAY__
+exit 0
+'@ }
+    'barrier' { @'
+[CmdletBinding()]param([string]$ProjectRoot='.',[string]$FindingSetPath='')
+$runtime=Join-Path $ProjectRoot '.agy/.runtime/result-authority'
+New-Item -ItemType Directory -Force -Path $runtime|Out-Null
+Add-Content -LiteralPath (Join-Path $runtime 'validator-count.txt') -Value 'run' -Encoding utf8
+$release=Join-Path $runtime 'validator-release.txt'
+$deadline=[DateTimeOffset]::UtcNow.AddSeconds(30)
+while(-not(Test-Path -LiteralPath $release -PathType Leaf)){
+  if([DateTimeOffset]::UtcNow-ge$deadline){throw 'Timed out waiting for validator release barrier.'}
+  Start-Sleep -Milliseconds 50
+}
 exit 0
 '@ }
     'child' { @'
@@ -127,7 +140,7 @@ exit 0
 }
 
 function New-Fixture {
-  param([string]$Name, [ValidateSet('none','quick','slow','child')][string]$Validator = 'none', [int]$SlowMilliseconds = 1800)
+  param([string]$Name, [ValidateSet('none','quick','slow','barrier','child')][string]$Validator = 'none', [int]$SlowMilliseconds = 1800)
   $Project = Join-Path $script:TempRoot $Name
   New-Item -ItemType Directory -Force -Path (Join-Path $Project 'src') | Out-Null
   New-Item -ItemType Directory -Force -Path (Join-Path $Project '.agy\verification') | Out-Null
@@ -367,12 +380,13 @@ try {
   $TimeoutRecovery = Invoke-Compiler $Timeout.Project $Timeout.ReceiptPath -Apply -TimeoutSeconds 10
   Assert-True ($TimeoutRecovery.ExitCode -eq 0) 'Compiler lock was not reusable after timeout.'
 
-  $Same = New-Fixture 'same-fingerprint' 'slow'
+  $Same = New-Fixture 'same-fingerprint' 'barrier'
   $FirstSame = Start-Compiler $Same.Project $Same.ReceiptPath -Apply -TimeoutSeconds 10
   Wait-ForFile (Join-Path $Same.Agy '.runtime/result-authority/validator-count.txt')
   $SecondSame = Start-Compiler $Same.Project $Same.ReceiptPath -Apply -TimeoutSeconds 10
-  $SecondSameResult = Complete-Compiler $SecondSame 5
-  Assert-True ($SecondSameResult.ExitCode -eq 0 -and $SecondSameResult.StdOut -match 'coalesced_active') 'Same-fingerprint request was not coalesced.'
+  $SecondSameResult = Complete-Compiler $SecondSame 10
+  [IO.File]::WriteAllText((Join-Path $Same.Agy '.runtime/result-authority/validator-release.txt'), 'release', $Utf8)
+  Assert-True ($SecondSameResult.ExitCode -eq 0 -and $SecondSameResult.StdOut -match 'coalesced_active') "Same-fingerprint request was not coalesced: stdout=$($SecondSameResult.StdOut) stderr=$($SecondSameResult.StdErr)"
   $FirstSameResult = Complete-Compiler $FirstSame 15
   Assert-True ($FirstSameResult.ExitCode -eq 0) 'Owning same-fingerprint compiler failed.'
   Assert-True (@(Get-Content -LiteralPath (Join-Path $Same.Agy '.runtime/result-authority/validator-count.txt')).Count -eq 1) 'Same-fingerprint coalescing launched more than one worker.'

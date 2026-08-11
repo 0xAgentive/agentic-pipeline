@@ -100,7 +100,7 @@ foreach ($InstallerContract in @(
   if (!$InstallerContract.Text.Contains("write-installation-manifest.cjs")) {
     throw "$($InstallerContract.Name) must invoke the shared manifest writer."
   }
-  foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"', '"1.2.11"', '"1.2.12"', '"1.2.13"', '"1.2.14"', '"1.2.15"', '"1.2.16"', '"1.2.17"', '"1.2.18"', '"1.2.19"', '"1.2.20"', '"1.2.21"', '"1.2.23"')) {
+  foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"', '"1.2.11"', '"1.2.12"', '"1.2.13"', '"1.2.14"', '"1.2.15"', '"1.2.16"', '"1.2.17"', '"1.2.18"', '"1.2.19"', '"1.2.20"', '"1.2.21"', '"1.2.22"', '"1.2.23"')) {
     if ($InstallerContract.Text.Contains($ForbiddenLiteral)) {
       throw "$($InstallerContract.Name) hardcodes release version literal $ForbiddenLiteral."
     }
@@ -110,7 +110,7 @@ foreach ($InstallerContract in @(
 if (!$ManifestWriterText.Contains("VERSION.json")) {
   throw "Shared manifest writer must read VERSION.json."
 }
-foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"', '"1.2.11"', '"1.2.12"', '"1.2.13"', '"1.2.14"', '"1.2.15"', '"1.2.16"', '"1.2.17"', '"1.2.18"', '"1.2.19"', '"1.2.20"', '"1.2.21"', '"1.2.23"')) {
+foreach ($ForbiddenLiteral in @('"1.2.6"', '"1.2.3"', '"1.2.9"', '"1.2.10"', '"1.2.11"', '"1.2.12"', '"1.2.13"', '"1.2.14"', '"1.2.15"', '"1.2.16"', '"1.2.17"', '"1.2.18"', '"1.2.19"', '"1.2.20"', '"1.2.21"', '"1.2.22"', '"1.2.23"')) {
   if ($ManifestWriterText.Contains($ForbiddenLiteral)) {
     throw "Shared manifest writer hardcodes release version literal $ForbiddenLiteral."
   }

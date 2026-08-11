@@ -84,6 +84,7 @@ $CoreTests = @(
   [pscustomobject]@{ Name = 'Action Bridge installer transaction'; Path = 'tests\acceptance\Test-ActionBridgeInstallerTransaction.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'Context Handoff engine'; Path = 'tests\acceptance\Test-ContextHandoffEngine.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'Context Handoff asset binding'; Path = 'tests\acceptance\Test-ContextHandoffAssetBinding.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'Companion restart handoff archive root'; Path = 'tests\acceptance\Test-CompanionRestartHandoffRootEntry.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'progress-guard migration compatibility'; Path = 'tests\acceptance\Test-ProgressGuardMigrationCompatibility.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'runtime updater transaction'; Path = 'tests\acceptance\Test-RuntimeUpdaterTransaction.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'operational deployment'; Path = 'scripts\windows\Test-OperationalDeployment.ps1'; Args = @('-RepoRoot', $Root) }

@@ -19,6 +19,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $EcosystemVersion = '1.2.22'
+. (Join-Path $PSScriptRoot 'common\CompanionRestartHandoffArchive.ps1')
 
 function Get-AbsolutePath {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -280,25 +281,6 @@ function Add-AllowlistedTextFile {
   $Hash = Get-Sha256 -Path $Destination
   $script:TotalBytes += (Get-Item -LiteralPath $Destination).Length
   $script:Included += , [ordered]@{ path = $SafeRelative; category = $Category; size_bytes = (Get-Item -LiteralPath $Destination).Length; sha256 = $Hash }
-}
-
-function Test-ZipSafety {
-  param([Parameter(Mandatory = $true)][string]$ArchivePath)
-  Add-Type -AssemblyName System.IO.Compression.FileSystem
-  $Archive = [IO.Compression.ZipFile]::OpenRead($ArchivePath)
-  try {
-    $Entries = @($Archive.Entries | Where-Object { -not [string]::IsNullOrEmpty($_.Name) })
-    if ($Entries.Count -lt 1) { throw "ZIP is empty: $ArchivePath" }
-    $Names = @($Entries | ForEach-Object { $_.FullName })
-    $CaseFolded = @($Names | ForEach-Object { $_.ToLowerInvariant() })
-    if (@($CaseFolded | Sort-Object -Unique).Count -ne $CaseFolded.Count) { throw "ZIP contains duplicate or case-colliding paths: $ArchivePath" }
-    foreach ($Name in $Names) {
-      if ($Name.Contains('\') -or $Name.StartsWith('/') -or $Name -match '^[A-Za-z]:' -or $Name -match '(^|/)\.\.(/|$)') {
-        throw "ZIP contains an unsafe path: $Name"
-      }
-    }
-  }
-  finally { $Archive.Dispose() }
 }
 
 function Test-ExporterManifest {
@@ -750,11 +732,9 @@ try {
     Add-AllowlistedTextFile -Source (Join-Path $AgentsRoot $Relative) -RelativePath ("RUNTIME/.agents/" + $Relative.Replace('\', '/')) -Category 'installed_runtime_contract'
   }
 
-  Test-ZipSafety -ArchivePath $HandoffArchiveFull
+  Test-ZipSafety -ArchivePath $HandoffArchiveFull -RequiredRootEntry 'COMPANION_ENTRY.md'
   Expand-Archive -LiteralPath $HandoffArchiveFull -DestinationPath $HandoffExtract
-  $EntryCandidates = @(Get-ChildItem -LiteralPath $HandoffExtract -Recurse -File -Filter 'COMPANION_ENTRY.md')
-  if ($EntryCandidates.Count -ne 1) { throw 'Exact handoff archive must contain one unambiguous COMPANION_ENTRY.md.' }
-  $HandoffRoot = Split-Path -Parent $EntryCandidates[0].FullName
+  $HandoffRoot = Resolve-ExactHandoffArchiveRoot -ExtractRoot $HandoffExtract
   $HandoffValidationPath = Join-Path $HandoffRoot 'MANIFEST_VALIDATION.json'
   $HandoffReadinessPath = Join-Path $HandoffRoot 'CONTEXT_READINESS.json'
   $HandoffAuthorityPath = Join-Path $HandoffRoot 'CURRENT_AUTHORITY.json'

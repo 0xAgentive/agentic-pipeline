@@ -160,7 +160,13 @@ def create_authority_fixture(env, conversation_id="conv-authority"):
     evidence_bytes = "260 files, 708 tests: PASS\nПроверка завершена.\n".encode("utf-8")
     with open(evidence_path, "wb") as handle:
         handle.write(evidence_bytes)
-    os.utime(evidence_path, (test_time.timestamp(), test_time.timestamp()))
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    evidence_delta = test_time - epoch
+    evidence_time_ns = (
+        (evidence_delta.days * 86400 + evidence_delta.seconds) * 1_000_000_000
+        + evidence_delta.microseconds * 1000
+    )
+    os.utime(evidence_path, ns=(evidence_time_ns, evidence_time_ns))
     evidence_hash = hashlib.sha256(evidence_bytes).hexdigest()
     test_entry = {
         "run_id": "vitest-current",

@@ -50,10 +50,15 @@ catch {
 }
 
 $templateAgents = Read-Text "templates\agy-project-base\.agents\AGENTS.md"
+$templateRuntimeContract = Read-Text "templates\agy-project-base\.agents\rules\05-runtime-contract.md"
 if ($ExpectedRuntimeVersion) {
   $RuntimeMarker = 'Framework Runtime Version:\s*`?' + [regex]::Escape($ExpectedRuntimeVersion) + '`?'
   if (!$templateAgents -or $templateAgents -notmatch $RuntimeMarker) {
     Add-Error "Template .agents/AGENTS.md lacks runtime marker $ExpectedRuntimeVersion"
+  }
+  $RuntimeContractMarker = '(?m)^This workspace uses Agentic Pipeline runtime ' + [regex]::Escape($ExpectedRuntimeVersion) + '\.\s*$'
+  if (!$templateRuntimeContract -or $templateRuntimeContract -notmatch $RuntimeContractMarker) {
+    Add-Error "Template .agents/rules/05-runtime-contract.md lacks exact runtime marker $ExpectedRuntimeVersion"
   }
 }
 

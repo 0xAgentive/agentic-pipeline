@@ -75,6 +75,7 @@ $CoreTests = @(
   [pscustomobject]@{ Name = 'autonomous convergence contracts'; Path = 'scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'result authority compiler transaction'; Path = 'tests\acceptance\Test-ResultAuthorityCompilerTransaction.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'PowerShell runtime contracts'; Path = 'scripts\windows\Test-PowerShellRuntimeContracts.ps1'; Args = @('-RepoRoot', $Root) },
+  [pscustomobject]@{ Name = 'runtime truth'; Path = 'scripts\windows\Test-RuntimeTruth.ps1'; Args = @('-RepoRoot', $Root, '-StrictHotPath') },
   [pscustomobject]@{ Name = 'state profiles'; Path = 'scripts\windows\Test-StateProfiles.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'command inventory'; Path = 'scripts\windows\Test-CommandInventory.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'fresh install'; Path = 'scripts\windows\Test-FreshInstall.ps1'; Args = @('-RepoRoot', $Root) },

@@ -1,5 +1,13 @@
 # Companion changelog
 
+## 1.2.24 — Empty Session Delta Compatibility
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Preserves valid zero-byte session-delta members and their exact hashes in restart-bootstrap archives.
+- Applies strict UTF-8 and privacy checks consistently to empty, staged, existing and extracted members.
+- Fails closed when all session deltas are empty without a `NO_NEW_EVENTS` receipt, or when a required authority file is empty.
+- Adds an executable Distribution Integrity regression for mixed, receipt-only, all-empty and idempotent-reuse flows.
+
 ## 1.2.23 — Exact Handoff Root Entry
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

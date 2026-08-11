@@ -1,3 +1,3 @@
-# Updating the unified 1.2.23 stack
+# Updating the unified 1.2.24 stack
 
-Pipeline, runtime, Companion, Action Bridge and Context Handoff integration all use version `1.2.23`. Replace Project Instructions with `01_PROJECT_INSTRUCTIONS_v1.2.23.md`, keep one copy of modules 00–15 and use the new restart bootstrap.
+Pipeline, runtime, Companion, Action Bridge and Context Handoff integration all use version `1.2.24`. Replace Project Instructions with `01_PROJECT_INSTRUCTIONS_v1.2.24.md`, keep one copy of modules 00–15 and use the new restart bootstrap.

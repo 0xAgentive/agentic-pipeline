@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.23",
-  "release_name": "Exact Handoff Root Entry",
+  "ecosystem_version": "1.2.24",
+  "release_name": "Empty Session Delta Compatibility",
   "components": {
-    "pipeline": "1.2.23",
-    "runtime": "1.2.23",
-    "playbook": "1.2.23",
-    "companion": "1.2.23",
-    "action_bridge": "1.2.23",
-    "context_handoff": "1.2.23"
+    "pipeline": "1.2.24",
+    "runtime": "1.2.24",
+    "playbook": "1.2.24",
+    "companion": "1.2.24",
+    "action_bridge": "1.2.24",
+    "context_handoff": "1.2.24"
   },
   "status": "stable"
 }

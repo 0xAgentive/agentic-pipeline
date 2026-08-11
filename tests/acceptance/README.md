@@ -1,6 +1,6 @@
 # Runtime and Flow Restoration Acceptance
 
-This directory is an independent acceptance layer for Agentic Pipeline package candidate 1.2.23 / runtime 1.2.23.
+This directory is an independent acceptance layer for Agentic Pipeline package candidate 1.2.24 / runtime 1.2.24.
 
 It protects legacy routing behavior while adding Flow Restoration and Autonomous Audit Convergence contracts:
 

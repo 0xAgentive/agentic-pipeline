@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.23",
+  "ecosystem_version": "1.2.24",
   "artifact": "pipeline_source_snapshot",
   "source": "complete canonical tree",
-  "generated_at_utc": "2026-08-11T06:37:57Z",
+  "generated_at_utc": "2026-08-11T12:10:10Z",
   "operational_gate_policy": {
     "blocking": [
       "syntax/runtime safety",
@@ -63,24 +63,29 @@
   "semantic_verification_test_binding": {
     "status": "PASS",
     "reason": "Context Handoff accepts compiler-canonical empty defaults for omitted optional verification-test fields while preserving exact identity, evidence, timestamp and non-empty lineage checks.",
-    "regression": "integrations/companion-handoff-1.2.23/source/install/run_tests.py"
+    "regression": "integrations/companion-handoff-1.2.24/source/install/run_tests.py"
   },
   "hosted_runner_reparse_fixture": {
     "status": "PASS",
     "reason": "The Windows reparse-point regression canonicalizes its hosted-runner temporary root before matching the production confinement path, while real reparse components remain fail closed.",
-    "regression": "integrations/companion-handoff-1.2.23/source/install/run_tests.py#T66"
+    "regression": "integrations/companion-handoff-1.2.24/source/install/run_tests.py#T66"
   },
   "causal_verification_ordering": {
     "status": "PASS",
     "reason": "Candidate and status timestamps are strict ISO-8601 with an explicit zone, every required test declares its start, and candidate authority must predate every required test start; candidate publication cannot mutate or rebind a verification receipt.",
     "regressions": [
       "tests/acceptance/Test-ResultAuthorityCompilerTransaction.ps1",
-      "integrations/companion-handoff-1.2.23/source/install/run_tests.py#T73"
+      "integrations/companion-handoff-1.2.24/source/install/run_tests.py#T73"
     ]
   },
   "exact_handoff_root_entry": {
     "status": "PASS",
     "reason": "Restart bootstrap binds COMPANION_ENTRY.md by exact archive-root full name before extraction, permits same-basename source-snapshot members, and rejects noncanonical, duplicate, case-colliding or directory-only ZIP entries.",
     "regression": "tests/acceptance/Test-CompanionRestartHandoffRootEntry.ps1"
+  },
+  "empty_session_delta_compatibility": {
+    "status": "PASS",
+    "reason": "Restart bootstrap preserves allowlisted zero-byte session members with exact size and SHA-256 identity through strict UTF-8 privacy validation and idempotent reuse, while empty required authority and all-empty session evidence without NO_NEW_EVENTS remain fail closed.",
+    "regression": "tests/acceptance/Test-CompanionRestartSessionDelta.ps1"
   }
 }

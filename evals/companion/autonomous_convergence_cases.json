@@ -1,9 +1,9 @@
 {
   "schema_version": "1.1.0",
   "suite": "owner-autonomous-execution",
-  "package_version": "1.2.23",
-  "runtime_version": "1.2.23",
-  "companion_version": "1.2.23",
+  "package_version": "1.2.24",
+  "runtime_version": "1.2.24",
+  "companion_version": "1.2.24",
   "cases": [
     {
       "id": "AC-001-WRONG-WORKTREE-BEFORE-WRITE",

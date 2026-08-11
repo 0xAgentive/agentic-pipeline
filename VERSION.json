@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.23",
-  "package_version": "1.2.23",
-  "release_name": "Exact Handoff Root Entry",
-  "playbook_version": "1.2.23",
-  "runtime_version": "1.2.23",
-  "companion_version": "1.2.23",
-  "action_bridge_version": "1.2.23",
-  "context_handoff_version": "1.2.23",
-  "handoff_compatibility": "1.2.23",
+  "ecosystem_version": "1.2.24",
+  "package_version": "1.2.24",
+  "release_name": "Empty Session Delta Compatibility",
+  "playbook_version": "1.2.24",
+  "runtime_version": "1.2.24",
+  "companion_version": "1.2.24",
+  "action_bridge_version": "1.2.24",
+  "context_handoff_version": "1.2.24",
+  "handoff_compatibility": "1.2.24",
   "status": "stable"
 }

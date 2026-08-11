@@ -98,10 +98,15 @@ function Ensure-Directory {
 function Write-Utf8File {
   param(
     [Parameter(Mandatory = $true)][string]$Path,
-    [Parameter(Mandatory = $true)][string]$Text
+    [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text
   )
   Ensure-Directory -Path (Split-Path -Parent $Path)
   [IO.File]::WriteAllText($Path, $Text, $Utf8NoBom)
+}
+
+function Read-StrictUtf8Text {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  return [IO.File]::ReadAllText($Path, [Text.UTF8Encoding]::new($false, $true))
 }
 
 function Write-Utf8FileAtomic {
@@ -228,7 +233,7 @@ function Assert-SafeRelativePath {
 function Assert-NoSecretLiteral {
   param(
     [Parameter(Mandatory = $true)][string]$Path,
-    [Parameter(Mandatory = $true)][string]$Text
+    [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text
   )
   $Name = [IO.Path]::GetFileName($Path)
   if ($Name -match '^(ACTION_BRIDGE_CAPABILITY|ACTION_PACKET)\.json$' -or $Name -match '^AGENTIC_ACTION_PACKET_.*\.json$' -or $Name -match '^\.env' -or
@@ -272,9 +277,10 @@ function Add-AllowlistedTextFile {
   $Item = Get-Item -LiteralPath $Source
   if ($Item.Length -gt $script:MaxFileBytes) { throw "Selected bootstrap input exceeds MaxFileMB: $Source" }
   if (($script:TotalBytes + $Item.Length) -gt $script:MaxTotalBytes) { throw "Selected bootstrap inputs exceed MaxTotalMB at: $Source" }
+  if ($Required -and $Item.Length -eq 0) { throw "Required bootstrap input is empty: $Source" }
   $Extension = [IO.Path]::GetExtension($Source).ToLowerInvariant()
   if ($Extension -notin @('.md', '.txt', '.json', '.jsonl', '.ndjson', '.cjs')) { throw "Non-text file selected for bootstrap: $Source" }
-  $Text = Get-Content -LiteralPath $Source -Raw -Encoding UTF8
+  $Text = Read-StrictUtf8Text -Path $Source
   Assert-NoSecretLiteral -Path $Source -Text $Text
   $Destination = Join-Path $script:StageRoot $SafeRelative
   Write-Utf8File -Path $Destination -Text $Text
@@ -382,7 +388,7 @@ function Test-ExistingBootstrapArtifact {
       $Relative = [IO.Path]::GetRelativePath($CheckRoot, $SelectedFile.FullName).Replace('\', '/')
       if ($Relative -match '(^|/)(ACTION_PACKET\.json|ACTION_BRIDGE_CAPABILITY\.json|AGENT_TASK\.md|OWNER_SUMMARY_RU\.md)$' -or
           $Relative -match '(?i)(^|/)(data|raw|logs?|cache|__pycache__)(/|$)') { return $false }
-      Assert-NoSecretLiteral -Path $SelectedFile.FullName -Text (Get-Content -LiteralPath $SelectedFile.FullName -Raw -Encoding UTF8)
+      Assert-NoSecretLiteral -Path $SelectedFile.FullName -Text (Read-StrictUtf8Text -Path $SelectedFile.FullName)
     }
     return $true
   }
@@ -845,7 +851,7 @@ Treat the previous Companion chat as retired. Explain the confirmed current prod
   Write-Utf8File -Path (Join-Path $script:StageRoot 'EXCLUSIONS.json') -Text ($script:Excluded | ConvertTo-Json -Depth 10)
 
   foreach ($SelectedFile in Get-ChildItem -LiteralPath $script:StageRoot -Recurse -File) {
-    $SelectedText = Get-Content -LiteralPath $SelectedFile.FullName -Raw -Encoding UTF8
+    $SelectedText = Read-StrictUtf8Text -Path $SelectedFile.FullName
     Assert-NoSecretLiteral -Path $SelectedFile.FullName -Text $SelectedText
     $RelativeSelected = [IO.Path]::GetRelativePath($script:StageRoot, $SelectedFile.FullName).Replace('\', '/')
     if ($RelativeSelected -match '(^|/)(ACTION_PACKET\.json|ACTION_BRIDGE_CAPABILITY\.json|AGENT_TASK\.md|OWNER_SUMMARY_RU\.md)$') {
@@ -942,7 +948,7 @@ Treat the previous Companion chat as retired. Explain the confirmed current prod
   })
   if ($ForbiddenMembers.Count -gt 0) { throw "Restart bootstrap contains forbidden member: $($ForbiddenMembers[0].FullName)" }
   foreach ($CheckedFile in Get-ChildItem -LiteralPath $CheckRoot -Recurse -File) {
-    Assert-NoSecretLiteral -Path $CheckedFile.FullName -Text (Get-Content -LiteralPath $CheckedFile.FullName -Raw -Encoding UTF8)
+    Assert-NoSecretLiteral -Path $CheckedFile.FullName -Text (Read-StrictUtf8Text -Path $CheckedFile.FullName)
   }
 
   $ZipHash = Get-Sha256 -Path $StagedZip

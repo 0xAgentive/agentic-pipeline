@@ -244,7 +244,7 @@
           "properties": {
             "started_at_utc": {
               "type": "string",
-              "minLength": 1
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?(?:Z|[+-]\\d{2}:\\d{2})$"
             }
           }
         },
@@ -263,17 +263,19 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?(?:Z|[+-]\\d{2}:\\d{2})$"
           },
           "finished_at_utc": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?(?:Z|[+-]\\d{2}:\\d{2})$"
           },
           "completed_at_utc": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?(?:Z|[+-]\\d{2}:\\d{2})$"
           },
           "evidence_path": {
             "type": "string",
@@ -324,11 +326,11 @@
     },
     "generated_at_utc": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?(?:Z|[+-]\\d{2}:\\d{2})$"
     },
     "compiled_at_utc": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?(?:Z|[+-]\\d{2}:\\d{2})$"
     },
     "verification_receipt": {
       "type": "object",
@@ -352,7 +354,7 @@
         },
         "completed_at_utc": {
           "type": "string",
-          "minLength": 1
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?(?:Z|[+-]\\d{2}:\\d{2})$"
         },
         "work_item_id": {
           "type": "string",

@@ -109,18 +109,6 @@ def wait_for_quiescence(
 
     return {"ready": True, "reason": "bounded_stability_confirmed", "stable_samples": stable_samples}
 
-def parse_utc(value):
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError("missing_timestamp")
-    match = UTC_TIMESTAMP_PATTERN.fullmatch(value.strip())
-    if not match:
-        raise ValueError("invalid_timestamp")
-    zone = "+00:00" if match.group("zone") == "Z" else match.group("zone")
-    fraction = f".{match.group('fraction')}" if match.group("fraction") else ""
-    normalized = match.group("base") + fraction + zone
-    parsed = datetime.fromisoformat(normalized)
-    return parsed.astimezone(timezone.utc)
-
 def parse_utc_ticks(value):
     """Parse an ISO-8601 timestamp without discarding PowerShell's seventh tick."""
     if not isinstance(value, str) or not value.strip():
@@ -275,7 +263,7 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
     """Bind publication to the current work item, candidate and exact test receipt."""
     try:
         try:
-            stop_at = parse_utc(received_at_utc)
+            stop_ticks = parse_utc_ticks(received_at_utc)
         except (TypeError, ValueError):
             return {"ready": False, "reason": "authority_timestamp_invalid"}
         workspace_candidates = []
@@ -475,23 +463,21 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
             return {"ready": False, "reason": "required_verification_tests_missing"}
 
         try:
-            receipt_completed = parse_utc(receipt.get("completed_at_utc"))
-            binding_completed = parse_utc(binding.get("completed_at_utc"))
-            compiled_at = parse_utc(run_result.get("compiled_at_utc"))
-            generated_at = parse_utc(run_result.get("generated_at_utc"))
+            receipt_completed_ticks = parse_utc_ticks(receipt.get("completed_at_utc"))
+            binding_completed_ticks = parse_utc_ticks(binding.get("completed_at_utc"))
+            compiled_at_ticks = parse_utc_ticks(run_result.get("compiled_at_utc"))
+            generated_at_ticks = parse_utc_ticks(run_result.get("generated_at_utc"))
         except (TypeError, ValueError):
             return {"ready": False, "reason": "authority_timestamp_invalid"}
         try:
-            candidate_generated = parse_utc(candidate.get("generated_at_utc"))
-            candidate_updated = parse_utc(candidate_status.get("updated_at_utc"))
             candidate_generated_ticks = parse_utc_ticks(candidate.get("generated_at_utc"))
             candidate_updated_ticks = parse_utc_ticks(candidate_status.get("updated_at_utc"))
         except (TypeError, ValueError):
             return {"ready": False, "reason": "candidate_timestamp_invalid"}
-        if binding_completed != receipt_completed or compiled_at != generated_at:
+        if binding_completed_ticks != receipt_completed_ticks or compiled_at_ticks != generated_at_ticks:
             return {"ready": False, "reason": "authority_timestamp_binding_mismatch"}
 
-        evidence_times = [candidate_generated, candidate_updated]
+        evidence_ticks = [candidate_generated_ticks, candidate_updated_ticks]
         test_evidence = []
         archive_members = set()
         for test in required_tests:
@@ -504,13 +490,12 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
             if not isinstance(started_value, str) or not started_value.strip():
                 return {"ready": False, "reason": "required_test_start_missing"}
             try:
-                started_at = parse_utc(started_value)
                 started_ticks = parse_utc_ticks(started_value)
-                completed_at = parse_utc(test.get("completed_at_utc"))
-                finished_at = parse_utc(test.get("finished_at_utc")) if test.get("finished_at_utc") is not None else completed_at
+                completed_ticks = parse_utc_ticks(test.get("completed_at_utc"))
+                finished_ticks = parse_utc_ticks(test.get("finished_at_utc")) if test.get("finished_at_utc") is not None else completed_ticks
             except (TypeError, ValueError):
                 return {"ready": False, "reason": "authority_timestamp_invalid"}
-            if started_at > completed_at or finished_at != completed_at:
+            if started_ticks > completed_ticks or finished_ticks != completed_ticks:
                 return {"ready": False, "reason": "test_completion_timestamp_mismatch"}
             if candidate_generated_ticks > started_ticks or candidate_updated_ticks > started_ticks:
                 return {"ready": False, "reason": "candidate_published_after_required_test_start"}
@@ -528,8 +513,8 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
                 or file_sha256(evidence_path) != evidence_sha256
             ):
                 return {"ready": False, "reason": "test_evidence_hash_or_size_mismatch"}
-            evidence_modified = datetime.fromtimestamp(os.path.getmtime(evidence_path), tz=timezone.utc)
-            if evidence_modified > completed_at:
+            evidence_modified_ns = os.stat(evidence_path).st_mtime_ns
+            if evidence_modified_ns > completed_ticks * 100:
                 return {"ready": False, "reason": "test_evidence_modified_after_completion"}
             archive_member = f"verification_evidence/{run_id}/{os.path.basename(evidence_path)}"
             if archive_member in archive_members:
@@ -542,13 +527,12 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
                 "size_bytes": evidence_size,
                 "archive_member": archive_member,
             })
-            evidence_times.append(completed_at)
-        if max(evidence_times) > receipt_completed or receipt_completed > compiled_at or compiled_at > stop_at:
+            evidence_ticks.append(completed_ticks)
+        if max(evidence_ticks) > receipt_completed_ticks or receipt_completed_ticks > compiled_at_ticks or compiled_at_ticks > stop_ticks:
             return {"ready": False, "reason": "authority_not_fresh_for_stop"}
 
         for path in (receipt_path, paths["run_result"], paths["candidate"], paths["candidate_status"]):
-            modified_at = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
-            if modified_at > stop_at:
+            if os.stat(path).st_mtime_ns > stop_ticks * 100:
                 return {"ready": False, "reason": "authority_modified_after_stop"}
 
         return {

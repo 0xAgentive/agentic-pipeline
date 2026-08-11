@@ -414,12 +414,23 @@ try {
   Assert-True ($LocalizedRejected.ExitCode -ne 0 -and ($LocalizedRejected.StdErr + $LocalizedRejected.StdOut) -match 'RESULT_AUTHORITY_CANDIDATE_BINDING') 'Localized candidate timestamp was accepted as UTC authority.'
   Assert-NoCompilerWrites $LocalizedTimestamp
 
-  $PostTestCandidate = New-Fixture 'candidate-after-required-test-start'
+  $BeforeTestCandidate = New-Fixture 'candidate-one-tick-before-required-test-start'
+  $BeforeTestReceipt = Get-Content -LiteralPath $BeforeTestCandidate.ReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $BeforeRequiredStarted = [DateTimeOffset]::Parse([string]$BeforeTestReceipt.tests[0].started_at_utc, [Globalization.CultureInfo]::InvariantCulture)
+  $OneTickBefore = $BeforeRequiredStarted.AddTicks(-1).ToString('o')
+  Set-FixtureCandidateTimes $BeforeTestCandidate $OneTickBefore $OneTickBefore
+  $BeforeTestAccepted = Invoke-Compiler $BeforeTestCandidate.Project $BeforeTestCandidate.ReceiptPath -Apply
+  Assert-True ($BeforeTestAccepted.ExitCode -eq 0) "Candidate published one 100ns tick before a required test started was rejected: $($BeforeTestAccepted.StdErr)"
+  $BeforeWorkerValidation = Invoke-WorkerAuthorityValidator $BeforeTestCandidate
+  Assert-True ($BeforeWorkerValidation.ExitCode -eq 0 -and (($BeforeWorkerValidation.StdOut | ConvertFrom-Json).ready -eq $true)) "Compiler/worker roundtrip lost the accepted one-tick causal boundary: stdout=$($BeforeWorkerValidation.StdOut) stderr=$($BeforeWorkerValidation.StdErr)"
+
+  $PostTestCandidate = New-Fixture 'candidate-one-tick-after-required-test-start'
   $PostTestReceipt = Get-Content -LiteralPath $PostTestCandidate.ReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
   $RequiredStarted = [DateTimeOffset]::Parse([string]$PostTestReceipt.tests[0].started_at_utc, [Globalization.CultureInfo]::InvariantCulture)
-  Set-FixtureCandidateTimes $PostTestCandidate ($RequiredStarted.AddSeconds(1).ToString('o')) ($RequiredStarted.AddSeconds(2).ToString('o'))
+  $OneTickAfter = $RequiredStarted.AddTicks(1).ToString('o')
+  Set-FixtureCandidateTimes $PostTestCandidate $OneTickAfter $OneTickAfter
   $PostTestRejected = Invoke-Compiler $PostTestCandidate.Project $PostTestCandidate.ReceiptPath -Apply
-  Assert-True ($PostTestRejected.ExitCode -ne 0 -and ($PostTestRejected.StdErr + $PostTestRejected.StdOut) -match 'RESULT_AUTHORITY_CANDIDATE_TEST_ORDER') 'Candidate published after a required test started was accepted.'
+  Assert-True ($PostTestRejected.ExitCode -ne 0 -and ($PostTestRejected.StdErr + $PostTestRejected.StdOut) -match 'RESULT_AUTHORITY_CANDIDATE_TEST_ORDER') 'Candidate published one 100ns tick after a required test started was accepted.'
   Assert-NoCompilerWrites $PostTestCandidate
 
   $MissingStart = New-Fixture 'required-test-start-missing'
@@ -436,6 +447,20 @@ try {
   Write-Json $OptionalReceiptPath $MissingStartReceipt
   $OptionalSchema = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$ReceiptSchema,'--file',$OptionalReceiptPath)
   Assert-True ($OptionalSchema.ExitCode -eq 0) "Receipt schema rejected an optional test without started_at_utc: $($OptionalSchema.StdErr)"
+
+  $LocalizedReceiptPath = Join-Path $MissingStart.Agy 'localized-timestamp-receipt.json'
+  $LocalizedReceipt = Get-Content -LiteralPath $OptionalReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $LocalizedReceipt.completed_at_utc = '08/11/2026 03:38:33'
+  Write-Json $LocalizedReceiptPath $LocalizedReceipt
+  $LocalizedReceiptSchema = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$ReceiptSchema,'--file',$LocalizedReceiptPath)
+  Assert-True ($LocalizedReceiptSchema.ExitCode -ne 0) 'Receipt schema accepted a localized authority timestamp.'
+
+  $ZonelessReceiptPath = Join-Path $MissingStart.Agy 'zoneless-timestamp-receipt.json'
+  $ZonelessReceipt = Get-Content -LiteralPath $OptionalReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $ZonelessReceipt.tests[0].completed_at_utc = '2026-08-11T03:38:33.0000000'
+  Write-Json $ZonelessReceiptPath $ZonelessReceipt
+  $ZonelessReceiptSchema = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$ReceiptSchema,'--file',$ZonelessReceiptPath)
+  Assert-True ($ZonelessReceiptSchema.ExitCode -ne 0) 'Receipt schema accepted a zoneless authority timestamp.'
 
   $Valid = New-Fixture 'valid-transaction'
   $SchemaValid = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$ReceiptSchema,'--file',$Valid.ReceiptPath)
@@ -456,6 +481,18 @@ try {
   Assert-True ([string]$Run.verification_receipt.path -ceq '.agy/VERIFICATION_RECEIPT.json' -and [string]$Run.verification_receipt.sha256 -ceq (Get-Sha256 $Valid.ReceiptPath) -and [string]$Run.verification_receipt.work_item_id -ceq [string]$Valid.WorkItem.work_item_id -and [string]$Run.verification_receipt.head -ceq $Valid.Head) 'RUN_RESULT receipt provenance is incomplete or unbound.'
   $RunSchemaValid = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$RunResultSchema,'--file',(Join-Path $Valid.Agy 'RUN_RESULT.json'))
   Assert-True ($RunSchemaValid.ExitCode -eq 0) "Compiler RUN_RESULT failed schema validation: $($RunSchemaValid.StdErr)"
+  $LocalizedRunPath = Join-Path $TempRoot 'localized-timestamp-run-result.json'
+  $LocalizedRun = $Run | ConvertTo-Json -Depth 80 | ConvertFrom-Json -DateKind String
+  $LocalizedRun.generated_at_utc = '08/11/2026 03:38:33'
+  Write-Json $LocalizedRunPath $LocalizedRun
+  $LocalizedRunSchema = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$RunResultSchema,'--file',$LocalizedRunPath)
+  Assert-True ($LocalizedRunSchema.ExitCode -ne 0) 'RUN_RESULT schema accepted a localized authority timestamp.'
+  $ZonelessRunPath = Join-Path $TempRoot 'zoneless-timestamp-run-result.json'
+  $ZonelessRun = $Run | ConvertTo-Json -Depth 80 | ConvertFrom-Json -DateKind String
+  $ZonelessRun.tests[0].started_at_utc = '2026-08-11T03:38:33.0000000'
+  Write-Json $ZonelessRunPath $ZonelessRun
+  $ZonelessRunSchema = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$RunResultSchema,'--file',$ZonelessRunPath)
+  Assert-True ($ZonelessRunSchema.ExitCode -ne 0) 'RUN_RESULT schema accepted a zoneless authority timestamp.'
   $WorkerValidation = Invoke-WorkerAuthorityValidator $Valid
   Assert-True ($WorkerValidation.ExitCode -eq 0 -and (($WorkerValidation.StdOut | ConvertFrom-Json).ready -eq $true)) "Compiler output was rejected by Context Handoff authority validation: stdout=$($WorkerValidation.StdOut) stderr=$($WorkerValidation.StdErr)"
   $BeforeSecond = @(Get-OutputSnapshot $Valid)

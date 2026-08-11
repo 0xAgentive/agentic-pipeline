@@ -1837,7 +1837,12 @@ def test_T72_compiler_optional_test_defaults_are_semantically_bound():
 
 
 def test_T73_candidate_timestamp_and_required_test_order_are_fail_closed():
-    from run_ag_handoff_worker import validate_authority_freshness
+    from run_ag_handoff_worker import parse_utc_ticks, validate_authority_freshness
+
+    def format_utc_ticks(ticks):
+        whole_seconds, fraction_ticks = divmod(ticks, 10_000_000)
+        moment = datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=whole_seconds)
+        return moment.strftime("%Y-%m-%dT%H:%M:%S") + f".{fraction_ticks:07d}Z"
 
     def rebind(fixture, generated_at=None, status_at=None, remove_started=False):
         with open(fixture["candidate_path"], "r", encoding="utf-8") as handle:
@@ -1882,19 +1887,72 @@ def test_T73_candidate_timestamp_and_required_test_order_are_fail_closed():
     localized_result = validate(localized)
     assert localized_result == {"ready": False, "reason": "candidate_timestamp_invalid"}, localized_result
 
+    zoneless_env = setup_temp_env()
+    zoneless = create_authority_fixture(zoneless_env, "conv-zoneless-candidate-time")
+    rebind(zoneless, generated_at="2026-08-11T03:38:33.0000000")
+    zoneless_result = validate(zoneless)
+    assert zoneless_result == {"ready": False, "reason": "candidate_timestamp_invalid"}, zoneless_result
+
+    before_env = setup_temp_env()
+    before = create_authority_fixture(before_env, "conv-candidate-one-tick-before-test-start")
+    with open(before["receipt_path"], "r", encoding="utf-8") as handle:
+        before_receipt = json.load(handle)
+    started_ticks = parse_utc_ticks(before_receipt["tests"][0]["started_at_utc"])
+    one_tick_before = format_utc_ticks(started_ticks - 1)
+    rebind(before, generated_at=one_tick_before, status_at=one_tick_before)
+    before_result = validate(before)
+    assert before_result.get("ready") is True, before_result
+
     order_env = setup_temp_env()
-    ordered = create_authority_fixture(order_env, "conv-candidate-after-test-start")
+    ordered = create_authority_fixture(order_env, "conv-candidate-one-tick-after-test-start")
     with open(ordered["receipt_path"], "r", encoding="utf-8") as handle:
         ordered_receipt = json.load(handle)
-    test_started = datetime.fromisoformat(ordered_receipt["tests"][0]["started_at_utc"])
-    candidate_after_start = (test_started + timedelta(seconds=1)).isoformat()
-    status_after_start = (test_started + timedelta(seconds=2)).isoformat()
-    rebind(ordered, generated_at=candidate_after_start, status_at=status_after_start)
+    started_ticks = parse_utc_ticks(ordered_receipt["tests"][0]["started_at_utc"])
+    one_tick_after = format_utc_ticks(started_ticks + 1)
+    rebind(ordered, generated_at=one_tick_after, status_at=one_tick_after)
     order_result = validate(ordered)
     assert order_result == {
         "ready": False,
         "reason": "candidate_published_after_required_test_start",
     }, order_result
+
+    binding_env = setup_temp_env()
+    binding = create_authority_fixture(binding_env, "conv-receipt-binding-one-tick-apart")
+    with open(binding["run_result_path"], "r", encoding="utf-8") as handle:
+        binding_run = json.load(handle)
+    binding_ticks = parse_utc_ticks(binding_run["verification_receipt"]["completed_at_utc"])
+    binding_run["verification_receipt"]["completed_at_utc"] = format_utc_ticks(binding_ticks + 1)
+    write_json(binding["run_result_path"], binding_run)
+    binding_result = validate(binding)
+    assert binding_result == {"ready": False, "reason": "authority_timestamp_binding_mismatch"}, binding_result
+
+    compiled_env = setup_temp_env()
+    compiled = create_authority_fixture(compiled_env, "conv-compiler-time-one-tick-apart")
+    with open(compiled["run_result_path"], "r", encoding="utf-8") as handle:
+        compiled_run = json.load(handle)
+    compiled_ticks = parse_utc_ticks(compiled_run["generated_at_utc"])
+    compiled_run["compiled_at_utc"] = format_utc_ticks(compiled_ticks + 1)
+    write_json(compiled["run_result_path"], compiled_run)
+    compiled_result = validate(compiled)
+    assert compiled_result == {"ready": False, "reason": "authority_timestamp_binding_mismatch"}, compiled_result
+
+    freshness_env = setup_temp_env()
+    freshness = create_authority_fixture(freshness_env, "conv-receipt-one-tick-after-compile")
+    with open(freshness["receipt_path"], "r", encoding="utf-8") as handle:
+        freshness_receipt = json.load(handle)
+    with open(freshness["run_result_path"], "r", encoding="utf-8") as handle:
+        freshness_run = json.load(handle)
+    freshness_ticks = parse_utc_ticks(freshness_run["compiled_at_utc"]) + 1
+    freshness_text = format_utc_ticks(freshness_ticks)
+    freshness_receipt["completed_at_utc"] = freshness_text
+    write_json(freshness["receipt_path"], freshness_receipt)
+    freshness_run["verification_receipt"]["completed_at_utc"] = freshness_text
+    freshness_run["verification_receipt"]["sha256"] = hashlib.sha256(
+        open(freshness["receipt_path"], "rb").read()
+    ).hexdigest()
+    write_json(freshness["run_result_path"], freshness_run)
+    freshness_result = validate(freshness)
+    assert freshness_result == {"ready": False, "reason": "authority_not_fresh_for_stop"}, freshness_result
 
     missing_env = setup_temp_env()
     missing = create_authority_fixture(missing_env, "conv-required-test-start-missing")
@@ -1903,7 +1961,12 @@ def test_T73_candidate_timestamp_and_required_test_order_are_fail_closed():
     assert missing_result == {"ready": False, "reason": "required_test_start_missing"}, missing_result
 
     teardown_temp_env(localized_env)
+    teardown_temp_env(zoneless_env)
+    teardown_temp_env(before_env)
     teardown_temp_env(order_env)
+    teardown_temp_env(binding_env)
+    teardown_temp_env(compiled_env)
+    teardown_temp_env(freshness_env)
     teardown_temp_env(missing_env)
 
 

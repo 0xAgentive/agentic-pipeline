@@ -91,7 +91,9 @@ const SUPPORTED_SCHEMA_KEYS = new Set([
   'minItems',
   'minimum',
   'maximum',
-  'uniqueItems'
+  'uniqueItems',
+  'if',
+  'then'
 ]);
 
 function assertSupportedSchema(schema, location = '$') {
@@ -113,6 +115,13 @@ function assertSupportedSchema(schema, location = '$') {
   }
   if (schema.items !== undefined) {
     assertSupportedSchema(schema.items, `${location}.items`);
+  }
+  if (schema.if !== undefined) {
+    assertSupportedSchema(schema.if, `${location}.if`);
+  }
+  if (schema.then !== undefined) {
+    if (schema.if === undefined) throw new Error(`${location}.then requires an if schema`);
+    assertSupportedSchema(schema.then, `${location}.then`);
   }
 }
 
@@ -216,6 +225,10 @@ function validateValue(schema, value, location = '$') {
     }
   }
 
+  if (schema.if !== undefined && validateValue(schema.if, value, location).length === 0 && schema.then !== undefined) {
+    errors.push(...validateValue(schema.then, value, location));
+  }
+
   return errors;
 }
 
@@ -241,12 +254,15 @@ function testSchemaValidator() {
     required: ['mode', 'commands'],
     properties: {
       mode: { type: 'string', enum: ['normal', 'recovery'] },
+      reason: { type: 'string', minLength: 1 },
       commands: {
         type: 'array',
         minItems: 1,
         items: { type: 'string', pattern: '^/' }
       }
-    }
+    },
+    if: { properties: { mode: { const: 'recovery' } } },
+    then: { required: ['reason'] }
   };
   const valid = { mode: 'normal', commands: ['/auditphase'] };
   const cases = [
@@ -254,7 +270,9 @@ function testSchemaValidator() {
     { id: 'missing_required', document: { commands: ['/auditphase'] }, pass: false },
     { id: 'additional_property', document: { ...valid, extra: true }, pass: false },
     { id: 'invalid_enum', document: { mode: 'invalid', commands: ['/auditphase'] }, pass: false },
-    { id: 'invalid_pattern', document: { mode: 'normal', commands: ['auditphase'] }, pass: false }
+    { id: 'invalid_pattern', document: { mode: 'normal', commands: ['auditphase'] }, pass: false },
+    { id: 'conditional_missing', document: { mode: 'recovery', commands: ['/auditphase'] }, pass: false },
+    { id: 'conditional_present', document: { mode: 'recovery', reason: 'resume', commands: ['/auditphase'] }, pass: true }
   ];
   const failures = [];
   for (const item of cases) {

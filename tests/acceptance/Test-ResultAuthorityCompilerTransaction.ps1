@@ -11,9 +11,14 @@ $CandidatePublisher = Join-Path $Root 'scripts\windows\companion\Publish-Candida
 $TemplateCandidatePublisher = Join-Path $Root 'templates\agy-project-base\scripts\windows\companion\Publish-CandidateManifest.ps1'
 $ReceiptSchema = Join-Path $Root 'schemas\companion\verification-receipt.schema.json'
 $TemplateReceiptSchema = Join-Path $Root 'templates\agy-project-base\schemas\companion\verification-receipt.schema.json'
+$RunResultSchema = Join-Path $Root 'schemas\companion\run-result.schema.json'
+$WorkerSource = Join-Path $Root 'integrations\companion-handoff-1.2.21\source\src'
 $CompanionControl = Join-Path $Root 'scripts\companion\companion-control.cjs'
 $Pwsh = (Get-Command pwsh -ErrorAction Stop).Source
 $Node = (Get-Command node -ErrorAction Stop).Source
+$PythonCommand = Get-Command python -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($null -eq $PythonCommand) { $PythonCommand = Get-Command python3 -ErrorAction Stop | Select-Object -First 1 }
+$Python = $PythonCommand.Source
 $Utf8 = [Text.UTF8Encoding]::new($false)
 $Assertions = 0
 $CompilerHandles = [Collections.Generic.List[object]]::new()
@@ -35,6 +40,40 @@ function Write-Json {
 function Get-Sha256 {
   param([string]$Path)
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Set-FixtureCandidateTimes {
+  param($Fixture, [string]$GeneratedAt, [string]$UpdatedAt)
+  $CandidatePath = Join-Path $Fixture.Agy 'CANDIDATE_MANIFEST.json'
+  $StatusPath = Join-Path $Fixture.Agy 'CANDIDATE_MANIFEST_STATUS.json'
+  $Candidate = Get-Content -LiteralPath $CandidatePath -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $Candidate.generated_at_utc = $GeneratedAt
+  Write-Json $CandidatePath $Candidate
+  $CandidateHash = Get-Sha256 $CandidatePath
+  $Status = Get-Content -LiteralPath $StatusPath -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $Status.manifest_sha256 = $CandidateHash
+  $Status.updated_at_utc = $UpdatedAt
+  Write-Json $StatusPath $Status
+  $Receipt = Get-Content -LiteralPath $Fixture.ReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $Receipt.candidate_manifest_sha256 = $CandidateHash
+  Write-Json $Fixture.ReceiptPath $Receipt
+}
+
+function Invoke-WorkerAuthorityValidator {
+  param($Fixture)
+  $Code = @'
+import json
+import sys
+sys.path.insert(0, sys.argv[1])
+from run_ag_handoff_worker import validate_authority_freshness
+result = validate_authority_freshness(
+    {"workspacePaths": [sys.argv[2]], "fullyIdle": True},
+    sys.argv[3],
+)
+print(json.dumps(result, ensure_ascii=True, sort_keys=True))
+raise SystemExit(0 if result.get("ready") else 2)
+'@
+  return Invoke-AgenticNativeProcess -FilePath $Python -ArgumentList @('-B','-c',$Code,$WorkerSource,$Fixture.Project,[DateTimeOffset]::UtcNow.AddMinutes(1).ToString('o')) -WorkingDirectory $Fixture.Project
 }
 
 function Test-CandidatePublisherMultiRecord {
@@ -76,12 +115,17 @@ function Test-CandidatePublisherMultiRecord {
   Assert-True (@(Compare-Object @('.agy/EXECUTION_LEASE.json','outside/ambient.txt') $ActualAmbient -CaseSensitive).Count -eq 0) "Candidate publisher emitted the wrong ambient path set: $($ActualAmbient -join ', ')"
   Assert-True (@($Plan.manifest.control_plane_files | Where-Object { [string]$_.path -ceq '.agy/NEXT_ACTION.json' }).Count -eq 0) 'Candidate publisher bound compiler-owned NEXT_ACTION as an immutable payload authority input.'
 
+  $ReceiptSentinelPath = Join-Path $Project '.agy/VERIFICATION_RECEIPT.json'
+  Write-Json $ReceiptSentinelPath ([ordered]@{schema_version='1.0.0';candidate_manifest_sha256=('0' * 64);changed_files=@('sentinel.txt');completed_at_utc='2026-08-11T00:00:00.0000000Z'})
+  $ReceiptSentinelBytes = [Convert]::ToBase64String([IO.File]::ReadAllBytes($ReceiptSentinelPath))
+  $ReceiptSentinelMtime = (Get-Item -LiteralPath $ReceiptSentinelPath).LastWriteTimeUtc.Ticks
   $Apply = Invoke-AgenticNativeProcess -FilePath $Pwsh -ArgumentList ($Arguments + '-Apply')
   Assert-True ($Apply.ExitCode -eq 0) "Candidate publisher multi-record apply failed: $($Apply.StdErr)"
   $Published = Get-Content -LiteralPath (Join-Path $Project '.agy/CANDIDATE_MANIFEST.json') -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
   $PublishedStatus = Get-Content -LiteralPath (Join-Path $Project '.agy/CANDIDATE_MANIFEST_STATUS.json') -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
   Assert-True (@($Published.candidate_files).Count -eq 4 -and [int]$PublishedStatus.candidate_file_count -eq 4) 'Published candidate manifest lost multi-record Git state.'
   Assert-True ([string]$PublishedStatus.manifest_sha256 -ceq (Get-Sha256 (Join-Path $Project '.agy/CANDIDATE_MANIFEST.json'))) 'Published candidate status is not bound to exact manifest bytes.'
+  Assert-True ([Convert]::ToBase64String([IO.File]::ReadAllBytes($ReceiptSentinelPath)) -ceq $ReceiptSentinelBytes -and (Get-Item -LiteralPath $ReceiptSentinelPath).LastWriteTimeUtc.Ticks -eq $ReceiptSentinelMtime) 'Candidate publisher mutated or rebound an existing verification receipt.'
 }
 
 function Invoke-Compiler {
@@ -250,8 +294,8 @@ function Update-FixtureAuthority {
   param($Fixture)
   $Fixture.Revision++
   $Now = [DateTimeOffset]::UtcNow
-  $CandidateTime = $Now.AddSeconds(-3)
-  $StatusTime = $Now.AddSeconds(-2)
+  $CandidateTime = $Now.AddMinutes(-4)
+  $StatusTime = $Now.AddMinutes(-3).AddSeconds(-30)
   $ReceiptTime = $Now.AddSeconds(-1)
   $Fixture.Progress.observations_count = $Fixture.Revision
   $Fixture.Progress.updated_at_utc = $CandidateTime.ToString('o')
@@ -363,6 +407,36 @@ try {
   Assert-True ($EvidenceRejected.ExitCode -ne 0 -and ($EvidenceRejected.StdErr + $EvidenceRejected.StdOut) -match 'RESULT_AUTHORITY_TEST_EVIDENCE') 'Mutated test evidence was not rejected before writes.'
   Assert-NoCompilerWrites $EvidenceTamper
 
+  $LocalizedTimestamp = New-Fixture 'localized-candidate-timestamp'
+  $LocalizedStatus = Get-Content -LiteralPath (Join-Path $LocalizedTimestamp.Agy 'CANDIDATE_MANIFEST_STATUS.json') -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  Set-FixtureCandidateTimes $LocalizedTimestamp '08/11/2026 03:38:33' ([string]$LocalizedStatus.updated_at_utc)
+  $LocalizedRejected = Invoke-Compiler $LocalizedTimestamp.Project $LocalizedTimestamp.ReceiptPath -Apply
+  Assert-True ($LocalizedRejected.ExitCode -ne 0 -and ($LocalizedRejected.StdErr + $LocalizedRejected.StdOut) -match 'RESULT_AUTHORITY_CANDIDATE_BINDING') 'Localized candidate timestamp was accepted as UTC authority.'
+  Assert-NoCompilerWrites $LocalizedTimestamp
+
+  $PostTestCandidate = New-Fixture 'candidate-after-required-test-start'
+  $PostTestReceipt = Get-Content -LiteralPath $PostTestCandidate.ReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $RequiredStarted = [DateTimeOffset]::Parse([string]$PostTestReceipt.tests[0].started_at_utc, [Globalization.CultureInfo]::InvariantCulture)
+  Set-FixtureCandidateTimes $PostTestCandidate ($RequiredStarted.AddSeconds(1).ToString('o')) ($RequiredStarted.AddSeconds(2).ToString('o'))
+  $PostTestRejected = Invoke-Compiler $PostTestCandidate.Project $PostTestCandidate.ReceiptPath -Apply
+  Assert-True ($PostTestRejected.ExitCode -ne 0 -and ($PostTestRejected.StdErr + $PostTestRejected.StdOut) -match 'RESULT_AUTHORITY_CANDIDATE_TEST_ORDER') 'Candidate published after a required test started was accepted.'
+  Assert-NoCompilerWrites $PostTestCandidate
+
+  $MissingStart = New-Fixture 'required-test-start-missing'
+  $MissingStartReceipt = Get-Content -LiteralPath $MissingStart.ReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
+  $MissingStartReceipt.tests[0].PSObject.Properties.Remove('started_at_utc')
+  Write-Json $MissingStart.ReceiptPath $MissingStartReceipt
+  $MissingStartSchema = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$ReceiptSchema,'--file',$MissingStart.ReceiptPath)
+  Assert-True ($MissingStartSchema.ExitCode -ne 0) 'Receipt schema accepted a required test without started_at_utc.'
+  $MissingStartRejected = Invoke-Compiler $MissingStart.Project $MissingStart.ReceiptPath -Apply
+  Assert-True ($MissingStartRejected.ExitCode -ne 0 -and ($MissingStartRejected.StdErr + $MissingStartRejected.StdOut) -match 'RESULT_AUTHORITY_TEST_BINDING') 'Compiler accepted a required test without started_at_utc.'
+  Assert-NoCompilerWrites $MissingStart
+  $OptionalReceiptPath = Join-Path $MissingStart.Agy 'optional-test-receipt.json'
+  $MissingStartReceipt.tests[0].required = $false
+  Write-Json $OptionalReceiptPath $MissingStartReceipt
+  $OptionalSchema = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$ReceiptSchema,'--file',$OptionalReceiptPath)
+  Assert-True ($OptionalSchema.ExitCode -eq 0) "Receipt schema rejected an optional test without started_at_utc: $($OptionalSchema.StdErr)"
+
   $Valid = New-Fixture 'valid-transaction'
   $SchemaValid = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$ReceiptSchema,'--file',$Valid.ReceiptPath)
   Assert-True ($SchemaValid.ExitCode -eq 0) "Valid verification receipt failed schema validation: $($SchemaValid.StdErr)"
@@ -380,6 +454,10 @@ try {
   Assert-True ([Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $Valid.Agy 'VERIFICATION_RECEIPT.json'))) -ceq [Convert]::ToBase64String($InputReceiptBytes)) 'Canonical verification receipt is not byte-identical to the validated source receipt.'
   $Run = Get-Content -LiteralPath (Join-Path $Valid.Agy 'RUN_RESULT.json') -Raw -Encoding UTF8 | ConvertFrom-Json -DateKind String
   Assert-True ([string]$Run.verification_receipt.path -ceq '.agy/VERIFICATION_RECEIPT.json' -and [string]$Run.verification_receipt.sha256 -ceq (Get-Sha256 $Valid.ReceiptPath) -and [string]$Run.verification_receipt.work_item_id -ceq [string]$Valid.WorkItem.work_item_id -and [string]$Run.verification_receipt.head -ceq $Valid.Head) 'RUN_RESULT receipt provenance is incomplete or unbound.'
+  $RunSchemaValid = Invoke-AgenticNativeProcess -FilePath $Node -ArgumentList @($CompanionControl,'validate-json','--schema',$RunResultSchema,'--file',(Join-Path $Valid.Agy 'RUN_RESULT.json'))
+  Assert-True ($RunSchemaValid.ExitCode -eq 0) "Compiler RUN_RESULT failed schema validation: $($RunSchemaValid.StdErr)"
+  $WorkerValidation = Invoke-WorkerAuthorityValidator $Valid
+  Assert-True ($WorkerValidation.ExitCode -eq 0 -and (($WorkerValidation.StdOut | ConvertFrom-Json).ready -eq $true)) "Compiler output was rejected by Context Handoff authority validation: stdout=$($WorkerValidation.StdOut) stderr=$($WorkerValidation.StdErr)"
   $BeforeSecond = @(Get-OutputSnapshot $Valid)
   Start-Sleep -Milliseconds 1100
   $Second = Invoke-Compiler $Valid.Project $Valid.ReceiptPath -Apply

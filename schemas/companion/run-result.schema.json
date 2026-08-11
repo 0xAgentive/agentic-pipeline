@@ -230,6 +230,24 @@
           "required",
           "exit_code"
         ],
+        "if": {
+          "properties": {
+            "required": {
+              "const": true
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "started_at_utc"
+          ],
+          "properties": {
+            "started_at_utc": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
         "properties": {
           "run_id": {
             "type": "string",

@@ -73,6 +73,18 @@
           "evidence_sha256",
           "evidence_size_bytes"
         ],
+        "if": {
+          "properties": {
+            "required": {
+              "const": true
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "started_at_utc"
+          ]
+        },
         "properties": {
           "run_id": {
             "type": "string",

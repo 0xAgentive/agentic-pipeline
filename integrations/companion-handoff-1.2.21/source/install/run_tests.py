@@ -102,7 +102,7 @@ def create_authority_fixture(env, conversation_id="conv-authority"):
     work_item_id = "wi-current-authority"
     lease_id = "lease-current-authority"
     now = datetime.now(timezone.utc)
-    candidate_time = now - timedelta(seconds=30)
+    candidate_time = now - timedelta(minutes=2)
     test_time = now - timedelta(seconds=20)
     receipt_time = now - timedelta(seconds=10)
     compiled_time = now - timedelta(seconds=5)
@@ -1836,6 +1836,77 @@ def test_T72_compiler_optional_test_defaults_are_semantically_bound():
     teardown_temp_env(env)
 
 
+def test_T73_candidate_timestamp_and_required_test_order_are_fail_closed():
+    from run_ag_handoff_worker import validate_authority_freshness
+
+    def rebind(fixture, generated_at=None, status_at=None, remove_started=False):
+        with open(fixture["candidate_path"], "r", encoding="utf-8") as handle:
+            candidate = json.load(handle)
+        with open(fixture["candidate_status_path"], "r", encoding="utf-8") as handle:
+            candidate_status = json.load(handle)
+        with open(fixture["receipt_path"], "r", encoding="utf-8") as handle:
+            receipt = json.load(handle)
+        with open(fixture["run_result_path"], "r", encoding="utf-8") as handle:
+            run_result = json.load(handle)
+
+        if generated_at is not None:
+            candidate["generated_at_utc"] = generated_at
+        write_json(fixture["candidate_path"], candidate)
+        candidate_hash = hashlib.sha256(open(fixture["candidate_path"], "rb").read()).hexdigest()
+        candidate_status["manifest_sha256"] = candidate_hash
+        if status_at is not None:
+            candidate_status["updated_at_utc"] = status_at
+        write_json(fixture["candidate_status_path"], candidate_status)
+
+        receipt["candidate_manifest_sha256"] = candidate_hash
+        run_result["verification_receipt"]["candidate_manifest_sha256"] = candidate_hash
+        if remove_started:
+            receipt["tests"][0].pop("started_at_utc", None)
+            run_result["tests"][0]["started_at_utc"] = None
+        write_json(fixture["receipt_path"], receipt)
+        receipt_hash = hashlib.sha256(open(fixture["receipt_path"], "rb").read()).hexdigest()
+        run_result["verification_receipt"]["sha256"] = receipt_hash
+        write_json(fixture["run_result_path"], run_result)
+        return receipt
+
+    def validate(fixture):
+        return validate_authority_freshness(
+            fixture["queue_item"]["stop_payload"],
+            fixture["queue_item"]["received_at_utc"],
+            git_identity_getter=lambda _workspace: {"branch": "main", "head": "a" * 40},
+        )
+
+    localized_env = setup_temp_env()
+    localized = create_authority_fixture(localized_env, "conv-localized-candidate-time")
+    rebind(localized, generated_at="08/11/2026 03:38:33")
+    localized_result = validate(localized)
+    assert localized_result == {"ready": False, "reason": "candidate_timestamp_invalid"}, localized_result
+
+    order_env = setup_temp_env()
+    ordered = create_authority_fixture(order_env, "conv-candidate-after-test-start")
+    with open(ordered["receipt_path"], "r", encoding="utf-8") as handle:
+        ordered_receipt = json.load(handle)
+    test_started = datetime.fromisoformat(ordered_receipt["tests"][0]["started_at_utc"])
+    candidate_after_start = (test_started + timedelta(seconds=1)).isoformat()
+    status_after_start = (test_started + timedelta(seconds=2)).isoformat()
+    rebind(ordered, generated_at=candidate_after_start, status_at=status_after_start)
+    order_result = validate(ordered)
+    assert order_result == {
+        "ready": False,
+        "reason": "candidate_published_after_required_test_start",
+    }, order_result
+
+    missing_env = setup_temp_env()
+    missing = create_authority_fixture(missing_env, "conv-required-test-start-missing")
+    rebind(missing, remove_started=True)
+    missing_result = validate(missing)
+    assert missing_result == {"ready": False, "reason": "required_test_start_missing"}, missing_result
+
+    teardown_temp_env(localized_env)
+    teardown_temp_env(order_env)
+    teardown_temp_env(missing_env)
+
+
 def main():
     print("Running Tests...\n")
     tests = [
@@ -1911,6 +1982,7 @@ def main():
         ("T70", test_T70_atomic_publish_rollback_and_reader_never_observes_partial_bytes),
         ("T71", test_T71_bounded_quiescence_requires_stability_and_times_out_closed),
         ("T72", test_T72_compiler_optional_test_defaults_are_semantically_bound),
+        ("T73", test_T73_candidate_timestamp_and_required_test_order_are_fail_closed),
     ]
 
     for name, func in tests:

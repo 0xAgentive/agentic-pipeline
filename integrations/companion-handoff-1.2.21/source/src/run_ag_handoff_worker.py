@@ -17,6 +17,10 @@ import re
 import stat
 from datetime import datetime, timezone
 
+UTC_TIMESTAMP_PATTERN = re.compile(
+    r"(?P<base>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(?P<fraction>\d{1,7}))?(?P<zone>Z|[+-]\d{2}:\d{2})"
+)
+
 def is_pid_running(pid):
     try:
         PROCESS_QUERY_INFORMATION = 0x0400
@@ -108,22 +112,20 @@ def wait_for_quiescence(
 def parse_utc(value):
     if not isinstance(value, str) or not value.strip():
         raise ValueError("missing_timestamp")
-    normalized = value.strip()
-    if normalized.endswith("Z"):
-        normalized = normalized[:-1] + "+00:00"
+    match = UTC_TIMESTAMP_PATTERN.fullmatch(value.strip())
+    if not match:
+        raise ValueError("invalid_timestamp")
+    zone = "+00:00" if match.group("zone") == "Z" else match.group("zone")
+    fraction = f".{match.group('fraction')}" if match.group("fraction") else ""
+    normalized = match.group("base") + fraction + zone
     parsed = datetime.fromisoformat(normalized)
-    if parsed.tzinfo is None:
-        raise ValueError("timestamp_without_timezone")
     return parsed.astimezone(timezone.utc)
 
 def parse_utc_ticks(value):
     """Parse an ISO-8601 timestamp without discarding PowerShell's seventh tick."""
     if not isinstance(value, str) or not value.strip():
         raise ValueError("missing_timestamp")
-    match = re.fullmatch(
-        r"(?P<base>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(?P<fraction>\d{1,7}))?(?P<zone>Z|[+-]\d{2}:\d{2})",
-        value.strip(),
-    )
+    match = UTC_TIMESTAMP_PATTERN.fullmatch(value.strip())
     if not match:
         raise ValueError("invalid_timestamp")
     zone = "+00:00" if match.group("zone") == "Z" else match.group("zone")
@@ -272,7 +274,10 @@ def is_safe_verification_evidence_path(relative_path):
 def validate_authority_freshness(stop_payload, received_at_utc, git_identity_getter=None):
     """Bind publication to the current work item, candidate and exact test receipt."""
     try:
-        stop_at = parse_utc(received_at_utc)
+        try:
+            stop_at = parse_utc(received_at_utc)
+        except (TypeError, ValueError):
+            return {"ready": False, "reason": "authority_timestamp_invalid"}
         workspace_candidates = []
         for value in stop_payload.get("workspacePaths", []) or []:
             if not value:
@@ -469,12 +474,20 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
         if not required_tests:
             return {"ready": False, "reason": "required_verification_tests_missing"}
 
-        receipt_completed = parse_utc(receipt.get("completed_at_utc"))
-        binding_completed = parse_utc(binding.get("completed_at_utc"))
-        compiled_at = parse_utc(run_result.get("compiled_at_utc"))
-        generated_at = parse_utc(run_result.get("generated_at_utc"))
-        candidate_generated = parse_utc(candidate.get("generated_at_utc"))
-        candidate_updated = parse_utc(candidate_status.get("updated_at_utc"))
+        try:
+            receipt_completed = parse_utc(receipt.get("completed_at_utc"))
+            binding_completed = parse_utc(binding.get("completed_at_utc"))
+            compiled_at = parse_utc(run_result.get("compiled_at_utc"))
+            generated_at = parse_utc(run_result.get("generated_at_utc"))
+        except (TypeError, ValueError):
+            return {"ready": False, "reason": "authority_timestamp_invalid"}
+        try:
+            candidate_generated = parse_utc(candidate.get("generated_at_utc"))
+            candidate_updated = parse_utc(candidate_status.get("updated_at_utc"))
+            candidate_generated_ticks = parse_utc_ticks(candidate.get("generated_at_utc"))
+            candidate_updated_ticks = parse_utc_ticks(candidate_status.get("updated_at_utc"))
+        except (TypeError, ValueError):
+            return {"ready": False, "reason": "candidate_timestamp_invalid"}
         if binding_completed != receipt_completed or compiled_at != generated_at:
             return {"ready": False, "reason": "authority_timestamp_binding_mismatch"}
 
@@ -487,9 +500,20 @@ def validate_authority_freshness(stop_payload, received_at_utc, git_identity_get
                 return {"ready": False, "reason": "required_test_run_id_invalid"}
             if not isinstance(test.get("exit_code"), int) or test.get("exit_code") != 0:
                 return {"ready": False, "reason": "required_verification_test_failed"}
-            completed_at = parse_utc(test.get("completed_at_utc"))
-            if test.get("finished_at_utc") is not None and parse_utc(test.get("finished_at_utc")) != completed_at:
+            started_value = test.get("started_at_utc")
+            if not isinstance(started_value, str) or not started_value.strip():
+                return {"ready": False, "reason": "required_test_start_missing"}
+            try:
+                started_at = parse_utc(started_value)
+                started_ticks = parse_utc_ticks(started_value)
+                completed_at = parse_utc(test.get("completed_at_utc"))
+                finished_at = parse_utc(test.get("finished_at_utc")) if test.get("finished_at_utc") is not None else completed_at
+            except (TypeError, ValueError):
+                return {"ready": False, "reason": "authority_timestamp_invalid"}
+            if started_at > completed_at or finished_at != completed_at:
                 return {"ready": False, "reason": "test_completion_timestamp_mismatch"}
+            if candidate_generated_ticks > started_ticks or candidate_updated_ticks > started_ticks:
+                return {"ready": False, "reason": "candidate_published_after_required_test_start"}
             evidence_path_value = test.get("evidence_path")
             if not is_safe_verification_evidence_path(evidence_path_value):
                 return {"ready": False, "reason": "test_evidence_path_not_canonical"}

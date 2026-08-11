@@ -49,6 +49,9 @@ function Get-RequiredString {
 function Get-RequiredUtcTimestamp {
   param($Object, [Parameter(Mandatory = $true)][string]$Name, [Parameter(Mandatory = $true)][string]$Code)
   $Text = Get-RequiredString $Object $Name $Code
+  if ($Text -cnotmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|[+-]\d{2}:\d{2})$') {
+    Throw-ResultAuthorityError $Code "Property '$Name' must be an ISO-8601 timestamp with an explicit UTC offset."
+  }
   $Parsed = [DateTimeOffset]::MinValue
   $Styles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
   if (-not [DateTimeOffset]::TryParse($Text, [Globalization.CultureInfo]::InvariantCulture, $Styles, [ref]$Parsed)) {
@@ -392,6 +395,9 @@ function Get-ValidatedCompilationContext {
     $Completed = Get-RequiredUtcTimestamp $Test 'completed_at_utc' 'RESULT_AUTHORITY_TEST_BINDING'
     $StartedText = [string](Get-OptionalValue $Test 'started_at_utc' '')
     $Started = $null
+    if ($IsRequired -and [string]::IsNullOrWhiteSpace($StartedText)) {
+      Throw-ResultAuthorityError 'RESULT_AUTHORITY_TEST_BINDING' "Required test '$RunId' is missing started_at_utc."
+    }
     if (-not [string]::IsNullOrWhiteSpace($StartedText)) {
       $Temporary = [pscustomobject]@{ started_at_utc = $StartedText }
       $Started = Get-RequiredUtcTimestamp $Temporary 'started_at_utc' 'RESULT_AUTHORITY_TEST_BINDING'
@@ -416,6 +422,9 @@ function Get-ValidatedCompilationContext {
     if ($IsRequired) {
       $RequiredCount++
       if ($ExitCode -ne 0) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_TEST_FAILED' "Required test '$RunId' failed with exit code $ExitCode." }
+      if ($CandidateGenerated -gt $Started -or $CandidateUpdated -gt $Started) {
+        Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_TEST_ORDER' "Candidate authority was published after required test '$RunId' started."
+      }
     }
     $NormalizedTests += [ordered]@{
       run_id = $RunId

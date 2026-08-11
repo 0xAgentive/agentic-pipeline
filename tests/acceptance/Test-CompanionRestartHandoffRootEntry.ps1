@@ -5,7 +5,7 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $HelperPath = Join-Path $Root 'scripts\release\common\CompanionRestartHandoffArchive.ps1'
-$ProductionPath = Join-Path $Root 'scripts\release\Create-Companion-Restart-Bootstrap-v1.2.22.ps1'
+$ProductionPath = Join-Path $Root 'scripts\release\Create-Companion-Restart-Bootstrap-v1.2.23.ps1'
 $script:Assertions = 0
 
 function Assert-True {
@@ -64,6 +64,7 @@ try {
   $PositiveZip = Join-Path $TempRoot 'positive.zip'
   New-FixtureArchive -Path $PositiveZip -Entries @(
     'COMPANION_ENTRY.md',
+    'HANDOFF/COMPANION_ENTRY.md',
     'SOURCE_SNAPSHOTS/snapshot-1/.agy/COMPANION_ENTRY.md'
   )
   Test-ZipSafety -ArchivePath $PositiveZip -RequiredRootEntry 'COMPANION_ENTRY.md'
@@ -71,6 +72,7 @@ try {
   Expand-Archive -LiteralPath $PositiveZip -DestinationPath $PositiveExtract
   $Resolved = Resolve-ExactHandoffArchiveRoot -ExtractRoot $PositiveExtract
   Assert-True ([string]::Equals($Resolved, (Resolve-Path -LiteralPath $PositiveExtract).Path, [StringComparison]::OrdinalIgnoreCase)) 'Nested snapshot entry must not make the valid root entry ambiguous.'
+  Assert-True (Test-Path -LiteralPath (Join-Path $PositiveExtract 'HANDOFF\COMPANION_ENTRY.md') -PathType Leaf) 'Positive fixture must retain the restart-output HANDOFF copy.'
   Assert-True (Test-Path -LiteralPath (Join-Path $PositiveExtract 'SOURCE_SNAPSHOTS\snapshot-1\.agy\COMPANION_ENTRY.md') -PathType Leaf) 'Positive fixture must retain the nested snapshot duplicate.'
 
   $MissingZip = Join-Path $TempRoot 'missing.zip'

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.5.0",
-  "contract_id": "agentic-pipeline-runtime-routing-1.2.22",
+  "contract_id": "agentic-pipeline-runtime-routing-1.2.23",
   "protected_paths": [
     ".github/workflows/validate.yml",
     "tests/acceptance/ACCEPTANCE_CONTRACT.json",
@@ -15,10 +15,10 @@
   ],
   "implementation_forbidden_from_modifying_protected_paths": true,
   "expected_handshake_schema_version": "1.1.0",
-  "expected_package_version": "1.2.22",
-  "expected_runtime_version": "1.2.22",
-  "expected_playbook_version": "1.2.22",
-  "expected_companion_version": "1.2.22",
+  "expected_package_version": "1.2.23",
+  "expected_runtime_version": "1.2.23",
+  "expected_playbook_version": "1.2.23",
+  "expected_companion_version": "1.2.23",
   "expected_workflow_composite_sha256": "c9036e5d356c5b24845542431613e0287804084d242b40c5d9218fd56ccfece0",
   "resolver_input_contract": {
     "command_inventory": "project_inventory",

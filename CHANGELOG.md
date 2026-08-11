@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.23 — Exact Handoff Root Entry
+
+- Supersedes 1.2.22 without moving or rewriting its public tag or release.
+- Resolves the restart-bootstrap handoff root only from the exact archive-root `COMPANION_ENTRY.md`; same-basename files inside source snapshots remain valid archive members and are never root candidates.
+- Validates raw ZIP full names before extraction and fails closed on missing or wrong-case roots, duplicate or case-colliding paths, backslash or dot aliases, and directory-only entries.
+- Adds a hermetic archive-shape regression to Distribution Integrity while retaining Action Packet/Bridge schema 1.2.9 and Context engine 4.3.4.
+- Rebinds all five ecosystem assets to one immutable 1.2.23 source commit.
+
 ## 1.2.22 — Causal Verification Ordering
 
 - Supersedes 1.2.21 without moving or rewriting its public tag or release.

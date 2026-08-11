@@ -291,9 +291,9 @@ function testSchemaValidator() {
 
 function activeCompanionFiles(repoRoot) {
   return [
-    'docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.22.md',
+    'docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.23.md',
     'docs/companion/01_CONTEXT_SPLIT_POLICY.md',
-    'docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.22.md',
+    'docs/companion/02_AGENT_TASK_PACK_CONTRACT_v1.2.23.md',
     'docs/companion/03_PRODUCT_EVIDENCE_CONTROL_PLANE.md',
     'docs/companion/04_PROJECT_AUDIT_AND_RECOVERY.md',
     'docs/companion/05_DOMAIN_SPECIFIC_LESSONS_OPTIONAL.md',
@@ -307,8 +307,8 @@ function activeCompanionFiles(repoRoot) {
     'docs/companion/13_LOCAL_CONTROL_TOOLS.md',
     'docs/companion/14_AUTONOMOUS_CONVERGENCE_AND_AUDIT_COVERAGE.md',
     'docs/companion/15_OWNER_OUTPUT_PRESENTATION.md',
-    'docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.22.md',
-    'docs/companion/README_INSTALL_RU_v1.2.22.md',
+    'docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.23.md',
+    'docs/companion/README_INSTALL_RU_v1.2.23.md',
     'docs/companion/README.md',
     'docs/companion/VERSION.json'
   ].map((relative) => path.join(repoRoot, relative));
@@ -452,13 +452,13 @@ function route(input) {
       inventory_sha256: inventorySource === 'missing' ? null : 'a'.repeat(64)
     },
     installation_facts: {
-      installed_project_package_version: '1.2.22',
-      installed_project_runtime_version: '1.2.22',
+      installed_project_package_version: '1.2.23',
+      installed_project_runtime_version: '1.2.23',
       installed_project_source_commit: 'legacy-fixture'
     },
     central_inventory_advisory: {
-      package_version: '1.2.22',
-      runtime_version: '1.2.22',
+      package_version: '1.2.23',
+      runtime_version: '1.2.23',
       commands: []
     },
     git_facts: {
@@ -887,8 +887,8 @@ function validatePack(repoRoot) {
   const companionVersionPath = path.join(repoRoot, 'docs', 'companion', 'VERSION.json');
   if (fs.existsSync(companionVersionPath)) {
     const version = readJson(companionVersionPath);
-    if (version.companion_version !== '1.2.22') {
-      errors.push('Companion VERSION.json does not declare 1.2.22');
+    if (version.companion_version !== '1.2.23') {
+      errors.push('Companion VERSION.json does not declare 1.2.23');
     }
   }
 

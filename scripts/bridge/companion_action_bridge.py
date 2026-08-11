@@ -10,7 +10,7 @@ def configure_utf8_standard_streams():
   if callable(reconfigure):reconfigure(encoding='utf-8',errors=errors)
 
 SCHEMA_VERSION='1.2.9'
-ECOSYSTEM_VERSION='1.2.22'
+ECOSYSTEM_VERSION='1.2.23'
 VALID_OPERATIONS={'new_work_item','continue_work_item'}
 VALID_ROUTES={'/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck'}
 HEADINGS=['## Что происходит','## Что уже сделано','## Что будет дальше','## Нужно ли что-то от владельца']

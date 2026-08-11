@@ -25,7 +25,7 @@
       "const": "1.2.9"
     },
     "ecosystem_version": {
-      "const": "1.2.22"
+      "const": "1.2.23"
     },
     "packet_format": {
       "const": "single_json"

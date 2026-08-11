@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "source_path": "evals/companion/golden_cases.json",
-  "source_sha256": "efb4b7393bfe95e7bb947e9392410361b30e76db744e246cd0361d34fbc1a45a",
+  "source_sha256": "1445b3b29b88d73391102228d2b58e3f23b510af1ff4f69b0c9d55ee6452f120",
   "case_count": 56,
   "case_ids": [
     "unknown_slash_command_is_rejected",
@@ -61,5 +61,5 @@
     "dirty_state_overrides_state_declared_fixcritical",
     "repeated_no_progress_stops_without_repair_override_prompt"
   ],
-  "release_baseline": "1.2.22-causal-verification-ordering"
+  "release_baseline": "1.2.23-exact-handoff-root-entry"
 }

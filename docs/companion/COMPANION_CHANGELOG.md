@@ -1,5 +1,12 @@
 # Companion changelog
 
+## 1.2.23 — Exact Handoff Root Entry
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Selects the Context Handoff entry from the exact archive root, so source-snapshot copies cannot create false ambiguity.
+- Rejects noncanonical, duplicate, case-colliding and directory-only ZIP members before extraction.
+- Adds an executable Distribution Integrity regression for the accepted and rejected archive shapes.
+
 ## 1.2.22 — Causal Verification Ordering
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

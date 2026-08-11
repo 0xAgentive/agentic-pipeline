@@ -45,8 +45,8 @@ finally {
 $Result.StdOut | Write-Host
 if(-not[string]::IsNullOrWhiteSpace($Result.StdErr)){$Result.StdErr | Write-Host}
 Assert-AgenticNativeSuccess -Result $Result -Description 'Context Handoff engine regression'
-if($Result.StdOut -notmatch 'Test Summary:\s*72 PASS,\s*0 FAIL'){throw 'Context Handoff engine did not report 72 PASS / 0 FAIL.'}
+if($Result.StdOut -notmatch 'Test Summary:\s*73 PASS,\s*0 FAIL'){throw 'Context Handoff engine did not report 73 PASS / 0 FAIL.'}
 $After=Get-SourceSnapshot
 if(@(Compare-Object $Before $After -CaseSensitive).Count -ne 0){throw 'Context Handoff engine regression modified source bytes or mtimes.'}
 if(@(Get-ChildItem -LiteralPath $Source -Recurse -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue).Count -ne 0){throw 'Context Handoff engine regression created __pycache__.'}
-Write-Host 'Context Handoff engine regression passed. Tests=72; source_changed=false; pycache=0'
+Write-Host 'Context Handoff engine regression passed. Tests=73; source_changed=false; pycache=0'

@@ -1,5 +1,12 @@
 # Companion changelog
 
+## 1.2.22 — Causal Verification Ordering
+
+- Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
+- Aligns Companion, runtime, Bridge and Context Handoff asset identity with ecosystem 1.2.22.
+- Rejects localized or zone-free authority timestamps and refuses a candidate published after any required test began.
+- Requires a start timestamp for every required test and preserves verification receipts as compiler-owned, immutable authority inputs.
+
 ## 1.2.21 — Hosted Runner Reparse Fixture
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.

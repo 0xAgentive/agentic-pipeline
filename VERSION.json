@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.21",
-  "package_version": "1.2.21",
-  "release_name": "Hosted Runner Reparse Fixture",
-  "playbook_version": "1.2.21",
-  "runtime_version": "1.2.21",
-  "companion_version": "1.2.21",
-  "action_bridge_version": "1.2.21",
-  "context_handoff_version": "1.2.21",
-  "handoff_compatibility": "1.2.21",
+  "ecosystem_version": "1.2.22",
+  "package_version": "1.2.22",
+  "release_name": "Causal Verification Ordering",
+  "playbook_version": "1.2.22",
+  "runtime_version": "1.2.22",
+  "companion_version": "1.2.22",
+  "action_bridge_version": "1.2.22",
+  "context_handoff_version": "1.2.22",
+  "handoff_compatibility": "1.2.22",
   "status": "stable"
 }

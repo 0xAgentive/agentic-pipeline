@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.22 — Causal Verification Ordering
+
+- Supersedes 1.2.21 without moving or rewriting its public tag or release.
+- Requires strict ISO-8601 timestamps with an explicit zone across result-authority compilation and Context Handoff validation; localized dates fail closed with a specific sanitized reason.
+- Requires every required verification test to declare `started_at_utc` and proves that both candidate generation and candidate-status publication occurred before each required test started.
+- Adds executable compiler, schema, publisher and Context Handoff regressions, including a compiler-output-to-worker round trip and byte-for-byte proof that candidate publication never mutates an existing verification receipt.
+- Rebinds all five ecosystem assets to one immutable 1.2.22 source commit while retaining Action Packet/Bridge schema 1.2.9 and Context engine 4.3.4.
+
 ## 1.2.21 — Hosted Runner Reparse Fixture
 
 - Supersedes 1.2.20 without moving or rewriting its public tag or release.

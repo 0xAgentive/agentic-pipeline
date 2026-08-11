@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.21",
+  "ecosystem_version": "1.2.22",
   "artifact": "pipeline_source_snapshot",
   "source": "complete canonical tree",
-  "generated_at_utc": "2026-08-10T15:44:40Z",
+  "generated_at_utc": "2026-08-11T04:31:56Z",
   "operational_gate_policy": {
     "blocking": [
       "syntax/runtime safety",
@@ -63,11 +63,19 @@
   "semantic_verification_test_binding": {
     "status": "PASS",
     "reason": "Context Handoff accepts compiler-canonical empty defaults for omitted optional verification-test fields while preserving exact identity, evidence, timestamp and non-empty lineage checks.",
-    "regression": "integrations/companion-handoff-1.2.21/source/install/run_tests.py"
+    "regression": "integrations/companion-handoff-1.2.22/source/install/run_tests.py"
   },
   "hosted_runner_reparse_fixture": {
     "status": "PASS",
     "reason": "The Windows reparse-point regression canonicalizes its hosted-runner temporary root before matching the production confinement path, while real reparse components remain fail closed.",
-    "regression": "integrations/companion-handoff-1.2.21/source/install/run_tests.py#T66"
+    "regression": "integrations/companion-handoff-1.2.22/source/install/run_tests.py#T66"
+  },
+  "causal_verification_ordering": {
+    "status": "PASS",
+    "reason": "Candidate and status timestamps are strict ISO-8601 with an explicit zone, every required test declares its start, and candidate authority must predate every required test start; candidate publication cannot mutate or rebind a verification receipt.",
+    "regressions": [
+      "tests/acceptance/Test-ResultAuthorityCompilerTransaction.ps1",
+      "integrations/companion-handoff-1.2.22/source/install/run_tests.py#T73"
+    ]
   }
 }

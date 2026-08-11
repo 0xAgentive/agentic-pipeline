@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "runtime_version": "1.2.21",
+  "runtime_version": "1.2.22",
   "commands": [
     {
       "command": "/specdoc",

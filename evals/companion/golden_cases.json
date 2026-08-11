@@ -56,7 +56,7 @@
         "decision": "route",
         "command": "/fixcritical"
       },
-      "migration_note": "Historical case ID retained. Runtime 1.2.21 ignores numerical repair limits and continues a confirmed in-scope repair."
+      "migration_note": "Historical case ID retained. Runtime 1.2.22 ignores numerical repair limits and continues a confirmed in-scope repair."
     },
     {
       "id": "research_track_ignores_delivery_only_debt",
@@ -754,7 +754,7 @@
         "routing_errors": [],
         "reason_codes": []
       },
-      "migration_note": "Historical case ID retained. The repair-budget input is ignored in Pipeline 1.2.21."
+      "migration_note": "Historical case ID retained. The repair-budget input is ignored in Pipeline 1.2.22."
     },
     {
       "id": "repair_budget_exhausted_with_user_override_routes_fixcritical",
@@ -1002,5 +1002,5 @@
       "description": "Two repeated identical no-progress outcomes stop the current execution without asking the owner to authorize another repair batch."
     }
   ],
-  "suite_version": "1.2.21"
+  "suite_version": "1.2.22"
 }

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "source_path": "evals/companion/golden_cases.json",
-  "source_sha256": "b1bc063b1474e1c0e91be309209e033b106e29020f2fe04c2a163c0a9cb94b27",
+  "source_sha256": "efb4b7393bfe95e7bb947e9392410361b30e76db744e246cd0361d34fbc1a45a",
   "case_count": 56,
   "case_ids": [
     "unknown_slash_command_is_rejected",
@@ -61,5 +61,5 @@
     "dirty_state_overrides_state_declared_fixcritical",
     "repeated_no_progress_stops_without_repair_override_prompt"
   ],
-  "release_baseline": "1.2.21-hosted-runner-reparse-fixture"
+  "release_baseline": "1.2.22-causal-verification-ordering"
 }

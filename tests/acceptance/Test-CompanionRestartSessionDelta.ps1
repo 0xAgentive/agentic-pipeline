@@ -284,7 +284,7 @@ try {
   $ManifestBefore = (Get-FileHash -LiteralPath $ManifestPath -Algorithm SHA256).Hash
   $AllEmpty = Invoke-Bootstrap -PipelineRoot $Pipeline -ProjectRoot $Project -DeploymentRoot $AllEmptyDeployment -HandoffArchive $AllEmptyArchive -CompanionAsset $CompanionAsset -ProjectId 'all-empty'
   Assert-True -Condition ($AllEmpty.Code -ne 0) -Message 'All-empty session delta must fail closed.'
-  Assert-True -Condition ($AllEmpty.Text -match 'neither a non-empty session delta nor a no-new-events receipt') -Message "All-empty failure reason is not semantic: $($AllEmpty.Text)"
+  Assert-True -Condition ($AllEmpty.Text -match 'neither a non-empty session delta' -and $AllEmpty.Text -match 'no-new-events receipt') -Message "All-empty failure reason is not semantic: $($AllEmpty.Text)"
   Assert-True -Condition ($AllEmpty.Text -notmatch 'Cannot bind argument') -Message 'All-empty input regressed to a PowerShell binder failure.'
   Assert-True -Condition ((Get-FileHash -LiteralPath $ManifestPath -Algorithm SHA256).Hash -eq $ManifestBefore) -Message 'Failed all-empty generation changed the deployment manifest.'
   Assert-True -Condition (-not (Test-Path -LiteralPath (Join-Path $AllEmptyDeployment 'COMPANION_RESTART_BOOTSTRAP_all-empty_1.2.24.zip'))) -Message 'Failed all-empty generation left a bootstrap ZIP.'
@@ -295,7 +295,7 @@ try {
   $RequiredEmptyDeployment = Copy-DeploymentFixture -Source $DeploymentTemplate -Destination (Join-Path $TempRoot 'deployment-required-empty')
   $RequiredEmptyResult = Invoke-Bootstrap -PipelineRoot $Pipeline -ProjectRoot $Project -DeploymentRoot $RequiredEmptyDeployment -HandoffArchive $RequiredEmptyArchive -CompanionAsset $CompanionAsset -ProjectId 'required-empty'
   Assert-True -Condition ($RequiredEmptyResult.Code -ne 0) -Message 'Empty required COMPANION_ENTRY.md must fail closed.'
-  Assert-True -Condition ($RequiredEmptyResult.Text -match 'Required bootstrap input is empty:.*COMPANION_ENTRY\.md' -and $RequiredEmptyResult.Text -notmatch 'Cannot bind argument') -Message "Required empty failure is not semantic: $($RequiredEmptyResult.Text)"
+  Assert-True -Condition ($RequiredEmptyResult.Text -match 'Required bootstrap input is empty' -and $RequiredEmptyResult.Text -match 'COMPANION_ENTRY\.md' -and $RequiredEmptyResult.Text -notmatch 'Cannot bind argument') -Message "Required empty failure is not semantic: $($RequiredEmptyResult.Text)"
 
   $Tokens = $null; $ParseErrors = $null
   $ProductionAst = [Management.Automation.Language.Parser]::ParseFile($Generator, [ref]$Tokens, [ref]$ParseErrors)

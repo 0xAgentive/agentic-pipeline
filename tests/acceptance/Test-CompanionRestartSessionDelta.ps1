@@ -8,6 +8,8 @@ $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $Pwsh = (Get-Command pwsh -ErrorAction Stop).Source
 $Generator = Join-Path $Root 'scripts\release\Create-Companion-Restart-Bootstrap-v1.2.24.ps1'
+$CompanionPreparer = Join-Path $Root 'scripts\release\Prepare-AgenticPipeline-Companion-v1.2.24.ps1'
+$CompanionBuilder = Join-Path $Root 'scripts\windows\companion\Build-CompanionPack-v1.2.24.ps1'
 $Distribution = Join-Path $Root 'scripts\windows\Test-DistributionIntegrity.ps1'
 $HardValidator = Join-Path $Root 'scripts\windows\Validate-AgenticPipelinePackage.ps1'
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ('agentic-bootstrap-session-delta-' + [guid]::NewGuid().ToString('N'))
@@ -191,7 +193,7 @@ function Get-ZipEntryText {
 }
 
 if (-not (Test-Path -LiteralPath $Generator -PathType Leaf)) { throw "Missing generator: $Generator" }
-$SourceFiles = @($Generator, $Distribution, $HardValidator)
+$SourceFiles = @($Generator, $CompanionPreparer, $CompanionBuilder, $Distribution, $HardValidator)
 $BeforeHashes = @{}; foreach ($Path in $SourceFiles) { $BeforeHashes[$Path] = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash }
 
 try {

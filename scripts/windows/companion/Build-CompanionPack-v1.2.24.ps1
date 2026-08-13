@@ -268,7 +268,8 @@ if (-not $SourceIsClean -and -not $AllowDirtySource) {
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
   $OutputRoot = Join-Path $Root '.artifacts\release-kit\1.2.24\companion'
 }
-$Protected = @($Root, $env:USERPROFILE, [IO.Path]::GetPathRoot($Root))
+$Protected = @($Root, $env:USERPROFILE, [IO.Path]::GetPathRoot($Root)) |
+  Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
 $OutputFull = Assert-SafeOutputLeaf -Path $OutputRoot -ProtectedPaths $Protected
 if ((Test-Path -LiteralPath $OutputFull) -and -not $Force) { throw "Output exists: $OutputFull" }
 $OutputParent = Split-Path -Parent $OutputFull

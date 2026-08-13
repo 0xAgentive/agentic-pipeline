@@ -290,7 +290,8 @@ if (-not [string]::IsNullOrWhiteSpace($ExpectedAssetSha256) -and $AssetHash -ne 
   throw "Companion asset hash mismatch: expected=$ExpectedAssetSha256 actual=$AssetHash"
 }
 
-$Protected = @($env:USERPROFILE, $CanonicalRoot, $CompanionZipFull, [IO.Path]::GetPathRoot($CanonicalRoot))
+$Protected = @($env:USERPROFILE, $CanonicalRoot, $CompanionZipFull, [IO.Path]::GetPathRoot($CanonicalRoot)) |
+  Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
 $OutputFull = Assert-SafeOutputLeaf -Path $OutputRoot -ProtectedPaths $Protected
 $OutputParent = Split-Path -Parent $OutputFull
 if (-not (Test-Path -LiteralPath $OutputParent -PathType Container)) { New-Item -ItemType Directory -Path $OutputParent -Force | Out-Null }

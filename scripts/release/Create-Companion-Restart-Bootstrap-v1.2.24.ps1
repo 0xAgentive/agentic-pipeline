@@ -474,7 +474,8 @@ if ($MaxTotalMB -lt 1 -or $MaxFileMB -lt 1 -or $MaxFileMB -gt $MaxTotalMB) {
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
   $OutputRoot = Join-Path $env:USERPROFILE (Join-Path 'Documents\antigravity\companion-deployments' (Join-Path $ProjectId $EcosystemVersion))
 }
-$Protected = @($Project, $Pipeline, $env:USERPROFILE, $HandoffArchiveFull, $CompanionAssetFull, [IO.Path]::GetPathRoot($Project))
+$Protected = @($Project, $Pipeline, $env:USERPROFILE, $HandoffArchiveFull, $CompanionAssetFull, [IO.Path]::GetPathRoot($Project)) |
+  Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
 $OutputFull = Assert-SafeOutputLeaf -Path $OutputRoot -ProtectedPaths $Protected
 Ensure-Directory -Path $OutputFull
 if ([string]::IsNullOrWhiteSpace($DeploymentManifest)) { $DeploymentManifest = Join-Path $OutputFull 'DEPLOYMENT_MANIFEST.json' }

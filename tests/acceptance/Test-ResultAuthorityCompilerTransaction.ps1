@@ -614,12 +614,17 @@ try {
   $SecondLatest = Start-Compiler $Latest.Project $Latest.ReceiptPath -Apply -TimeoutSeconds 10
   Wait-ForFile (Join-Path $Latest.Agy '.runtime/result-authority/pending.json')
   [void](Update-FixtureAuthority $Latest)
-  $ThirdLatest = Start-Compiler $Latest.Project $Latest.ReceiptPath -Apply -TimeoutSeconds 10
+  # The eventual owner still executes the deliberately slow validator. Give that
+  # worker a bounded startup margin in Unicode/space detached worktrees; the
+  # dedicated timeout-tree case above remains the hard timeout regression.
+  $LatestOwnerTimeoutSeconds = 20
+  Assert-True ($LatestOwnerTimeoutSeconds -gt 10 -and $LatestOwnerTimeoutSeconds -lt 120) 'Latest-wins owner timeout is not bounded below the production default.'
+  $ThirdLatest = Start-Compiler $Latest.Project $Latest.ReceiptPath -Apply -TimeoutSeconds $LatestOwnerTimeoutSeconds
   $SecondLatestResult = Complete-Compiler $SecondLatest 8
   Assert-True ($SecondLatestResult.ExitCode -eq 0 -and $SecondLatestResult.StdOut -match 'superseded') "Intermediate different-fingerprint request was not cancelled by latest-wins coalescing: stdout=$($SecondLatestResult.StdOut) stderr=$($SecondLatestResult.StdErr)"
   $FirstLatestResult = Complete-Compiler $FirstLatest 12
   Assert-True ($FirstLatestResult.ExitCode -ne 0 -and ($FirstLatestResult.StdErr + $FirstLatestResult.StdOut) -match 'RESULT_AUTHORITY_(?:INPUT_CHANGED|RECEIPT_CHANGED)') "Latest-wins owner did not reject its superseded receipt: stdout=$($FirstLatestResult.StdOut) stderr=$($FirstLatestResult.StdErr)"
-  $ThirdLatestResult = Complete-Compiler $ThirdLatest 18
+  $ThirdLatestResult = Complete-Compiler $ThirdLatest ($LatestOwnerTimeoutSeconds + 8)
   Assert-True ($ThirdLatestResult.ExitCode -eq 0) "Latest different-fingerprint request failed: $($ThirdLatestResult.StdErr)"
   Assert-True (@(Get-Content -LiteralPath (Join-Path $Latest.Agy '.runtime/result-authority/validator-count.txt')).Count -eq 2) 'Latest-wins regression did not execute exactly stale-owner plus latest worker.'
 

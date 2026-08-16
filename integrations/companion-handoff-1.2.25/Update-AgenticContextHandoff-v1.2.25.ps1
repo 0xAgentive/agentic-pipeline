@@ -477,7 +477,7 @@ function Wait-TaskHealthy {
   param(
     [Parameter(Mandatory = $true)][string]$Name,
     [string]$Context = 'Context Handoff task',
-    [ValidateRange(0, 3600)][int]$TimeoutSeconds = 30,
+    [ValidateRange(0, 3600)][int]$TimeoutSeconds = 60,
     [ValidateRange(1, 60000)][int]$PollMilliseconds = 250,
     [scriptblock]$GetTaskAdapter = { param($TaskName) Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop },
     [scriptblock]$GetTaskInfoAdapter = { param($TaskName) Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction Stop },

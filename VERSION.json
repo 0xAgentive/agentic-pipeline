@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.24",
-  "package_version": "1.2.24",
-  "release_name": "Empty Session Delta Compatibility",
-  "playbook_version": "1.2.24",
-  "runtime_version": "1.2.24",
-  "companion_version": "1.2.24",
-  "action_bridge_version": "1.2.24",
-  "context_handoff_version": "1.2.24",
-  "handoff_compatibility": "1.2.24",
+  "ecosystem_version": "1.2.25",
+  "package_version": "1.2.25",
+  "release_name": "Ecosystem Autonomy and Handoff Alignment",
+  "playbook_version": "1.2.25",
+  "runtime_version": "1.2.25",
+  "companion_version": "1.2.25",
+  "action_bridge_version": "1.2.25",
+  "context_handoff_version": "1.2.25",
+  "handoff_compatibility": "1.2.25",
   "status": "stable"
 }

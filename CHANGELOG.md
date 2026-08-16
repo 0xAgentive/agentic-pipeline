@@ -1,13 +1,13 @@
 # Changelog
 
-## 1.2.24 — Empty Session Delta Compatibility
+## 1.2.25 — Ecosystem Autonomy and Handoff Alignment
 
 - Supersedes 1.2.23 without moving or rewriting its public tag or release.
 - Preserves allowlisted zero-byte `SESSION_DELTA` members as exact archive bytes, with their size and SHA-256 identity recorded in both restart-bootstrap manifests.
 - Reads every staged and extracted text member as strict UTF-8 for privacy validation, including empty files, while malformed input remains fail closed.
 - Rejects empty required authority files and requires at least one non-empty session delta or a valid `NO_NEW_EVENTS` receipt.
 - Adds a hermetic real-generator regression for mixed, all-empty, receipt-only and idempotent-reuse cases while retaining Action Packet/Bridge schema 1.2.9 and Context engine 4.3.4.
-- Rebinds all five ecosystem assets to one immutable 1.2.24 source commit.
+- Rebinds all five ecosystem assets to one immutable 1.2.25 source commit.
 
 ## 1.2.23 — Exact Handoff Root Entry
 

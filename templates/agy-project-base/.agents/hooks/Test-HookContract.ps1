@@ -174,6 +174,12 @@ try {
   $ReadInput = $Base.Clone(); $ReadInput.stepIdx = 13; $ReadInput.toolCall = @{name='run_command';args=@{CommandLine='git status';Cwd=$TempRoot}}
   $ReadOutput = ($ReadInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
   if ($ReadOutput.decision -ne 'allow' -or (Test-Path -LiteralPath $StalePending)) { throw 'Stale compiler pending marker was not pruned safely.' }
+  $PwshReadInput = $Base.Clone(); $PwshReadInput.stepIdx = 14; $PwshReadInput.toolCall = @{name='run_command';args=@{CommandLine='pwsh -NoProfile -Command "git status --porcelain"';Cwd=$TempRoot}}
+  $PwshReadOutput = ($PwshReadInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
+  if ($PwshReadOutput.decision -ne 'allow') { throw 'pwsh -Command read-only command was denied.' }
+  $PwshReadPost = $PwshReadInput.Clone(); $PwshReadPost.error = $null
+  ($PwshReadPost | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook postcommand | Out-Null
+  if ((Get-FileSha $CandidateStatusPath) -cne $CandidateStatusSha) { throw 'pwsh -Command read-only command invalidated candidate manifest status.' }
   $Next = [ordered]@{schema_version='1.0.0';work_item_id='hook-test';route='/fixcritical';auto_continue=$true;owner_decision_required=$false;updated_at_utc=$Now}
   $Progress = [ordered]@{schema_version='1.1.0';work_item_id='hook-test';status='progressing';observations_count=1;consecutive_no_progress=0;same_failure_count=0;owner_decision_required=$false;updated_at_utc=$Now;history=@()}
   [IO.File]::WriteAllText((Join-Path $TempRoot '.agy/NEXT_ACTION.json'),($Next | ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))

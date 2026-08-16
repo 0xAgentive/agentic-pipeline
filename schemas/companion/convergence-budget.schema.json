@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Legacy Convergence Budget v1 (deprecated)",
-  "description": "Compatibility only. Runtime 1.2.24 never blocks work because a count is exhausted.",
+  "description": "Compatibility only. Runtime 1.2.25 never blocks work because a count is exhausted.",
   "type": "object",
   "additionalProperties": true,
   "required": [

@@ -61,5 +61,5 @@
     "dirty_state_overrides_state_declared_fixcritical",
     "repeated_no_progress_stops_without_repair_override_prompt"
   ],
-  "release_baseline": "1.2.24-empty-session-delta-compatibility"
+  "release_baseline": "1.2.25-empty-session-delta-compatibility"
 }

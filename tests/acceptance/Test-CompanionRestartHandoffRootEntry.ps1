@@ -5,7 +5,7 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $HelperPath = Join-Path $Root 'scripts\release\common\CompanionRestartHandoffArchive.ps1'
-$ProductionPath = Join-Path $Root 'scripts\release\Create-Companion-Restart-Bootstrap-v1.2.24.ps1'
+$ProductionPath = Join-Path $Root 'scripts\release\Create-Companion-Restart-Bootstrap-v1.2.25.ps1'
 $script:Assertions = 0
 
 function Assert-True {

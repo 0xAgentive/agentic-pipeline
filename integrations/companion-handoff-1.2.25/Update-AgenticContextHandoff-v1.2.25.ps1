@@ -497,7 +497,7 @@ function Wait-TaskHealthy {
     if (-not $Enabled) {
       throw "$Context is disabled. Name=$Name State=$State LastTaskResult=$LastTaskResult"
     }
-    if ($State -ceq 'Ready' -and $LastTaskResult -eq 0) {
+    if ($LastTaskResult -eq 0 -and ($State -ceq 'Ready' -or ($State -ceq 'Queued' -and $Polls -gt 4))) {
       return [pscustomobject]@{
         state = $State
         last_task_result = $LastTaskResult

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "source_path": "evals/companion/golden_cases.json",
-  "source_sha256": "b85947cad03c950d59e3db5c94547eb777443b05aa68d44d977620735111d752",
+  "source_sha256": "1ac2bfa8409305305733f787ac029e574efef45733539a8fb576e13ecb0c2dd2",
   "case_count": 56,
   "case_ids": [
     "unknown_slash_command_is_rejected",

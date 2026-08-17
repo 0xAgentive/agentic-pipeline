@@ -17,11 +17,6 @@ if sys.platform == "win32":
             _dll_handles.append(os.add_dll_directory(dll_dir))
         except Exception:
             pass
-    if hasattr(os, "add_dll_directory"):
-        try:
-            _dll_handles.append(os.add_dll_directory(r"C:\Users\Администратор\AppData\Local\Programs\Python\Python314\DLLs"))
-        except Exception:
-            pass
     os.environ["PATH"] = python_dir + os.pathsep + dll_dir + os.pathsep + os.environ.get("PATH", "")
 
 import json
@@ -159,15 +154,19 @@ def read_json_file(path):
 
 def get_git_identity(workspace):
     def invoke(*args):
+        kwargs = {
+            "capture_output": True,
+            "text": True,
+            "encoding": "utf-8",
+            "errors": "strict",
+            "timeout": 10,
+            "check": False,
+        }
+        if os.name == "nt":
+            kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
         completed = subprocess.run(
             ["git", "-C", workspace, *args],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="strict",
-            timeout=10,
-            check=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+            **kwargs
         )
         if completed.returncode != 0:
             raise ValueError("git_identity_unavailable")

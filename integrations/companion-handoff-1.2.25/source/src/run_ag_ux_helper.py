@@ -18,11 +18,6 @@ if sys.platform == "win32":
             _dll_handles.append(os.add_dll_directory(dll_dir))
         except Exception:
             pass
-    if hasattr(os, "add_dll_directory"):
-        try:
-            _dll_handles.append(os.add_dll_directory(r"C:\Users\Администратор\AppData\Local\Programs\Python\Python314\DLLs"))
-        except Exception:
-            pass
     os.environ["PATH"] = python_dir + os.pathsep + dll_dir + os.pathsep + os.environ.get("PATH", "")
 
 import json

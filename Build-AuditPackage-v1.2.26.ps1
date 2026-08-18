@@ -34,25 +34,28 @@ $IncludePatterns = @(
   'ECOSYSTEM_VERSION.json',
   'AGENTS.md',
   'README.md',
-  'schemas\**',
-  'scripts\**',
-  'templates\**',
-  'docs\**',
-  'integrations\**',
-  'tests\**',
-  'config\**'
+  '.agents/**',
+  '.agy/**',
+  'schemas/**',
+  'scripts/**',
+  'templates/**',
+  'docs/**',
+  'integrations/**',
+  'tests/**',
+  'evals/**',
+  'config/**'
 )
 
 $ExcludePatterns = @(
-  '*\.git\*',
-  '*\.artifacts\*',
-  '*\node_modules\*',
-  '*\__pycache__\*',
-  '*\*.pyc',
-  '*\*.tmp',
-  '*\*.log',
-  '*\coverage\*',
-  '*\.pytest_cache\*'
+  '*.git/**',
+  '*.artifacts/**',
+  '*node_modules/**',
+  '*__pycache__/**',
+  '*.pyc',
+  '*.tmp',
+  '*.log',
+  '*coverage/**',
+  '*.pytest_cache/**'
 )
 
 function Test-Included([string]$RelativePath) {

@@ -7,9 +7,9 @@ $ProgressPreference = 'SilentlyContinue'
 $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $Pwsh = (Get-Command pwsh -ErrorAction Stop).Source
-$Generator = Join-Path $Root 'scripts\release\Create-Companion-Restart-Bootstrap-v1.2.25.ps1'
-$CompanionPreparer = Join-Path $Root 'scripts\release\Prepare-AgenticPipeline-Companion-v1.2.25.ps1'
-$CompanionBuilder = Join-Path $Root 'scripts\windows\companion\Build-CompanionPack-v1.2.25.ps1'
+$Generator = Join-Path $Root 'scripts\release\Create-Companion-Restart-Bootstrap-v1.2.26.ps1'
+$CompanionPreparer = Join-Path $Root 'scripts\release\Prepare-AgenticPipeline-Companion-v1.2.26.ps1'
+$CompanionBuilder = Join-Path $Root 'scripts\windows\companion\Build-CompanionPack-v1.2.26.ps1'
 $Distribution = Join-Path $Root 'scripts\windows\Test-DistributionIntegrity.ps1'
 $HardValidator = Join-Path $Root 'scripts\windows\Validate-AgenticPipelinePackage.ps1'
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ('agentic-bootstrap-session-delta-' + [guid]::NewGuid().ToString('N'))
@@ -97,7 +97,7 @@ function New-ProjectFixture {
       schema_version = '1.0.0'; work_item_id = $WorkItemId; goal_epoch = 1; worktree_root = $ProjectRoot
     })
   Write-Json -Path (Join-Path $Agy 'INSTALLATION_MANIFEST.json') -Value ([ordered]@{
-      schema_version = '1.0.0'; package_version = '1.2.25'; runtime_version = '1.2.25'; companion_version = '1.2.25'
+      schema_version = '1.0.0'; package_version = '1.2.26'; runtime_version = '1.2.26'; companion_version = '1.2.26'
     })
   Initialize-CleanGitRepository -Path $ProjectRoot
 }
@@ -204,16 +204,16 @@ try {
 
   $AssetRoot = Join-Path $TempRoot 'asset'
   $Build = Invoke-Capture -FilePath $Pwsh -Arguments @(
-    '-NoLogo', '-NoProfile', '-File', (Join-Path $Pipeline 'scripts\windows\companion\Build-CompanionPack-v1.2.25.ps1'),
+    '-NoLogo', '-NoProfile', '-File', (Join-Path $Pipeline 'scripts\windows\companion\Build-CompanionPack-v1.2.26.ps1'),
     '-RepoRoot', $Pipeline, '-OutputRoot', $AssetRoot, '-Force', '-SourceCommit', $PipelineHead
   )
   Assert-True -Condition ($Build.Code -eq 0) -Message "Companion fixture build failed: $($Build.Text)"
-  $CompanionAsset = Join-Path $AssetRoot 'agentic-companion-1.2.25.zip'
+  $CompanionAsset = Join-Path $AssetRoot 'agentic-companion-1.2.26.zip'
   Assert-True -Condition (Test-Path -LiteralPath $CompanionAsset -PathType Leaf) -Message 'Companion fixture asset is missing.'
 
   $DeploymentTemplate = Join-Path $TempRoot 'deployment-template'
   $Prepare = Invoke-Capture -FilePath $Pwsh -Arguments @(
-    '-NoLogo', '-NoProfile', '-File', (Join-Path $Pipeline 'scripts\release\Prepare-AgenticPipeline-Companion-v1.2.25.ps1'),
+    '-NoLogo', '-NoProfile', '-File', (Join-Path $Pipeline 'scripts\release\Prepare-AgenticPipeline-Companion-v1.2.26.ps1'),
     '-CompanionZip', $CompanionAsset, '-OutputRoot', $DeploymentTemplate, '-CanonicalRepo', $Pipeline,
     '-ExpectedSourceCommit', $PipelineHead, '-Force', '-SkipClipboard'
   )
@@ -231,7 +231,7 @@ try {
   $MixedDeployment = Copy-DeploymentFixture -Source $DeploymentTemplate -Destination (Join-Path $TempRoot 'deployment-mixed')
   $Mixed = Invoke-Bootstrap -PipelineRoot $Pipeline -ProjectRoot $Project -DeploymentRoot $MixedDeployment -HandoffArchive $MixedArchive -CompanionAsset $CompanionAsset -ProjectId 'mixed'
   Assert-True -Condition ($Mixed.Code -eq 0) -Message "Mixed empty/non-empty bootstrap failed: $($Mixed.Text)"
-  $MixedZip = Join-Path $MixedDeployment 'COMPANION_RESTART_BOOTSTRAP_mixed_1.2.25.zip'
+  $MixedZip = Join-Path $MixedDeployment 'COMPANION_RESTART_BOOTSTRAP_mixed_1.2.26.zip'
   $MixedObject = [IO.Compression.ZipFile]::OpenRead($MixedZip)
   try {
     Assert-True -Condition ($null -ne $MixedObject.GetEntry('HANDOFF/SESSION_DELTA/LAST_MODEL_RESPONSE.md')) -Message 'Non-empty session member was not packaged.'
@@ -263,7 +263,7 @@ try {
   $NoEventsDeployment = Copy-DeploymentFixture -Source $DeploymentTemplate -Destination (Join-Path $TempRoot 'deployment-no-events')
   $NoEvents = Invoke-Bootstrap -PipelineRoot $Pipeline -ProjectRoot $Project -DeploymentRoot $NoEventsDeployment -HandoffArchive $NoEventsArchive -CompanionAsset $CompanionAsset -ProjectId 'no-events'
   Assert-True -Condition ($NoEvents.Code -eq 0) -Message "NO_NEW_EVENTS bootstrap failed: $($NoEvents.Text)"
-  $NoEventsZip = Join-Path $NoEventsDeployment 'COMPANION_RESTART_BOOTSTRAP_no-events_1.2.25.zip'
+  $NoEventsZip = Join-Path $NoEventsDeployment 'COMPANION_RESTART_BOOTSTRAP_no-events_1.2.26.zip'
   $NoEventsObject = [IO.Compression.ZipFile]::OpenRead($NoEventsZip)
   try {
     Assert-True -Condition ((Get-ZipEntryText -Archive $NoEventsObject -Name 'HANDOFF/SESSION_DELTA/NO_NEW_EVENTS.json') -ceq $NoEventsText) -Message 'NO_NEW_EVENTS receipt was not copied exactly.'
@@ -287,7 +287,7 @@ try {
   Assert-True -Condition ($AllEmpty.Text -match 'neither a non-empty session delta' -and $AllEmpty.Text -match 'no-new-events receipt') -Message "All-empty failure reason is not semantic: $($AllEmpty.Text)"
   Assert-True -Condition ($AllEmpty.Text -notmatch 'Cannot bind argument') -Message 'All-empty input regressed to a PowerShell binder failure.'
   Assert-True -Condition ((Get-FileHash -LiteralPath $ManifestPath -Algorithm SHA256).Hash -eq $ManifestBefore) -Message 'Failed all-empty generation changed the deployment manifest.'
-  Assert-True -Condition (-not (Test-Path -LiteralPath (Join-Path $AllEmptyDeployment 'COMPANION_RESTART_BOOTSTRAP_all-empty_1.2.25.zip'))) -Message 'Failed all-empty generation left a bootstrap ZIP.'
+  Assert-True -Condition (-not (Test-Path -LiteralPath (Join-Path $AllEmptyDeployment 'COMPANION_RESTART_BOOTSTRAP_all-empty_1.2.26.zip'))) -Message 'Failed all-empty generation left a bootstrap ZIP.'
 
   $RequiredEmptyArchive = New-HandoffArchive -ArchivePath (Join-Path $TempRoot 'required-empty.zip') -FixtureName 'required-empty' -ProjectRoot $Project -SessionMembers ([ordered]@{
       'LAST_MODEL_RESPONSE.md' = "Verified response.`n"

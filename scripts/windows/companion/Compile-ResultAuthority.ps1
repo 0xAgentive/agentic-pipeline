@@ -244,7 +244,7 @@ function Get-GitContext {
   $Branch = Invoke-Git $Root @('branch', '--show-current')
   $Head = Invoke-Git $Root @('rev-parse', 'HEAD')
   $Status = Invoke-Git $Root @('status', '--porcelain=v2', '-z', '--untracked-files=all')
-  $StableStatus = Invoke-Git $Root @('status', '--porcelain=v2', '-z', '--untracked-files=all', '--', '.', ':(exclude,top).agy/VERIFICATION_RECEIPT.json', ':(exclude,top).agy/CLOSURE_STATE.json', ':(exclude,top).agy/RUN_RESULT.json', ':(exclude,top).agy/NEXT_ACTION.json', ':(exclude,top).agy/.runtime/**')
+  $StableStatus = Invoke-Git $Root @('status', '--porcelain=v2', '-z', '--untracked-files=all', '--', '.', ':(exclude,top).agy/VERIFICATION_RECEIPT.json', ':(exclude,top).agy/CLOSURE_STATE.json', ':(exclude,top).agy/RUN_RESULT.json', ':(exclude,top).agy/NEXT_ACTION.json', ':(exclude,top).agy/RUN_METRICS.ndjson', ':(exclude,top).agy/WRITE_LEDGER.ndjson', ':(exclude,top).agy/COMMAND_LEDGER.ndjson', ':(exclude,top).agy/HOOK_RECONCILIATION_REQUIRED.json', ':(exclude,top).agy/.runtime/**', ':(exclude,top).agy/.hook_pending/**')
   return [pscustomobject]@{ Branch = $Branch; Head = $Head; Status = $Status; StableStatus = $StableStatus }
 }
 
@@ -272,6 +272,10 @@ function Get-ValidatedCompilationContext {
   $Root = (Resolve-Path -LiteralPath $Root).Path
   $Agy = Join-Path $Root '.agy'
   if (-not (Test-Path -LiteralPath $Agy -PathType Container)) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_STATE_MISSING' '.agy directory is missing.' }
+  $ReconPath = Join-Path $Agy 'HOOK_RECONCILIATION_REQUIRED.json'
+  if (Test-Path -LiteralPath $ReconPath -PathType Leaf) {
+    Throw-ResultAuthorityError 'RESULT_AUTHORITY_RECONCILIATION_REQUIRED' 'Control plane requires runtime hook reconciliation before authority compilation.'
+  }
   $ReceiptPath = Get-ConfinedFile $Root $ReceiptInput 'RESULT_AUTHORITY_RECEIPT_PATH' '.agy'
   $ReceiptBytes = [IO.File]::ReadAllBytes($ReceiptPath)
   $ReceiptHash = Get-Sha256Bytes $ReceiptBytes
@@ -306,7 +310,9 @@ function Get-ValidatedCompilationContext {
   Assert-EqualString (Get-RequiredString $Receipt 'head' 'RESULT_AUTHORITY_RECEIPT_BINDING') $Git.Head 'RESULT_AUTHORITY_RECEIPT_BINDING' 'Receipt head' -IgnoreCase
   Assert-EqualString (Get-RequiredString $Receipt 'execution_lease_id' 'RESULT_AUTHORITY_RECEIPT_BINDING') $LeaseId 'RESULT_AUTHORITY_RECEIPT_BINDING' 'Receipt execution_lease_id'
 
-  if ((Get-RequiredString $CandidateStatus 'status' 'RESULT_AUTHORITY_CANDIDATE_BINDING') -ne 'current') { Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_BINDING' 'Candidate manifest status is not current.' }
+  $CandidateStatusValue = Get-RequiredString $CandidateStatus 'status' 'RESULT_AUTHORITY_CANDIDATE_BINDING'
+  if ($CandidateStatusValue -eq 'reconciliation_required') { Throw-ResultAuthorityError 'RESULT_AUTHORITY_RECONCILIATION_REQUIRED' 'Candidate manifest status requires runtime hook reconciliation before authority compilation.' }
+  if ($CandidateStatusValue -ne 'current') { Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_BINDING' 'Candidate manifest status is not current.' }
   $CandidateHash = Get-Sha256Bytes $CandidateBytes
   Assert-EqualString (Get-RequiredString $CandidateStatus 'manifest_sha256' 'RESULT_AUTHORITY_CANDIDATE_BINDING') $CandidateHash 'RESULT_AUTHORITY_CANDIDATE_BINDING' 'Candidate status manifest hash' -IgnoreCase
   Assert-EqualString (Get-RequiredString $Candidate 'work_item_id' 'RESULT_AUTHORITY_CANDIDATE_BINDING') $WorkItemId 'RESULT_AUTHORITY_CANDIDATE_BINDING' 'Candidate work_item_id'
@@ -382,6 +388,18 @@ function Get-ValidatedCompilationContext {
   $LeaseIssued = Get-RequiredUtcTimestamp $Lease 'issued_at_utc' 'RESULT_AUTHORITY_LEASE_BINDING'
   foreach ($Boundary in @($CandidateGenerated, $CandidateUpdated, $LeaseIssued)) {
     if ($ReceiptCompleted -lt $Boundary) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_RECEIPT_FRESHNESS' 'Receipt predates current candidate or execution authority.' }
+  }
+
+  $FindingsCapture = Get-OptionalJsonCapture $Root '.agy/FINDINGS.json' 'FINDINGS.json'
+  $ProgressCapture = Get-OptionalJsonCapture $Root '.agy/PROGRESS_STATE.json' 'PROGRESS_STATE.json'
+  $AttestationCapture = Get-OptionalJsonCapture $Root '.agy/REVIEWER_ATTESTATION.json' 'REVIEWER_ATTESTATION.json'
+  $CoverageCapture = Get-OptionalJsonCapture $Root '.agy/AUDIT_COVERAGE_MATRIX.json' 'AUDIT_COVERAGE_MATRIX.json'
+  $RequiredControlPaths = @('.agy/WORK_ITEM.json', '.agy/EXECUTION_LEASE.json')
+  if ($FindingsCapture.Exists) { $RequiredControlPaths += '.agy/FINDINGS.json' }
+  if ($ProgressCapture.Exists) { $RequiredControlPaths += '.agy/PROGRESS_STATE.json' }
+  if ($AttestationCapture.Exists) { $RequiredControlPaths += '.agy/REVIEWER_ATTESTATION.json' }
+  foreach ($RequiredControlPath in $RequiredControlPaths) {
+    if ($ControlPaths -cnotcontains $RequiredControlPath) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_BINDING' "Candidate manifest does not bind payload authority: $RequiredControlPath" }
   }
 
   $NormalizedTests = @()
@@ -481,6 +499,79 @@ function Get-ValidatedCompilationContext {
   foreach ($RequiredControlPath in $RequiredControlPaths) {
     if ($ControlPaths -cnotcontains $RequiredControlPath) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_BINDING' "Candidate manifest does not bind payload authority: $RequiredControlPath" }
   }
+  # AP-PROD-002: Live Git change set completeness check against candidate and ambient paths
+  $RawRecords = @()
+  if (-not [string]::IsNullOrEmpty($Git.Status)) {
+    $Tokens = $Git.Status.Split([char]0)
+    $RawRecords = if ($Tokens.Count -gt 0 -and [string]::IsNullOrEmpty($Tokens[-1])) { @($Tokens[0..($Tokens.Count - 2)]) } else { $Tokens }
+  }
+  $LiveGitPaths = New-Object System.Collections.Generic.List[string]
+  for ($Index = 0; $Index -lt $RawRecords.Count; $Index++) {
+    $Record = [string]$RawRecords[$Index]
+    if ([string]::IsNullOrWhiteSpace($Record)) { continue }
+    $RecordPath = $null
+    if ($Record.StartsWith('? ')) {
+      $RecordPath = $Record.Substring(2)
+    }
+    elseif ($Record.StartsWith('1 ')) {
+      $Match = [regex]::Match($Record, '^1 [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (?<path>.*)$', [Text.RegularExpressions.RegexOptions]::Singleline)
+      if ($Match.Success) { $RecordPath = $Match.Groups['path'].Value }
+    }
+    elseif ($Record.StartsWith('2 ')) {
+      $Match = [regex]::Match($Record, '^2 [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (?<path>.*)$', [Text.RegularExpressions.RegexOptions]::Singleline)
+      if ($Match.Success) { $RecordPath = $Match.Groups['path'].Value; $Index++ }
+    }
+    elseif ($Record.StartsWith('u ')) {
+      $Match = [regex]::Match($Record, '^u [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ [^ ]+ (?<path>.*)$', [Text.RegularExpressions.RegexOptions]::Singleline)
+      if ($Match.Success) { $RecordPath = $Match.Groups['path'].Value }
+    }
+    if ($null -eq $RecordPath) { Throw-ResultAuthorityError 'RESULT_AUTHORITY_GIT_STATUS_FAILED' "Unsupported Git porcelain v2 record: $Record" }
+    $NormalizedLivePath = Normalize-DeclaredRelativePath $RecordPath 'RESULT_AUTHORITY_GIT_STATUS_PATH'
+    $LiveGitPaths.Add($NormalizedLivePath) | Out-Null
+  }
+
+  $AllowedLeasePatterns = @(Get-OptionalValue $Lease 'allowed_paths' @())
+  $CandidateSet = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  foreach ($CandItem in $CandidatePaths) { [void]$CandidateSet.Add([string]$CandItem) }
+  $AmbientDeclared = @(Get-OptionalValue $Candidate 'ambient_git_status' @())
+  $AmbientPaths = @($AmbientDeclared | ForEach-Object { [string]$_.path })
+  $AmbientSet = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  foreach ($AmbItem in $AmbientPaths) { [void]$AmbientSet.Add([string]$AmbItem) }
+
+  foreach ($LivePath in $LiveGitPaths) {
+    if ($LivePath.StartsWith('.agy/', [StringComparison]::OrdinalIgnoreCase) -or $LivePath.StartsWith('.agents/', [StringComparison]::OrdinalIgnoreCase)) {
+      continue
+    }
+    $IsLeased = ($AllowedLeasePatterns.Count -eq 0)
+    if (-not $IsLeased) {
+      foreach ($PatternValue in $AllowedLeasePatterns) {
+        $Pattern = [string]$PatternValue
+        if ($Pattern.EndsWith('/**')) {
+          $Prefix = $Pattern.Substring(0, $Pattern.Length - 3).TrimEnd('/')
+          if ($LivePath -eq $Prefix -or $LivePath.StartsWith($Prefix + '/', [StringComparison]::OrdinalIgnoreCase)) {
+            $IsLeased = $true
+            break
+          }
+        }
+        elseif ([Management.Automation.WildcardPattern]::new($Pattern, [Management.Automation.WildcardOptions]::IgnoreCase).IsMatch($LivePath)) {
+          $IsLeased = $true
+          break
+        }
+      }
+    }
+
+    if ($IsLeased) {
+      if (-not $CandidateSet.Contains($LivePath)) {
+        Throw-ResultAuthorityError 'RESULT_AUTHORITY_CANDIDATE_INCOMPLETE' "Live Git status contains leased change omitted from candidate manifest: $LivePath"
+      }
+    }
+    else {
+      if (-not $AmbientSet.Contains($LivePath)) {
+        Throw-ResultAuthorityError 'RESULT_AUTHORITY_AMBIENT_INCOMPLETE' "Live Git status contains ambient change omitted from candidate manifest: $LivePath"
+      }
+    }
+  }
+
   $TaskPath = Join-Path $Root '.agy/inbox/ACTIVE_ACTION_PACKET/AGENT_TASK.md'
   $TaskHash = if (Test-Path -LiteralPath $TaskPath -PathType Leaf) { Get-Sha256File (Get-ConfinedFile $Root '.agy/inbox/ACTIVE_ACTION_PACKET/AGENT_TASK.md' 'RESULT_AUTHORITY_TASK_BINDING' '.agy') } else { 'missing' }
   $AuthorityHashes = [ordered]@{
@@ -939,6 +1030,25 @@ if (-not [string]::IsNullOrWhiteSpace($WorkerToken) -or -not [string]::IsNullOrW
   Throw-ResultAuthorityError 'RESULT_AUTHORITY_INTERNAL_CONTRACT' 'Internal worker parameters require -Worker.'
 }
 
+$CompileStopwatch = [Diagnostics.Stopwatch]::StartNew()
+function Register-OperationMetric {
+  param([string]$ProjectRoot, [string]$Operation, [double]$DurationMs, [bool]$Success, [string]$Status, [string]$ErrorDetail = '')
+  try {
+    $AgyDir = Join-Path $ProjectRoot '.agy'
+    $MetricsPath = Join-Path $AgyDir 'RUN_METRICS.ndjson'
+    $MetricRecord = [ordered]@{
+      schema_version = '1.0.0'
+      at_utc = [DateTimeOffset]::UtcNow.ToString('o')
+      operation = $Operation
+      duration_ms = [Math]::Round($DurationMs, 2)
+      success = $Success
+      status = $Status
+      error = $ErrorDetail
+    }
+    Add-Content -LiteralPath $MetricsPath -Value ($MetricRecord | ConvertTo-Json -Compress) -Encoding UTF8 -ErrorAction SilentlyContinue
+  } catch {}
+}
+
 # This validation intentionally happens before creating lock, status, journal, or output files.
 $Context = Get-ValidatedCompilationContext $Root $VerificationReceiptPath $AuditResultPath
 $Fingerprint = Get-RequestFingerprint $Context ([bool]$Apply)
@@ -958,6 +1068,7 @@ try {
   $PreviousStatus = Get-CompilerStatus $RuntimeRoot
   if ($Apply -and (Test-CompletedOutputsCurrent $PreviousStatus $Context $Fingerprint)) {
     $Outcome = 'already_completed'
+    Register-OperationMetric $Root 'result_authority_compile' $CompileStopwatch.Elapsed.TotalMilliseconds $true 'already_completed'
     [ordered]@{ schema_version = '1.0.0'; status = 'already_completed'; request_fingerprint = $Fingerprint; work_item_id = $Context.WorkItemId; head = $Context.Git.Head; verification_receipt_sha256 = $Context.ReceiptSha256 } | ConvertTo-Json -Compress
     return
   }
@@ -974,6 +1085,7 @@ try {
     $Outcome = 'timed_out'
     $Status.state = 'timed_out'; $Status.error_code = 'RESULT_AUTHORITY_TIMEOUT'; $Status.updated_at_utc = [DateTimeOffset]::UtcNow.ToString('o')
     Set-CompilerStatus $RuntimeRoot $Status
+    Register-OperationMetric $Root 'result_authority_compile' $CompileStopwatch.Elapsed.TotalMilliseconds $false 'timed_out' 'RESULT_AUTHORITY_TIMEOUT'
     Throw-ResultAuthorityError 'RESULT_AUTHORITY_TIMEOUT' "Result-authority worker exceeded $TimeoutSeconds seconds and its process tree was terminated."
   }
   if ($WorkerResult.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $WorkerOutput -PathType Leaf)) {
@@ -981,6 +1093,7 @@ try {
     $Status.state = 'failed'; $Status.error_code = 'RESULT_AUTHORITY_WORKER_FAILED'; $Status.updated_at_utc = [DateTimeOffset]::UtcNow.ToString('o')
     Set-CompilerStatus $RuntimeRoot $Status
     $Detail = ($WorkerResult.StdErr + "`n" + $WorkerResult.StdOut).Trim()
+    Register-OperationMetric $Root 'result_authority_compile' $CompileStopwatch.Elapsed.TotalMilliseconds $false 'worker_failed' "RESULT_AUTHORITY_WORKER_FAILED: $Detail"
     Throw-ResultAuthorityError 'RESULT_AUTHORITY_WORKER_FAILED' "Worker failed with exit code $($WorkerResult.ExitCode): $Detail"
   }
   $Payload = Read-JsonFile $WorkerOutput 'Result-authority worker output'
@@ -997,12 +1110,14 @@ try {
   $Outcome = 'completed'
   $Status.state = 'completed'; $Status.compiled_at_utc = [string]$Payload.run_result.compiled_at_utc; $Status.verification_receipt_sha256 = $CurrentContext.ReceiptSha256; $Status.output_sha256 = $OutputHashes; $Status.updated_at_utc = [DateTimeOffset]::UtcNow.ToString('o')
   Set-CompilerStatus $RuntimeRoot $Status
+  Register-OperationMetric $Root 'result_authority_compile' $CompileStopwatch.Elapsed.TotalMilliseconds $true 'completed'
   if ($Apply) {
     [ordered]@{ schema_version = '1.0.0'; status = 'completed'; request_fingerprint = $Fingerprint; work_item_id = $CurrentContext.WorkItemId; head = $CurrentContext.Git.Head; compiled_at_utc = [string]$Payload.run_result.compiled_at_utc; verification_receipt = $Payload.run_result.verification_receipt } | ConvertTo-Json -Depth 20 -Compress
   }
   else { $Payload | ConvertTo-Json -Depth 70 }
 }
 catch {
+  Register-OperationMetric $Root 'result_authority_compile' $CompileStopwatch.Elapsed.TotalMilliseconds $false $Outcome $_.Exception.Message
   if ($StatusWasWritten -and $Outcome -notin @('timed_out', 'worker_failed')) {
     try {
       $FailureStatus = Get-CompilerStatus $RuntimeRoot

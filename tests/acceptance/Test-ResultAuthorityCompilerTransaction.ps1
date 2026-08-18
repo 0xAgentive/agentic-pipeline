@@ -12,7 +12,7 @@ $TemplateCandidatePublisher = Join-Path $Root 'templates\agy-project-base\script
 $ReceiptSchema = Join-Path $Root 'schemas\companion\verification-receipt.schema.json'
 $TemplateReceiptSchema = Join-Path $Root 'templates\agy-project-base\schemas\companion\verification-receipt.schema.json'
 $RunResultSchema = Join-Path $Root 'schemas\companion\run-result.schema.json'
-$WorkerSource = Join-Path $Root 'integrations\companion-handoff-1.2.25\source\src'
+$WorkerSource = Join-Path $Root 'integrations\companion-handoff-1.2.26\source\src'
 $CompanionControl = Join-Path $Root 'scripts\companion\companion-control.cjs'
 $Pwsh = (Get-Command pwsh -ErrorAction Stop).Source
 $Node = (Get-Command node -ErrorAction Stop).Source
@@ -268,7 +268,7 @@ function New-Fixture {
   $Agy = Join-Path $Project '.agy'
   $Issued = [DateTimeOffset]::UtcNow.AddMinutes(-4)
   $WorkItem = [ordered]@{schema_version='1.0.0';work_item_id="work-$Name";goal_epoch=1;goal='Compile an exact result';assurance_mode='flow';status='active';owner_approved=$true;created_at_utc=$Issued.ToString('o');updated_at_utc=$Issued.ToString('o')}
-  $Lease = [ordered]@{schema_version='1.0.0';lease_id="lease-$Name";status='active';work_item_id=$WorkItem.work_item_id;goal_epoch=1;branch=$Branch;baseline_head=$Head;issued_at_utc=$Issued.ToString('o')}
+  $Lease = [ordered]@{schema_version='1.0.0';lease_id="lease-$Name";status='active';work_item_id=$WorkItem.work_item_id;goal_epoch=1;branch=$Branch;baseline_head=$Head;allowed_paths=@('src/**');issued_at_utc=$Issued.ToString('o')}
   Write-Json (Join-Path $Agy 'WORK_ITEM.json') $WorkItem
   Write-Json (Join-Path $Agy 'EXECUTION_LEASE.json') $Lease
   $Progress = [ordered]@{schema_version='1.1.0';work_item_id=$WorkItem.work_item_id;status='progressing';observations_count=1;consecutive_no_progress=0;same_failure_count=0;owner_decision_required=$false;updated_at_utc=$Issued.ToString('o');history=@()}
@@ -283,10 +283,10 @@ function New-Fixture {
   $EvidencePath = Join-Path $Agy 'verification\required-test.log'
   [IO.File]::WriteAllText($EvidencePath, "required test passed`n", $Utf8)
   (Get-Item -LiteralPath $EvidencePath).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-3)
-  $Fixture = [pscustomobject]@{Project=$Project;Agy=$Agy;Head=$Head;Branch=$Branch;WorkItem=$WorkItem;Lease=$Lease;Progress=$Progress;CandidateRelative=$CandidateRelative;CandidatePath=$CandidatePath;EvidencePath=$EvidencePath;ReceiptPath=(Join-Path $Agy 'receipt-input.json');Validator=$Validator;Revision=0;BindExistingNextAction=[bool]$BindExistingNextAction}
-  [void](Update-FixtureAuthority $Fixture)
   $DirtyName = if ($IsWindows) { 'untracked юникод name.txt' } else { "untracked`nюникод.txt" }
   [IO.File]::WriteAllText((Join-Path $Project $DirtyName), 'porcelain-v2-z regression', $Utf8)
+  $Fixture = [pscustomobject]@{Project=$Project;Agy=$Agy;Head=$Head;Branch=$Branch;WorkItem=$WorkItem;Lease=$Lease;Progress=$Progress;CandidateRelative=$CandidateRelative;CandidatePath=$CandidatePath;EvidencePath=$EvidencePath;ReceiptPath=(Join-Path $Agy 'receipt-input.json');Validator=$Validator;Revision=0;BindExistingNextAction=[bool]$BindExistingNextAction}
+  [void](Update-FixtureAuthority $Fixture)
   return $Fixture
 }
 
@@ -307,10 +307,16 @@ function Update-FixtureAuthority {
     $Path = Join-Path $Fixture.Agy $_
     [ordered]@{path=".agy/$_";size_bytes=[long](Get-Item -LiteralPath $Path).Length;sha256=Get-Sha256 $Path}
   })
+  $DirtyName = if ($IsWindows) { 'untracked юникод name.txt' } else { "untracked`nюникод.txt" }
+  $AmbientEntries = @([ordered]@{status='??';path=$DirtyName})
+  if ($Fixture.Validator -ne 'none') {
+    $AmbientEntries += [ordered]@{status='??';path='scripts/windows/companion/Test-FindingSet.ps1'}
+  }
   $Candidate = [ordered]@{
-    schema_version='1.0.0';work_item_id=$Fixture.WorkItem.work_item_id;lease_id=$Fixture.Lease.lease_id;branch=$Fixture.Branch;head=$Fixture.Head;generated_at_utc=$CandidateTime.ToString('o')
+    schema_version='1.1.0';work_item_id=$Fixture.WorkItem.work_item_id;lease_id=$Fixture.Lease.lease_id;branch=$Fixture.Branch;head=$Fixture.Head;generated_at_utc=$CandidateTime.ToString('o')
     candidate_files=@([ordered]@{path=$Fixture.CandidateRelative;exists=$true;size_bytes=[long](Get-Item -LiteralPath $Fixture.CandidatePath).Length;sha256=Get-Sha256 $Fixture.CandidatePath})
     control_plane_files=$Controls
+    ambient_git_status=$AmbientEntries
   }
   $CandidatePath = Join-Path $Fixture.Agy 'CANDIDATE_MANIFEST.json'
   Write-Json $CandidatePath $Candidate
@@ -375,6 +381,26 @@ try {
   $EscapeResult = Invoke-Compiler $Escape.Project $Escape.ReceiptPath
   Assert-True ($EscapeResult.ExitCode -ne 0 -and ($EscapeResult.StdErr + $EscapeResult.StdOut) -match 'RESULT_AUTHORITY_RECEIPT_BINDING') 'Parent-segment receipt path was accepted.'
   Assert-NoCompilerWrites $Escape
+
+  $ReconFixture = New-Fixture 'recon-marker-block'
+  [IO.File]::WriteAllText((Join-Path $ReconFixture.Agy 'HOOK_RECONCILIATION_REQUIRED.json'), '{"schema_version":"1.0.0"}', $Utf8)
+  $ReconRejected = Invoke-Compiler $ReconFixture.Project $ReconFixture.ReceiptPath -Apply
+  Assert-True ($ReconRejected.ExitCode -ne 0 -and ($ReconRejected.StdErr + $ReconRejected.StdOut) -match 'RESULT_AUTHORITY_RECONCILIATION_REQUIRED') 'Reconciliation marker was not rejected before writes.'
+  Assert-NoCompilerWrites $ReconFixture
+
+  $ReconStatusFixture = New-Fixture 'recon-status-block'
+  $StatusObj = Get-Content -LiteralPath (Join-Path $ReconStatusFixture.Agy 'CANDIDATE_MANIFEST_STATUS.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+  $StatusObj.status = 'reconciliation_required'
+  Write-Json (Join-Path $ReconStatusFixture.Agy 'CANDIDATE_MANIFEST_STATUS.json') $StatusObj
+  $ReconStatusRejected = Invoke-Compiler $ReconStatusFixture.Project $ReconStatusFixture.ReceiptPath -Apply
+  Assert-True ($ReconStatusRejected.ExitCode -ne 0 -and ($ReconStatusRejected.StdErr + $ReconStatusRejected.StdOut) -match 'RESULT_AUTHORITY_RECONCILIATION_REQUIRED') 'Reconciliation status was not rejected before writes.'
+  Assert-NoCompilerWrites $ReconStatusFixture
+
+  $IncompleteCandidate = New-Fixture 'candidate-incomplete'
+  [IO.File]::WriteAllText((Join-Path $IncompleteCandidate.Project 'src/untracked-leased.txt'), 'untracked leased content', $Utf8)
+  $IncompleteRejected = Invoke-Compiler $IncompleteCandidate.Project $IncompleteCandidate.ReceiptPath -Apply
+  Assert-True ($IncompleteRejected.ExitCode -ne 0 -and ($IncompleteRejected.StdErr + $IncompleteRejected.StdOut) -match 'RESULT_AUTHORITY_CANDIDATE_INCOMPLETE') 'Omitted leased file in Git status was not rejected by candidate completeness check.'
+  Assert-NoCompilerWrites $IncompleteCandidate
 
   foreach ($EvidenceCase in @(
     [pscustomobject]@{Name='outside-evidence';Path='outside-test.log';Expected='RESULT_AUTHORITY_TEST_EVIDENCE'},

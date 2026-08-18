@@ -21,11 +21,11 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $Utf8 = [Text.UTF8Encoding]::new($false)
-$EcosystemVersion = '1.2.25'
+$EcosystemVersion = '1.2.26'
 $BridgeSchemaVersion = '1.2.9'
 $PathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
 $PathSeparators = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
-$TaskDescriptionBase = 'Imports validated Companion 1.2.25 JSON Action Packets from Downloads into registered Agentic Pipeline projects.'
+$TaskDescriptionBase = 'Imports validated Companion 1.2.26 JSON Action Packets from Downloads into registered Agentic Pipeline projects.'
 $CreatedDirectories = [Collections.Generic.List[string]]::new()
 
 function Get-BytesSha256 {
@@ -206,7 +206,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $ResolvedProject '.agy') -PathType C
 $InstalledManifestPath = Join-Path $ResolvedProject '.agy/INSTALLATION_MANIFEST.json'
 if (-not (Test-Path -LiteralPath $InstalledManifestPath -PathType Leaf)) { throw 'Project installation manifest is missing.' }
 $InstalledManifest = Get-Content -LiteralPath $InstalledManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-if ([string]$InstalledManifest.package_version -ne $EcosystemVersion -or [string]$InstalledManifest.runtime_version -ne $EcosystemVersion) { throw 'Action Bridge requires an installed project runtime 1.2.25.' }
+if ([string]$InstalledManifest.package_version -ne $EcosystemVersion -or [string]$InstalledManifest.runtime_version -ne $EcosystemVersion) { throw 'Action Bridge requires an installed project runtime 1.2.26.' }
 
 $Leaf = Split-Path -Leaf $ResolvedProject
 if ([string]::IsNullOrWhiteSpace($LogicalName)) { $LogicalName = $Leaf }

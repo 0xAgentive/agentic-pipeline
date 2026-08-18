@@ -10,29 +10,50 @@ def configure_utf8_standard_streams():
   if callable(reconfigure):reconfigure(encoding='utf-8',errors=errors)
 
 SCHEMA_VERSION='1.2.9'
-ECOSYSTEM_VERSION='1.2.25'
+ECOSYSTEM_VERSION='1.2.26'
 VALID_OPERATIONS={'new_work_item','continue_work_item'}
 VALID_ROUTES={'/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck'}
 HEADINGS=['## Что происходит','## Что уже сделано','## Что будет дальше','## Нужно ли что-то от владельца']
+
 def sha256_file(path:Path)->str:
  h=hashlib.sha256()
  with path.open('rb') as f:
   for b in iter(lambda:f.read(1024*1024),b''):h.update(b)
  return h.hexdigest()
+
 def atomic_json(path:Path,value:Any):
  path.parent.mkdir(parents=True,exist_ok=True);tmp=path.with_name(f'{path.name}.tmp-{os.getpid()}-{time.time_ns()}');tmp.write_bytes((json.dumps(value,ensure_ascii=False,indent=2)+'\n').encode('utf-8'));os.replace(tmp,path)
+
 def append_jsonl(path:Path,value:Any):
  path.parent.mkdir(parents=True,exist_ok=True)
  with path.open('a',encoding='utf-8') as f:f.write(json.dumps(value,ensure_ascii=False)+'\n')
+
+def record_metric(project_root:Path,operation:str,duration_ms:float,success:bool,error:str|None=None):
+ try:
+  metrics_path=project_root/'.agy'/'RUN_METRICS.ndjson'
+  append_jsonl(metrics_path,{
+   'schema_version':'1.0.0',
+   'at_utc':dt.datetime.now(dt.timezone.utc).isoformat(),
+   'operation':operation,
+   'duration_ms':round(duration_ms,2),
+   'success':success,
+   'status':'completed' if success else 'failed',
+   'error':str(error or '')
+  })
+ except Exception:pass
+
 def load_json(path:Path):return json.loads(path.read_text(encoding='utf-8-sig'))
+
 def parse_utc(value):
  text=str(value or '');text=text[:-1]+'+00:00' if text.endswith('Z') else text;parsed=dt.datetime.fromisoformat(text)
  if parsed.tzinfo is None:raise ValueError('Packet timestamp must include a timezone')
  return parsed.astimezone(dt.timezone.utc)
+
 def validate_summary(text:str):
  for h in HEADINGS:
   if h not in text:raise ValueError(f'Owner summary heading missing: {h}')
  if len(text)>2400 or '```' in text:raise ValueError('Owner summary is not compact plain-language output')
+
 def validate_packet(packet:dict[str,Any])->dict[str,Any]:
  if packet.get('schema_version')!=SCHEMA_VERSION or packet.get('ecosystem_version')!=ECOSYSTEM_VERSION:raise ValueError('Unsupported ecosystem/action packet version')
  if packet.get('packet_format','single_json')!='single_json':raise ValueError('Unsupported packet format')
@@ -46,8 +67,10 @@ def validate_packet(packet:dict[str,Any])->dict[str,Any]:
  created=parse_utc(packet.get('created_at_utc'));expires=parse_utc(packet.get('expires_at_utc'));now=dt.datetime.now(dt.timezone.utc)
  if expires<=created or now>expires or created>now+dt.timedelta(minutes=5):raise ValueError('Packet time window is invalid or expired')
  return packet
+
 def safe_member(name:str)->bool:
  n=name.replace('\\','/');parts=[p for p in n.split('/') if p not in ('','.')];return not n.startswith('/') and not (parts and ':' in parts[0]) and '..' not in parts
+
 def load_packet(source:Path)->dict[str,Any]:
  if source.suffix.lower()=='.json':return validate_packet(load_json(source))
  if source.suffix.lower()!='.zip':raise ValueError('Only .json and legacy .zip packets are supported')
@@ -62,6 +85,7 @@ def load_packet(source:Path)->dict[str,Any]:
   if 'owner_summary_ru' not in packet:packet['owner_summary_ru']=(root/'OWNER_SUMMARY_RU.md').read_text(encoding='utf-8')
   packet['schema_version']=SCHEMA_VERSION;packet['ecosystem_version']=ECOSYSTEM_VERSION;packet['packet_format']='single_json'
   return validate_packet(packet)
+
 def resolve_registration(registry_path:Path,project_id:str):
  registry=load_json(registry_path)
  if registry.get('schema_version')!=SCHEMA_VERSION or registry.get('ecosystem_version')!=ECOSYSTEM_VERSION:raise ValueError('Project registry ecosystem version is stale')
@@ -80,6 +104,7 @@ def resolve_registration(registry_path:Path,project_id:str):
    if manifest.get('package_version')!=ECOSYSTEM_VERSION or manifest.get('runtime_version')!=ECOSYSTEM_VERSION:raise ValueError('Installed project runtime version is stale')
    return root,token
  raise ValueError(f'Unknown project_id: {project_id}')
+
 def validate_current_identity(packet:dict[str,Any],root:Path):
  hint=packet.get('project_root_hint')
  if hint and Path(os.path.expandvars(os.path.expanduser(str(hint)))).resolve()!=root:raise ValueError('Packet project root hint does not match the registered project')
@@ -91,6 +116,7 @@ def validate_current_identity(packet:dict[str,Any],root:Path):
  if str(work.get('goal',''))!=str(packet.get('goal','')):raise ValueError('Continuation packet attempts to change the immutable owner goal')
  expected=packet.get('owner_goal_sha256')
  if expected and not hmac.compare_digest(str(expected),hashlib.sha256(str(work.get('goal','')).encode('utf-8')).hexdigest()):raise ValueError('Continuation owner-goal fingerprint is stale')
+
 def processed_ids(path:Path)->set[str]:
  if not path.is_file():return set()
  out=set()
@@ -100,8 +126,10 @@ def processed_ids(path:Path)->set[str]:
    if v.get('packet_id'):out.add(str(v['packet_id']))
   except json.JSONDecodeError:pass
  return out
+
 def canonical_markdown(value:Any)->str:
  return str(value).replace('\r\n','\n').replace('\r','\n').rstrip()+'\n'
+
 def materialize(packet:dict[str,Any],root:Path):
  root.mkdir(parents=True,exist_ok=True)
  materialized=dict(packet);materialized['technical_task_markdown']=canonical_markdown(packet['technical_task_markdown']);materialized['owner_summary_ru']=canonical_markdown(packet['owner_summary_ru'])
@@ -112,7 +140,9 @@ def materialize(packet:dict[str,Any],root:Path):
  for name in ['ACTION_PACKET.json','AGENT_TASK.md','OWNER_SUMMARY_RU.md']:
   p=root/name;files.append({'path':name,'size_bytes':p.stat().st_size,'sha256':sha256_file(p)})
  atomic_json(root/'MANIFEST.json',{'schema_version':SCHEMA_VERSION,'ecosystem_version':ECOSYSTEM_VERSION,'files':files})
+
 def import_packet(source:Path,registry_path:Path,state_root:Path):
+ start_ns=time.time_ns()
  source=source.resolve();packet=load_packet(source);project_root,registered_token=resolve_registration(registry_path,str(packet['project_id']))
  validate_current_identity(packet,project_root)
  ledger=state_root/'accepted_packets.ndjson';packet_id=str(packet['packet_id'])
@@ -135,11 +165,30 @@ def import_packet(source:Path,registry_path:Path,state_root:Path):
  else:os.replace(staged,active)
  receipt={'schema_version':SCHEMA_VERSION,'ecosystem_version':ECOSYSTEM_VERSION,'packet_id':packet_id,'project_id':packet['project_id'],'operation':packet['operation'],'route':packet['route'],'status':'imported','source_file':str(source),'source_sha256':sha256_file(source),'imported_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'activated_at_utc':None,'injected_at_utc':None}
  atomic_json(project_root/'.agy'/'ACTION_PACKET_RECEIPT.json',receipt);append_jsonl(ledger,{'packet_id':packet_id,'project_id':packet['project_id'],'accepted_at_utc':receipt['imported_at_utc'],'source_sha256':receipt['source_sha256']})
+ duration_ms=(time.time_ns()-start_ns)/1_000_000
+ record_metric(project_root,'action_packet_import',duration_ms,True)
  return{'status':'PASS','project_root':str(project_root),'packet_id':packet_id}
-def scan(inbox:Path,registry:Path,state_root:Path)->int:
+
+def is_candidate_ready(path:Path,debounce_seconds:float=0.1)->bool:
+ try:
+  size1=path.stat().st_size
+  mtime1=path.stat().st_mtime_ns
+  if debounce_seconds>0:
+   time.sleep(debounce_seconds)
+   stat2=path.stat()
+   if stat2.st_size!=size1 or stat2.st_mtime_ns!=mtime1:
+    return False
+  with path.open('rb') as f:
+   f.read(min(1024,max(1,size1)))
+  return True
+ except (OSError,PermissionError):
+  return False
+
+def scan(inbox:Path,registry:Path,state_root:Path,debounce_seconds:float=0.1)->int:
  processed=state_root/'processed';failed=state_root/'failed';processed.mkdir(parents=True,exist_ok=True);failed.mkdir(parents=True,exist_ok=True);failures=0
  packets=sorted(list(inbox.glob('AGENTIC_ACTION_PACKET_*.json'))+list(inbox.glob('AGENTIC_ACTION_PACKET_*.zip')),key=lambda p:p.stat().st_mtime_ns)
  for source in packets:
+  if not is_candidate_ready(source,debounce_seconds):continue
   try:
    result=import_packet(source,registry,state_root);target=processed/source.name
    if target.exists():target=processed/f'{source.stem}-{time.time_ns()}{source.suffix}'
@@ -149,9 +198,26 @@ def scan(inbox:Path,registry:Path,state_root:Path)->int:
    if target.exists():target=failed/f'{source.stem}-{time.time_ns()}{source.suffix}'
    shutil.move(str(source),str(target));target.with_suffix(target.suffix+'.error.txt').write_text(str(e),encoding='utf-8')
  return failures
+
+def watch(inbox:Path,registry:Path,state_root:Path,poll_interval:float=0.5,debounce_seconds:float=0.1,max_iterations:int|None=None)->int:
+ iterations=0
+ while True:
+  iterations+=1
+  scan(inbox,registry,state_root,debounce_seconds=debounce_seconds)
+  if max_iterations is not None and iterations>=max_iterations:
+   break
+  time.sleep(poll_interval)
+ return 0
+
 def main():
  configure_utf8_standard_streams()
- p=argparse.ArgumentParser();sub=p.add_subparsers(dest='command',required=True);i=sub.add_parser('import');i.add_argument('--packet',type=Path,required=True);i.add_argument('--registry',type=Path,required=True);i.add_argument('--state-root',type=Path,required=True);s=sub.add_parser('scan');s.add_argument('--inbox',type=Path,required=True);s.add_argument('--registry',type=Path,required=True);s.add_argument('--state-root',type=Path,required=True);a=p.parse_args()
+ p=argparse.ArgumentParser();sub=p.add_subparsers(dest='command',required=True)
+ i=sub.add_parser('import');i.add_argument('--packet',type=Path,required=True);i.add_argument('--registry',type=Path,required=True);i.add_argument('--state-root',type=Path,required=True)
+ s=sub.add_parser('scan');s.add_argument('--inbox',type=Path,required=True);s.add_argument('--registry',type=Path,required=True);s.add_argument('--state-root',type=Path,required=True);s.add_argument('--debounce-seconds',type=float,default=0.1)
+ w=sub.add_parser('watch');w.add_argument('--inbox',type=Path,required=True);w.add_argument('--registry',type=Path,required=True);w.add_argument('--state-root',type=Path,required=True);w.add_argument('--poll-interval',type=float,default=0.5);w.add_argument('--debounce-seconds',type=float,default=0.1);w.add_argument('--max-iterations',type=int,default=None)
+ a=p.parse_args()
  if a.command=='import':print(json.dumps(import_packet(a.packet,a.registry,a.state_root),ensure_ascii=False));return 0
- return 1 if scan(a.inbox,a.registry,a.state_root) else 0
+ if a.command=='watch':return watch(a.inbox,a.registry,a.state_root,poll_interval=a.poll_interval,debounce_seconds=a.debounce_seconds,max_iterations=a.max_iterations)
+ return 1 if scan(a.inbox,a.registry,a.state_root,debounce_seconds=a.debounce_seconds) else 0
+
 if __name__=='__main__':raise SystemExit(main())

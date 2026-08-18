@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.25",
+  "ecosystem_version": "1.2.26",
   "release_name": "Ecosystem Autonomy and Handoff Alignment",
   "components": {
-    "pipeline": "1.2.25",
-    "runtime": "1.2.25",
-    "playbook": "1.2.25",
-    "companion": "1.2.25",
-    "action_bridge": "1.2.25",
-    "context_handoff": "1.2.25"
+    "pipeline": "1.2.26",
+    "runtime": "1.2.26",
+    "playbook": "1.2.26",
+    "companion": "1.2.26",
+    "action_bridge": "1.2.26",
+    "context_handoff": "1.2.26"
   },
   "status": "stable"
 }

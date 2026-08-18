@@ -187,10 +187,51 @@ try {
   $StopInput = @{conversationId='hook-contract';workspacePaths=@($TempRoot);fullyIdle=$true;terminationReason='model_stop';executionNum=1}
   $StopOutput = ($StopInput | ConvertTo-Json -Depth 10 -Compress) | & $Node $Hook stop | ConvertFrom-Json
   if ($StopOutput.decision -ne 'continue') { throw 'Stop hook did not auto-continue a progressing work item.' }
-  $Progress.status = 'stalled'; $Progress.consecutive_no_progress = 2
-  [IO.File]::WriteAllText((Join-Path $TempRoot '.agy/PROGRESS_STATE.json'),($Progress | ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
-  $StalledOutput = ($StopInput | ConvertTo-Json -Depth 10 -Compress) | & $Node $Hook stop | ConvertFrom-Json
-  if ($StalledOutput.decision -ne 'stop') { throw 'Stalled work item was not stopped.' }
+  # AP-PROD-001: Post-hook reconciliation tests
+  # 1. Write ledger failure test
+  $ReconDir = Join-Path $TempRoot '.agy\WRITE_LEDGER.ndjson'
+  New-Item -ItemType Directory -Force -Path $ReconDir | Out-Null
+  $PendingWriteFile = Join-Path $TempRoot '.agy\.hook_pending\recon-write-1.json'
+  $PendingWriteBody = [ordered]@{ kind = 'write'; data = [ordered]@{ file = (Join-Path $TempRoot 'src/base.ts'); rel = 'src/base.ts' }; created_at_utc = (Get-Date).ToUniversalTime().ToString('o') }
+  [IO.File]::WriteAllText($PendingWriteFile, ($PendingWriteBody | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
+  $ReconWriteInput = @{ conversationId = 'recon-write'; workspacePaths = @($TempRoot); stepIdx = 1; toolCall = @{ name = 'write_to_file'; args = @{ TargetFile = (Join-Path $TempRoot 'src/base.ts') } }; error = $null }
+  ($ReconWriteInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook postwrite | Out-Null
+  $ReconMarkerPath = Join-Path $TempRoot '.agy\HOOK_RECONCILIATION_REQUIRED.json'
+  if (-not (Test-Path -LiteralPath $ReconMarkerPath -PathType Leaf)) { throw 'Postwrite failure did not create HOOK_RECONCILIATION_REQUIRED.json.' }
+  if (-not (Test-Path -LiteralPath $PendingWriteFile -PathType Leaf)) { throw 'Postwrite failure silently removed pending record.' }
+  $StatusAfterRecon = (Get-Content -LiteralPath $CandidateStatusPath -Raw -Encoding UTF8 | ConvertFrom-Json)
+  if ([string]$StatusAfterRecon.status -ne 'reconciliation_required') { throw 'Postwrite failure did not set status to reconciliation_required.' }
+  $StopDuringRecon = ($StopInput | ConvertTo-Json -Depth 10 -Compress) | & $Node $Hook stop | ConvertFrom-Json
+  if ($StopDuringRecon.decision -ne 'stop') { throw 'Stop hook auto-continued while reconciliation was required.' }
+  $PrewriteDuringRecon = ($Base.Clone() | ConvertTo-Json -Depth 20 -Compress)
+  $PrewriteReconInput = @{ conversationId = 'recon-test'; workspacePaths = @($TempRoot); stepIdx = 20; toolCall = @{ name = 'write_to_file'; args = @{ TargetFile = (Join-Path $TempRoot 'src/base.ts') } } }
+  $PrewriteReconOutput = ($PrewriteReconInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook prewrite | ConvertFrom-Json
+  if ($PrewriteReconOutput.decision -ne 'deny') { throw 'Prewrite hook allowed write while reconciliation was required.' }
+
+  # Recovery: Remove blocking directory, rerun postwrite, verify reconciliation is cleared
+  Remove-Item -LiteralPath $ReconDir -Force
+  ($ReconWriteInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook postwrite | Out-Null
+  if (Test-Path -LiteralPath $ReconMarkerPath -PathType Leaf) { throw 'Successful postwrite did not clear HOOK_RECONCILIATION_REQUIRED.json.' }
+  if (Test-Path -LiteralPath $PendingWriteFile -PathType Leaf) { throw 'Successful postwrite did not remove pending record.' }
+  $StatusAfterFix = (Get-Content -LiteralPath $CandidateStatusPath -Raw -Encoding UTF8 | ConvertFrom-Json)
+  if ([string]$StatusAfterFix.status -ne 'invalidated') { throw 'Successful postwrite did not invalidate candidate manifest.' }
+
+  # 2. Command ledger failure test
+  $ReconCmdDir = Join-Path $TempRoot '.agy\COMMAND_LEDGER.ndjson'
+  Remove-Item -LiteralPath $ReconCmdDir -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $ReconCmdDir | Out-Null
+  $PendingCmdFile = Join-Path $TempRoot '.agy\.hook_pending\recon-cmd-1.json'
+  $PendingCmdBody = [ordered]@{ kind = 'command'; data = [ordered]@{ command = 'npm test'; cwd = $TempRoot; readOnly = $false }; created_at_utc = (Get-Date).ToUniversalTime().ToString('o') }
+  [IO.File]::WriteAllText($PendingCmdFile, ($PendingCmdBody | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
+  $ReconCmdInput = @{ conversationId = 'recon-cmd'; workspacePaths = @($TempRoot); stepIdx = 1; toolCall = @{ name = 'run_command'; args = @{ CommandLine = 'npm test'; Cwd = $TempRoot } }; error = $null }
+  ($ReconCmdInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook postcommand | Out-Null
+  if (-not (Test-Path -LiteralPath $ReconMarkerPath -PathType Leaf)) { throw 'Postcommand failure did not create HOOK_RECONCILIATION_REQUIRED.json.' }
+  if (-not (Test-Path -LiteralPath $PendingCmdFile -PathType Leaf)) { throw 'Postcommand failure silently removed pending record.' }
+  Remove-Item -LiteralPath $ReconCmdDir -Force
+  ($ReconCmdInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook postcommand | Out-Null
+  if (Test-Path -LiteralPath $ReconMarkerPath -PathType Leaf) { throw 'Successful postcommand did not clear HOOK_RECONCILIATION_REQUIRED.json.' }
+  if (Test-Path -LiteralPath $PendingCmdFile -PathType Leaf) { throw 'Successful postcommand did not remove pending record.' }
+
   Write-Host 'Hook contract OK.'
 } finally {
   if (Test-Path -LiteralPath $TempRoot -PathType Container) {

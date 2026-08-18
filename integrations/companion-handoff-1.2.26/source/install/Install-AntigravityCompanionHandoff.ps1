@@ -1,0 +1,123 @@
+<#
+.SYNOPSIS
+    Install-AntigravityCompanionHandoff.ps1 - Installer for Antigravity Companion Handoff v1.2.26
+.DESCRIPTION
+    Configures global Antigravity hooks.json and registers background worker scheduled task.
+    Uses wscript.exe + VBS launcher to avoid console window flashing.
+#>
+
+[CmdletBinding()]
+param (
+    [string]$TargetDir = '',
+    [switch]$DryRun,
+    [switch]$Force
+)
+
+$ErrorActionPreference = "Stop"
+
+$baseDir = if (-not [string]::IsNullOrWhiteSpace($TargetDir)) {
+    (Resolve-Path -LiteralPath $TargetDir).Path
+} elseif ($env:COMPANION_HANDOFF_DIR -and (Test-Path $env:COMPANION_HANDOFF_DIR)) {
+    (Resolve-Path -LiteralPath $env:COMPANION_HANDOFF_DIR).Path
+} else {
+    (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+}
+
+$hooksFile = if ($env:APPDATA -and (Test-Path (Join-Path $env:APPDATA '.gemini\config\hooks.json'))) {
+    Join-Path $env:APPDATA '.gemini\config\hooks.json'
+} elseif ($env:USERPROFILE -and (Test-Path (Join-Path $env:USERPROFILE '.gemini\config\hooks.json'))) {
+    Join-Path $env:USERPROFILE '.gemini\config\hooks.json'
+} else {
+    Join-Path $env:USERPROFILE '.gemini\config\hooks.json'
+}
+
+$pythonCmd = Get-Command python.exe -ErrorAction SilentlyContinue
+$pythonPath = if ($pythonCmd) { $pythonCmd.Source } else { "python" }
+
+Write-Host "==============================================" -ForegroundColor Cyan
+Write-Host "Installing Antigravity Companion Handoff v1.2.26" -ForegroundColor Cyan
+Write-Host "==============================================" -ForegroundColor Cyan
+
+if (-not (Test-Path $baseDir)) {
+    Write-Error "Base directory $baseDir does not exist."
+}
+
+# Python script for atomic, non-destructive hooks.json merge
+$pyMergeCode = @"
+import os, json, time, shutil
+
+hooks_file = r"$hooksFile"
+backup_dir = r"$baseDir\logs"
+os.makedirs(backup_dir, exist_ok=True)
+os.makedirs(os.path.dirname(hooks_file), exist_ok=True)
+
+if os.path.exists(hooks_file):
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    b_path = os.path.join(backup_dir, f"hooks.json.bak_{ts}")
+    shutil.copy2(hooks_file, b_path)
+    print(f"[Installer] Created backup: {b_path}")
+    with open(hooks_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+else:
+    data = {}
+
+enqueue_script = r"$baseDir\src\enqueue_ag_handoff.py".replace('\\', '/')
+data["companion-handoff-on-stop"] = {
+    "enabled": True,
+    "Stop": [
+        {
+            "type": "command",
+            "command": f'pythonw "{enqueue_script}"',
+            "timeout": 15
+        }
+    ]
+}
+
+tmp_hooks = hooks_file + ".tmp"
+with open(tmp_hooks, "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+
+json.load(open(tmp_hooks, "r", encoding="utf-8"))
+os.replace(tmp_hooks, hooks_file)
+print(f"[Installer] Merged companion-handoff-on-stop hook safely.")
+"@
+
+if (-not $DryRun) {
+    & $pythonPath -c $pyMergeCode
+    Write-Host "Registered companion-handoff-on-stop hook safely." -ForegroundColor Green
+} else {
+    Write-Host "[DryRun] Would add companion-handoff-on-stop hook to $hooksFile" -ForegroundColor Yellow
+}
+
+# Register Scheduled Task with wscript.exe + VBS launcher (no console window flash)
+$taskName = "AntigravityCompanionHandoffWorker"
+$vbsLauncher = Join-Path $baseDir "src\run_worker_hidden.vbs"
+$wscriptExe = Join-Path $env:SystemRoot "System32\wscript.exe"
+if (-not (Test-Path $wscriptExe)) { $wscriptExe = "wscript.exe" }
+
+if (-not $DryRun) {
+    $action = New-ScheduledTaskAction -Execute $wscriptExe -Argument "`"$vbsLauncher`""
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1)
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 0)
+    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
+
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
+    Start-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue | Out-Null
+    Write-Host "Registered Scheduled Task with VBS launcher (hidden, no console): $taskName" -ForegroundColor Green
+} else {
+    Write-Host "[DryRun] Would register scheduled task: $taskName" -ForegroundColor Yellow
+}
+
+# Smoke test: compile all Python modules
+if (-not $DryRun) {
+    Write-Host "Running smoke test..." -ForegroundColor Cyan
+    & $pythonPath -m compileall -q (Join-Path $baseDir "src")
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Smoke test passed. All source files compiled successfully." -ForegroundColor Green
+    } else {
+        Write-Warning "Smoke test reported compilation issues."
+    }
+}
+
+Write-Host "Installation complete." -ForegroundColor Cyan

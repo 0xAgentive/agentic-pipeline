@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const root = path.resolve(process.argv[2] || '.');
-const expectedVersion = '1.2.25';
+const expectedVersion = '1.2.26';
 const results = [];
 
 function file(relativePath) { return path.join(root, relativePath); }
@@ -27,7 +27,7 @@ function check(id, description, callback) {
   }
 }
 
-const playbook = json('tests/regression/KNOWN_FAILURE_PLAYBOOK_v1.2.25.json');
+const playbook = json('tests/regression/KNOWN_FAILURE_PLAYBOOK_v1.2.26.json');
 const executableIds = playbook.cases.filter((entry) => entry.verification_mode === 'executable_regression').map((entry) => entry.id);
 check('PLAYBOOK', '70 reviewed, material and uniquely identified cases', () => {
   const ids = playbook.cases.map((entry) => entry.id);
@@ -46,18 +46,18 @@ check('KF-004', 'PowerShell 7 is explicitly required by the Windows regression g
 check('KF-005', 'runtime-update is supported by the manifest writer', () =>
   contains('scripts/control-plane/write-installation-manifest.cjs', "'runtime-update'", 'defaultNextCommand = null'));
 check('KF-006', 'runtime deployment uses the runtime validation surface, not repository docs', () => {
-  const updater = text('scripts/windows/Update-AgenticProjectRuntime-v1.2.25.ps1');
+  const updater = text('scripts/windows/Update-AgenticProjectRuntime-v1.2.26.ps1');
   return updater.includes('Invoke-DeployedValidation') && !updater.includes('Test-HumanDocsCleanup.ps1');
 });
 check('KF-007', 'all active PowerShell is parser-gated', () =>
   contains('scripts/windows/Test-PowerShellRuntimeContracts.ps1', 'Parser]::ParseFile', 'PowerShell parse error'));
 check('KF-008', 'runtime updater separates framework allowlist and product snapshot', () =>
-  contains('scripts/windows/Update-AgenticProjectRuntime-v1.2.25.ps1', 'Get-ProductSnapshot', 'deployment_map', 'product_source_modified'));
+  contains('scripts/windows/Update-AgenticProjectRuntime-v1.2.26.ps1', 'Get-ProductSnapshot', 'deployment_map', 'product_source_modified'));
 check('KF-009', 'machine paths use structured results and UTF-8 rather than parsed display text', () =>
   contains('scripts/windows/common/NativeProcess.ps1', 'StandardOutputEncoding', 'UTF8Encoding') &&
   contains('scripts/windows/Test-FinalizationWindowsRegressions.ps1', 'stdout-юникод', 'stderr-отдельно'));
 check('KF-010', 'Handoff root resolution retains distinct launch and implementation roots', () =>
-  contains('integrations/companion-handoff-1.2.25/source/src/project_root_resolver.py', 'primary_implementation_root', 'logical_project_slug'));
+  contains('integrations/companion-handoff-1.2.26/source/src/project_root_resolver.py', 'primary_implementation_root', 'logical_project_slug'));
 check('KF-011', 'Git machine output separates stderr and uses NUL-delimited porcelain', () =>
   contains('scripts/windows/common/NativeProcess.ps1', 'StdOut', 'StdErr') &&
   contains('scripts/windows/companion/Publish-CandidateManifest.ps1', 'porcelain=v2', "'-z'"));
@@ -72,11 +72,11 @@ check('KF-015', 'automatic variables cannot be parameter names', () =>
 check('KF-016', 'Generic List conversion is runtime-tested for singleton and multiple values', () =>
   contains('scripts/windows/Test-FinalizationWindowsRegressions.ps1', 'Generic List singleton', '.ToArray()'));
 check('KF-017', 'exact Companion contract markers are required', () =>
-  contains('scripts/windows/companion/Test-CompanionPack-v1.2.25.ps1', 'Executor discovery', 'Completion', 'owner_interaction_policy'));
+  contains('scripts/windows/companion/Test-CompanionPack-v1.2.26.ps1', 'Executor discovery', 'Completion', 'owner_interaction_policy'));
 check('KF-018', 'active Companion filename is versioned and manifest-visible', () =>
-  exists('docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.25.md') &&
-  contains('docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.25.md', 'SYSTEM_PROMPT_GPT56_COMPANION_v1.2.25.md'));
-check('KF-019', 'all ecosystem version surfaces resolve to 1.2.25', () => {
+  exists('docs/companion/SYSTEM_PROMPT_GPT56_COMPANION_v1.2.26.md') &&
+  contains('docs/companion/00_AGENTIC_PIPELINE_INDEX_v1.2.26.md', 'SYSTEM_PROMPT_GPT56_COMPANION_v1.2.26.md'));
+check('KF-019', 'all ecosystem version surfaces resolve to 1.2.26', () => {
   const version = json('VERSION.json');
   const ecosystem = json('ECOSYSTEM_VERSION.json');
   return ['package_version', 'runtime_version', 'playbook_version', 'companion_version'].every((key) => version[key] === expectedVersion) &&
@@ -87,7 +87,7 @@ check('KF-020', 'duplicated version matrices are byte-identical', () =>
 check('KF-021', 'documentation whitespace can be advisory without weakening strict mode', () =>
   contains('scripts/windows/Test-DistributionIntegrity.ps1', "ValidateSet('operational', 'strict')", 'Distribution advisory warnings'));
 check('KF-022', 'Companion operational and strict whitespace policies are separate', () =>
-  contains('scripts/windows/companion/Test-CompanionPack-v1.2.25.ps1', "ValidateSet('strict', 'advisory', 'skip')", 'Documentation-only whitespace issues are advisory'));
+  contains('scripts/windows/companion/Test-CompanionPack-v1.2.26.ps1', "ValidateSet('strict', 'advisory', 'skip')", 'Documentation-only whitespace issues are advisory'));
 check('KF-023', 'active Markdown links are checked by package validation', () =>
   contains('scripts/windows/Test-HumanDocsCleanup.ps1', 'Markdown', 'link'));
 check('KF-024', 'golden baseline is bound to exact source hash and IDs', () => {
@@ -97,13 +97,13 @@ check('KF-024', 'golden baseline is bound to exact source hash and IDs', () => {
     Array.isArray(baseline.case_ids) && baseline.case_ids.length === cases.cases.length;
 });
 check('KF-025', 'acceptance suite contains behavioral assertions and placeholder meta-checks', () =>
-  contains('integrations/companion-handoff-1.2.25/source/install/run_tests.py', 'test_T64_meta_test_no_false_green_tests', 'Placeholder/false-green tests found'));
+  contains('integrations/companion-handoff-1.2.26/source/install/run_tests.py', 'test_T64_meta_test_no_false_green_tests', 'Placeholder/false-green tests found'));
 check('KF-026', 'required acceptance imports cannot silently pass', () => {
   const source = text('tests/acceptance/autonomous-convergence-contract.cjs');
   return !/catch\s*\([^)]*\)\s*\{\s*\}/s.test(source) && !source.includes('ImportError');
 });
 check('KF-027', 'missing acceptance prerequisites are asserted', () =>
-  contains('integrations/companion-handoff-1.2.25/source/install/run_tests.py', 'assert os.path.exists', 'TARGET_RUNTIME_BASELINE.json not found'));
+  contains('integrations/companion-handoff-1.2.26/source/install/run_tests.py', 'assert os.path.exists', 'TARGET_RUNTIME_BASELINE.json not found'));
 check('KF-040', 'generic production scripts reject product-name leakage', () =>
   contains('scripts/windows/Test-ProjectLeakage.ps1', '$ProductionScripts', '$Terms', 'Project-specific term'));
 check('KF-041', 'writer-shaped schemas share revision parity tests', () => {
@@ -122,7 +122,7 @@ check('KF-042', 'legacy optional properties use explicit get/upsert helpers', ()
   contains('scripts/windows/companion/Bind-ExecutionScopeTransaction.ps1', 'Set-JsonProperty'));
 check('KF-043', 'candidate overlay compares Git blobs and materializes checkout attributes', () =>
   contains('scripts/release/Apply-CandidateOverlay.ps1', 'hash-object', 'checkout-index') &&
-  contains('scripts/release/Run-AgenticPipeline-v1.2.25-Upgrade-Local.ps1', 'Apply-CandidateOverlay.ps1', '-ExpectedPaths') &&
+  contains('scripts/release/Run-AgenticPipeline-v1.2.26-Upgrade-Local.ps1', 'Apply-CandidateOverlay.ps1', '-ExpectedPaths') &&
   exists('tests/acceptance/Test-CandidateOverlayEolSafety.ps1'));
 check('KF-044', 'Git path consumers use NUL lists without trimming the first path byte', () =>
   contains('scripts/Test-FastPatchAllowed.ps1', '"--name-only", "-z"', 'Split-AgenticNulList') &&
@@ -136,7 +136,7 @@ check('KF-055', 'owner interaction contains no numeric repair budget', () => {
   return ownerFiles.every((name) => !/(repair_batch_limit|repair batches? \d+\/\d+|audit budget)/i.test(text(`docs/companion/${name}`)));
 });
 check('KF-056', 'owner output has the four plain-language sections', () =>
-  ['Что происходит', 'Что уже сделано', 'Что будет дальше', 'Нужно ли что-то от владельца'].every((marker) => text('docs/companion/01_PROJECT_INSTRUCTIONS_v1.2.25.md').includes(marker)));
+  ['Что происходит', 'Что уже сделано', 'Что будет дальше', 'Нужно ли что-то от владельца'].every((marker) => text('docs/companion/01_PROJECT_INSTRUCTIONS_v1.2.26.md').includes(marker)));
 check('KF-057', 'PreToolUse hook invokes the execution lease before mutation', () =>
   contains('templates/agy-project-base/.agents/hooks.json', 'PreToolUse', 'agentic_runtime_hook.cjs') &&
   contains('templates/agy-project-base/.agents/hooks/agentic_runtime_hook.cjs', 'EXECUTION_LEASE.json', 'prewrite'));
@@ -150,7 +150,7 @@ check('KF-060', 'work-item and authority activation publish transaction receipts
 check('KF-061', 'candidate and ambient paths remain separate', () =>
   contains('scripts/windows/companion/Publish-CandidateManifest.ps1', 'candidate_files', 'ambient_git_status'));
 check('KF-062', 'preflight failures are accumulated before mutation', () =>
-  contains('scripts/windows/Test-KnownFailureRegressionPlaybook-v1.2.25.ps1', '$Failures', '$FailureArray'));
+  contains('scripts/windows/Test-KnownFailureRegressionPlaybook-v1.2.26.ps1', '$Failures', '$FailureArray'));
 
 const observedExecutable = new Set(results.filter((result) => result.id.startsWith('KF-')).map((result) => result.id));
 check('EXECUTABLE-COVERAGE', 'every executable playbook case has a material check', () => {

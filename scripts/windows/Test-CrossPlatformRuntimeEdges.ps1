@@ -93,7 +93,7 @@ if (
 $RootEntryIdentityBefore = @(Get-RootEntryIdentity -RootPath $Root)
 
 $OverlayText = Read-RepoText 'scripts/release/Apply-CandidateOverlay.ps1'
-$RuntimeUpdaterText = Read-RepoText 'scripts/windows/Update-AgenticProjectRuntime-v1.2.25.ps1'
+$RuntimeUpdaterText = Read-RepoText 'scripts/windows/Update-AgenticProjectRuntime-v1.2.26.ps1'
 $BridgeE2EText = Read-RepoText 'tests/acceptance/Test-ActionBridgeEndToEnd.ps1'
 $BridgeInstallerText = Read-RepoText 'tests/acceptance/Test-ActionBridgeInstallerTransaction.ps1'
 $BridgeInstallerSourceText = Read-RepoText 'scripts/bridge/Install-CompanionActionBridge.ps1'

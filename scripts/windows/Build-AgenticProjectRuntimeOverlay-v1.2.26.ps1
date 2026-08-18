@@ -166,7 +166,7 @@ Extract this exact release archive, calculate its SHA-256, resolve the 40-hex co
       [void]$DeploymentMap.Add([ordered]@{ source = $SourcePath; target = $TargetPath; mode = $Mode; size_bytes = $Entry.size_bytes; sha256 = $Entry.sha256 })
     }
   }
-  if ($DeploymentMap.Count -ne 81) { throw "Generated runtime deployment map must contain exactly 81 targets; found $($DeploymentMap.Count)." }
+  if ($DeploymentMap.Count -ne 82) { throw "Generated runtime deployment map must contain exactly 82 targets; found $($DeploymentMap.Count)." }
   $Manifest = [ordered]@{
     schema_version = '1.0.0'
     ecosystem_version = '1.2.26'

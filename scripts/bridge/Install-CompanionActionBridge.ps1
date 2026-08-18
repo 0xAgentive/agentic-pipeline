@@ -21,11 +21,11 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $Utf8 = [Text.UTF8Encoding]::new($false)
-$EcosystemVersion = '1.2.26'
+$EcosystemVersion = '1.2.27'
 $BridgeSchemaVersion = '1.2.9'
 $PathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
 $PathSeparators = [char[]]@([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
-$TaskDescriptionBase = 'Imports validated Companion 1.2.26 JSON Action Packets from Downloads into registered Agentic Pipeline projects.'
+$TaskDescriptionBase = 'Imports validated Companion 1.2.27 JSON Action Packets from Downloads into registered Agentic Pipeline projects.'
 $CreatedDirectories = [Collections.Generic.List[string]]::new()
 
 function Get-BytesSha256 {
@@ -206,7 +206,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $ResolvedProject '.agy') -PathType C
 $InstalledManifestPath = Join-Path $ResolvedProject '.agy/INSTALLATION_MANIFEST.json'
 if (-not (Test-Path -LiteralPath $InstalledManifestPath -PathType Leaf)) { throw 'Project installation manifest is missing.' }
 $InstalledManifest = Get-Content -LiteralPath $InstalledManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-if ([string]$InstalledManifest.package_version -ne $EcosystemVersion -or [string]$InstalledManifest.runtime_version -ne $EcosystemVersion) { throw 'Action Bridge requires an installed project runtime 1.2.26.' }
+if ([string]$InstalledManifest.package_version -ne $EcosystemVersion -or [string]$InstalledManifest.runtime_version -ne $EcosystemVersion) { throw 'Action Bridge requires an installed project runtime 1.2.27.' }
 
 $Leaf = Split-Path -Leaf $ResolvedProject
 if ([string]::IsNullOrWhiteSpace($LogicalName)) { $LogicalName = $Leaf }
@@ -296,13 +296,18 @@ if (-not $PythonwCommand) {
   $SiblingPythonw = Join-Path (Split-Path -Parent $PythonCommand.Source) 'pythonw.exe'
   if (Test-Path -LiteralPath $SiblingPythonw -PathType Leaf) { $PythonwCommand = Get-Item -LiteralPath $SiblingPythonw }
 }
+$WatcherTaskName = if ($TaskName.EndsWith('-Watcher')) { $TaskName } else { "$TaskName-Watcher" }
+$FallbackTaskName = if ($TaskName.EndsWith('-Watcher')) { $TaskName.Substring(0, $TaskName.Length - 8) + '-Fallback' } else { "$TaskName-Fallback" }
+
 $InstalledScript = Join-Path $InstallRoot 'companion_action_bridge.py'
 $InstalledWrapper = Join-Path $InstallRoot 'Run-ActionBridgeHidden.vbs'
-$WorkerArguments = @($InstalledScript, 'scan', '--inbox', $InboxPath, '--registry', $RegistryPath, '--state-root', $StateRoot)
+$WatcherArguments = @($InstalledScript, 'watch', '--inbox', $InboxPath, '--registry', $RegistryPath, '--state-root', $StateRoot)
+$FallbackArguments = @($InstalledScript, 'scan', '--inbox', $InboxPath, '--registry', $RegistryPath, '--state-root', $StateRoot)
 $WrapperBytes = $null
 if ($PythonwCommand) {
   $BackgroundExecutable = [IO.Path]::GetFullPath($PythonwCommand.Source)
-  $TaskArguments = ($WorkerArguments | ForEach-Object { Quote-WindowsArgument -Value ([string]$_) }) -join ' '
+  $WatcherTaskArguments = ($WatcherArguments | ForEach-Object { Quote-WindowsArgument -Value ([string]$_) }) -join ' '
+  $FallbackTaskArguments = ($FallbackArguments | ForEach-Object { Quote-WindowsArgument -Value ([string]$_) }) -join ' '
   $BackgroundMode = 'pythonw'
 }
 else {
@@ -318,21 +323,49 @@ Next
 shell.Run command, 0, False
 '@
   $WrapperBytes = ConvertTo-Utf8Bytes -Text $WrapperText
-  $TaskArguments = (@('//B', '//Nologo', $InstalledWrapper, [IO.Path]::GetFullPath($PythonCommand.Source)) + $WorkerArguments | ForEach-Object { Quote-WindowsArgument -Value ([string]$_) }) -join ' '
+  $WatcherTaskArguments = (@('//B', '//Nologo', $InstalledWrapper, [IO.Path]::GetFullPath($PythonCommand.Source)) + $WatcherArguments | ForEach-Object { Quote-WindowsArgument -Value ([string]$_) }) -join ' '
+  $FallbackTaskArguments = (@('//B', '//Nologo', $InstalledWrapper, [IO.Path]::GetFullPath($PythonCommand.Source)) + $FallbackArguments | ForEach-Object { Quote-WindowsArgument -Value ([string]$_) }) -join ' '
   $BackgroundMode = 'wscript'
 }
 if ((Split-Path -Leaf $BackgroundExecutable).ToLowerInvariant() -notin @('pythonw.exe', 'wscript.exe')) { throw 'Scheduled Action Bridge must use pythonw.exe or wscript.exe.' }
 
+$WatcherTaskConfiguration = [ordered]@{
+  schema_version = '1.0.0'
+  task_name = $WatcherTaskName
+  execute = $BackgroundExecutable
+  arguments = $WatcherTaskArguments
+  description = "$TaskDescriptionBase (near-real-time watcher)"
+  hidden = $true
+  trigger = 'AtLogOn'
+  execution_time_limit = 'PT0S'
+  multiple_instances = 'IgnoreNew'
+}
+$FallbackTaskConfiguration = [ordered]@{
+  schema_version = '1.0.0'
+  task_name = $FallbackTaskName
+  execute = $BackgroundExecutable
+  arguments = $FallbackTaskArguments
+  description = "$TaskDescriptionBase (1-minute fallback scan)"
+  hidden = $true
+  trigger = 'RepetitionInterval'
+  repetition_interval = 'PT1M'
+  execution_time_limit = 'PT5M'
+  multiple_instances = 'IgnoreNew'
+}
 $TaskConfiguration = [ordered]@{
   schema_version = '1.0.0'
-  task_name = $TaskName
+  task_name = $WatcherTaskName
+  watcher_task = $WatcherTaskName
+  fallback_task = $FallbackTaskName
   execute = $BackgroundExecutable
-  arguments = $TaskArguments
+  arguments = $WatcherTaskArguments
   description = $TaskDescriptionBase
   hidden = $true
   repetition_interval = 'PT1M'
   execution_time_limit = 'PT5M'
   multiple_instances = 'IgnoreNew'
+  watcher_configuration = $WatcherTaskConfiguration
+  fallback_configuration = $FallbackTaskConfiguration
 }
 $TaskConfigurationBytes = ConvertTo-Utf8Bytes -Text ($TaskConfiguration | ConvertTo-Json -Depth 10 -Compress)
 $TaskConfigurationSha256 = Get-BytesSha256 -Bytes $TaskConfigurationBytes
@@ -404,7 +437,7 @@ $PackageManifestSha256 = (Get-FileHash -LiteralPath $PackageManifestPath -Algori
 if (-not $Apply) {
   Write-Host "DRY RUN: install Companion Action Bridge to $InstallRoot"
   Write-Host "Register: $ProjectId -> $ResolvedProject"
-  Write-Host "Background mode: $BackgroundMode; scheduled task: $TaskName"
+  Write-Host "Background mode: $BackgroundMode; watcher task: $WatcherTaskName; fallback task: $FallbackTaskName"
   Write-Host 'A project capability will be preserved or generated.'
   return
 }
@@ -424,7 +457,9 @@ foreach ($Target in $FileTargets) {
 
 $FileSnapshots = [Collections.Generic.List[object]]::new()
 foreach ($Target in $FileTargets) { [void]$FileSnapshots.Add((New-FileSnapshot -Path $Target)) }
-$TaskSnapshot = if ($TaskBackend -eq 'Windows') { Get-WindowsTaskSnapshot -Name $TaskName } else { $null }
+$WatcherTaskSnapshot = if ($TaskBackend -eq 'Windows') { Get-WindowsTaskSnapshot -Name $WatcherTaskName } else { $null }
+$FallbackTaskSnapshot = if ($TaskBackend -eq 'Windows') { Get-WindowsTaskSnapshot -Name $FallbackTaskName } else { $null }
+$TaskSnapshot = $WatcherTaskSnapshot
 $TaskChanged = $false
 $TaskMutationStarted = $false
 $RollbackErrors = [Collections.Generic.List[string]]::new()
@@ -445,19 +480,34 @@ try {
     $TaskDefinitionSha256 = (Get-FileHash -LiteralPath $TaskDescriptorPath -Algorithm SHA256).Hash.ToLowerInvariant()
   }
   else {
-    $CurrentTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    $CurrentTaskXml = if ($null -ne $CurrentTask) { [string](Export-ScheduledTask -TaskName $TaskName -ErrorAction Stop) } else { $null }
+    $CurrentWatcherTask = Get-ScheduledTask -TaskName $WatcherTaskName -ErrorAction SilentlyContinue
+    $CurrentFallbackTask = Get-ScheduledTask -TaskName $FallbackTaskName -ErrorAction SilentlyContinue
+    $CurrentWatcherXml = if ($null -ne $CurrentWatcherTask) { [string](Export-ScheduledTask -TaskName $WatcherTaskName -ErrorAction Stop) } else { $null }
+    $CurrentFallbackXml = if ($null -ne $CurrentFallbackTask) { [string](Export-ScheduledTask -TaskName $FallbackTaskName -ErrorAction Stop) } else { $null }
+    $CurrentTaskXml = if ($null -ne $CurrentWatcherXml -and $null -ne $CurrentFallbackXml) { $CurrentWatcherXml + "`n" + $CurrentFallbackXml } else { $null }
     $CurrentTaskSha256 = if ($null -ne $CurrentTaskXml) { Get-BytesSha256 -Bytes (ConvertTo-Utf8Bytes -Text $CurrentTaskXml) } else { $null }
-    $TaskAction = if ($null -ne $CurrentTask) { @($CurrentTask.Actions) | Select-Object -First 1 } else { $null }
-    $TaskIsExact = $null -ne $CurrentTask -and $null -ne $TaskAction -and [string]$TaskAction.Execute -ieq $BackgroundExecutable -and [string]$TaskAction.Arguments -ceq $TaskArguments -and [string]$CurrentTask.Description -ceq $TaskDescription -and [bool]$CurrentTask.Settings.Hidden -and $null -ne $ExistingReceipt -and [string](Get-OptionalPropertyValue -InputObject $ExistingReceipt -Name 'task_configuration_sha256') -ceq $TaskConfigurationSha256 -and [string](Get-OptionalPropertyValue -InputObject $ExistingReceipt -Name 'task_definition_sha256') -ceq $CurrentTaskSha256
+
+    $WatcherAction = if ($null -ne $CurrentWatcherTask) { @($CurrentWatcherTask.Actions) | Select-Object -First 1 } else { $null }
+    $FallbackAction = if ($null -ne $CurrentFallbackTask) { @($CurrentFallbackTask.Actions) | Select-Object -First 1 } else { $null }
+
+    $TaskIsExact = $null -ne $CurrentWatcherTask -and $null -ne $CurrentFallbackTask -and $null -ne $WatcherAction -and $null -ne $FallbackAction -and [string]$WatcherAction.Execute -ieq $BackgroundExecutable -and [string]$WatcherAction.Arguments -ceq $WatcherTaskArguments -and [string]$FallbackAction.Execute -ieq $BackgroundExecutable -and [string]$FallbackAction.Arguments -ceq $FallbackTaskArguments -and [bool]$CurrentWatcherTask.Settings.Hidden -and [bool]$CurrentFallbackTask.Settings.Hidden -and $null -ne $ExistingReceipt -and [string](Get-OptionalPropertyValue -InputObject $ExistingReceipt -Name 'task_configuration_sha256') -ceq $TaskConfigurationSha256 -and [string](Get-OptionalPropertyValue -InputObject $ExistingReceipt -Name 'task_definition_sha256') -ceq $CurrentTaskSha256
     if (-not $TaskIsExact) {
-      $Action = New-ScheduledTaskAction -Execute $BackgroundExecutable -Argument $TaskArguments
-      $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
-      $Settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew -Hidden
+      $ActionWatcher = New-ScheduledTaskAction -Execute $BackgroundExecutable -Argument $WatcherTaskArguments
+      $TriggerWatcher = New-ScheduledTaskTrigger -AtLogOn
+      $SettingsWatcher = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -MultipleInstances IgnoreNew -Hidden -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+
+      $ActionFallback = New-ScheduledTaskAction -Execute $BackgroundExecutable -Argument $FallbackTaskArguments
+      $TriggerFallback = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
+      $SettingsFallback = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew -Hidden
+
       $TaskMutationStarted = $true
-      Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Description $TaskDescription -Force | Out-Null
+      Register-ScheduledTask -TaskName $WatcherTaskName -Action $ActionWatcher -Trigger $TriggerWatcher -Settings $SettingsWatcher -Description "$TaskDescriptionBase (near-real-time watcher) [configuration-sha256:$TaskConfigurationSha256]" -Force | Out-Null
+      Register-ScheduledTask -TaskName $FallbackTaskName -Action $ActionFallback -Trigger $TriggerFallback -Settings $SettingsFallback -Description "$TaskDescriptionBase (1-minute fallback scan) [configuration-sha256:$TaskConfigurationSha256]" -Force | Out-Null
+      Start-ScheduledTask -TaskName $WatcherTaskName -ErrorAction SilentlyContinue
       $TaskChanged = $true
-      $CurrentTaskXml = [string](Export-ScheduledTask -TaskName $TaskName -ErrorAction Stop)
+      $CurrentWatcherXml = [string](Export-ScheduledTask -TaskName $WatcherTaskName -ErrorAction Stop)
+      $CurrentFallbackXml = [string](Export-ScheduledTask -TaskName $FallbackTaskName -ErrorAction Stop)
+      $CurrentTaskXml = $CurrentWatcherXml + "`n" + $CurrentFallbackXml
     }
     $TaskDefinitionSha256 = Get-BytesSha256 -Bytes (ConvertTo-Utf8Bytes -Text $CurrentTaskXml)
   }
@@ -477,7 +527,9 @@ try {
     package_manifest_sha256 = $PackageManifestSha256
     installed_code_sha256 = $InstalledCodeSha256
     source_code_sha256 = $InstalledCodeSha256
-    scheduled_task = $TaskName
+    scheduled_task = $WatcherTaskName
+    watcher_task = $WatcherTaskName
+    fallback_task = $FallbackTaskName
     task_backend = $TaskBackend.ToLowerInvariant()
     task_configuration_sha256 = $TaskConfigurationSha256
     task_definition_sha256 = $TaskDefinitionSha256
@@ -494,7 +546,10 @@ try {
 catch {
   $OriginalFailure = $_.Exception.Message
   if ($TaskBackend -eq 'Windows' -and $TaskMutationStarted) {
-    try { Restore-WindowsTaskSnapshot -Name $TaskName -Snapshot $TaskSnapshot }
+    try {
+      Restore-WindowsTaskSnapshot -Name $WatcherTaskName -Snapshot $WatcherTaskSnapshot
+      Restore-WindowsTaskSnapshot -Name $FallbackTaskName -Snapshot $FallbackTaskSnapshot
+    }
     catch { [void]$RollbackErrors.Add("scheduled task: $($_.Exception.Message)") }
   }
   foreach ($Snapshot in @($FileSnapshots.ToArray()) | Sort-Object { [string]$_.path } -Descending) {

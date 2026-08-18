@@ -1,6 +1,6 @@
 # Runtime Contract — Owner-Autonomous Execution
 
-This workspace uses Agentic Pipeline runtime 1.2.26.
+This workspace uses Agentic Pipeline runtime 1.2.27.
 
 ## Authority order
 

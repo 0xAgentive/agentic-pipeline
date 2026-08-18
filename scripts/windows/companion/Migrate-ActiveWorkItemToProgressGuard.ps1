@@ -251,9 +251,9 @@ $HandshakePath = Join-Path $Agy 'RUNTIME_HANDSHAKE.json'
 $Handshake = Read-JsonObject -Path $HandshakePath
 if ($null -ne $Handshake) {
   Set-PropertyValue -Object $Handshake -Name 'installed' -Value ([ordered]@{
-    package_version = '1.2.26'
-    runtime_version = '1.2.26'
-    companion_version = '1.2.26'
+    package_version = '1.2.27'
+    runtime_version = '1.2.27'
+    companion_version = '1.2.27'
   })
   Set-PropertyValue -Object $Handshake -Name 'progress_guard' -Value ([ordered]@{
     numeric_repair_budget = $false

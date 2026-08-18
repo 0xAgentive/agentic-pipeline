@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "source_path": "evals/companion/golden_cases.json",
-  "source_sha256": "4e9f10d3bd191f08543d447096f820bef78b05379bbeb0ad569118d6e2bc999d",
+  "source_sha256": "3bd5a116231287f21018936a29bf3b54f6b34c3539b495521e8f4b43f411f433",
   "case_count": 56,
   "case_ids": [
     "unknown_slash_command_is_rejected",
@@ -61,5 +61,5 @@
     "dirty_state_overrides_state_declared_fixcritical",
     "repeated_no_progress_stops_without_repair_override_prompt"
   ],
-  "release_baseline": "1.2.26-empty-session-delta-compatibility"
+  "release_baseline": "1.2.27-empty-session-delta-compatibility"
 }

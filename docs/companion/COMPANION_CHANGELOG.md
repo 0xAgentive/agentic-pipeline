@@ -1,6 +1,6 @@
 # Companion changelog
 
-## 1.2.26 — Ecosystem Autonomy and Handoff Alignment
+## 1.2.27 — Ecosystem Autonomy and Handoff Alignment
 
 - Keeps the independently versioned 1.2.9 token-free Action Packet and local Bridge authorization contract.
 - Preserves valid zero-byte session-delta members and their exact hashes in restart-bootstrap archives.

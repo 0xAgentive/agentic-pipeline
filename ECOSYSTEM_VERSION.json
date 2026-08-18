@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.0",
-  "ecosystem_version": "1.2.26",
-  "release_name": "Ecosystem Autonomy and Handoff Alignment",
+  "ecosystem_version": "1.2.27",
+  "release_name": "Production Latency and Canary Truth",
   "components": {
-    "pipeline": "1.2.26",
-    "runtime": "1.2.26",
-    "playbook": "1.2.26",
-    "companion": "1.2.26",
-    "action_bridge": "1.2.26",
-    "context_handoff": "1.2.26"
+    "pipeline": "1.2.27",
+    "runtime": "1.2.27",
+    "playbook": "1.2.27",
+    "companion": "1.2.27",
+    "action_bridge": "1.2.27",
+    "context_handoff": "1.2.27"
   },
   "status": "stable"
 }

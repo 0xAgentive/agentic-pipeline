@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 # Set env var to allow failure injection
 $env:TEST_CONTRACT_REPLACE_SUITE = "1"
 
-$TestProjectRoot = Join-Path $env:TEMP ("contract_test_project_" + [guid]::NewGuid().ToString("N"))
+$TestProjectRoot = Join-Path ([IO.Path]::GetTempPath()) ("contract_test_project_" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force $TestProjectRoot | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $TestProjectRoot ".agy") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $TestProjectRoot ".agents") | Out-Null

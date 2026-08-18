@@ -11,7 +11,7 @@ $Node = (Get-Command node -ErrorAction Stop).Source
 $Hook = Join-Path $Root 'templates\agy-project-base\.agents\hooks\agentic_runtime_hook.cjs'
 if (-not (Test-Path -LiteralPath $Hook -PathType Leaf)) { throw "Hook not found: $Hook" }
 
-$TempRoot = Join-Path $env:TEMP ("agentic-posthook-reconciliation-" + [guid]::NewGuid().ToString('N'))
+$TempRoot = Join-Path ([IO.Path]::GetTempPath()) ("agentic-posthook-reconciliation-" + [guid]::NewGuid().ToString('N'))
 try {
   New-Item -ItemType Directory -Force -Path (Join-Path $TempRoot '.agy\.hook_pending') | Out-Null
   New-Item -ItemType Directory -Force -Path (Join-Path $TempRoot '.agents') | Out-Null

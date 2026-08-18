@@ -283,7 +283,7 @@ function New-Fixture {
   $EvidencePath = Join-Path $Agy 'verification\required-test.log'
   [IO.File]::WriteAllText($EvidencePath, "required test passed`n", $Utf8)
   (Get-Item -LiteralPath $EvidencePath).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(-3)
-  $DirtyName = if ($IsWindows) { 'untracked юникод name.txt' } else { "untracked`nюникод.txt" }
+  $DirtyName = 'untracked юникод name.txt'
   [IO.File]::WriteAllText((Join-Path $Project $DirtyName), 'porcelain-v2-z regression', $Utf8)
   $Fixture = [pscustomobject]@{Project=$Project;Agy=$Agy;Head=$Head;Branch=$Branch;WorkItem=$WorkItem;Lease=$Lease;Progress=$Progress;CandidateRelative=$CandidateRelative;CandidatePath=$CandidatePath;EvidencePath=$EvidencePath;ReceiptPath=(Join-Path $Agy 'receipt-input.json');Validator=$Validator;Revision=0;BindExistingNextAction=[bool]$BindExistingNextAction}
   [void](Update-FixtureAuthority $Fixture)
@@ -307,7 +307,7 @@ function Update-FixtureAuthority {
     $Path = Join-Path $Fixture.Agy $_
     [ordered]@{path=".agy/$_";size_bytes=[long](Get-Item -LiteralPath $Path).Length;sha256=Get-Sha256 $Path}
   })
-  $DirtyName = if ($IsWindows) { 'untracked юникод name.txt' } else { "untracked`nюникод.txt" }
+  $DirtyName = 'untracked юникод name.txt'
   $AmbientEntries = @([ordered]@{status='??';path=$DirtyName})
   if ($Fixture.Validator -ne 'none') {
     $AmbientEntries += [ordered]@{status='??';path='scripts/windows/companion/Test-FindingSet.ps1'}

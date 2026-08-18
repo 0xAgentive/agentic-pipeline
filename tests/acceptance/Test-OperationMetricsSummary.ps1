@@ -10,7 +10,7 @@ $Root = (Resolve-Path -LiteralPath $RepoRoot).Path
 $ScriptPath = Join-Path $Root 'scripts\windows\companion\Get-OperationMetricsSummary.ps1'
 if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) { throw "Metrics summary script not found: $ScriptPath" }
 
-$TempDir = Join-Path $env:TEMP ("agentic-metrics-test-" + [guid]::NewGuid().ToString('N'))
+$TempDir = Join-Path ([IO.Path]::GetTempPath()) ("agentic-metrics-test-" + [guid]::NewGuid().ToString('N'))
 try {
   $Agy = Join-Path $TempDir '.agy'
   New-Item -ItemType Directory -Force -Path $Agy | Out-Null

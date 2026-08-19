@@ -46,6 +46,8 @@ Theoretical models and core definitions:
 
 ### 📂 [Reference](reference)
 Cheatsheets and prompt templates:
+*   [COMMANDS_AND_SKILLS_DIRECTORY.md](reference/COMMANDS_AND_SKILLS_DIRECTORY.md) — Canonical Atlas of all Pipeline skills, slash-commands, and interactive UX cheat sheets.
+*   [COMMANDS_AND_SKILLS_DASHBOARD.html](reference/COMMANDS_AND_SKILLS_DASHBOARD.html) — Interactive HTML dashboard with dynamic search and card filters.
 *   [COMMANDS_CHEATSHEET.en.md](reference/COMMANDS_CHEATSHEET.en.md) / [COMMANDS_CHEATSHEET.ru.md](reference/COMMANDS_CHEATSHEET.ru.md) — CLI reference cheat sheets.
 *   [COMPANION_SYSTEM_PROMPT_GPT55_v1.1.1a.md](reference/COMPANION_SYSTEM_PROMPT_GPT55_v1.1.1a.md) — Reference system instructions.
 

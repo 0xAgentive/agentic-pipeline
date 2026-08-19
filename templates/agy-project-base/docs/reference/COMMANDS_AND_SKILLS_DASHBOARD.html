@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agentic Pipeline — Интерактивный Атлас Команд и Скиллов v1.2.27</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(circle at top left, #0f172a, #020617);
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover: rgba(51, 65, 85, 0.85);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cyan: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-emerald: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-rose: #fb7185;
+      --code-bg: #090d16;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, sans-serif; }
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+    .container { max-width: 1280px; margin: 0 auto; }
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .badge-top {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-cyan);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 4px 14px;
+      border-radius: 9999px;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+    h1 {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 720px;
+      margin: 0 auto 24px;
+    }
+    .search-bar-wrap {
+      max-width: 600px;
+      margin: 0 auto 24px;
+      position: relative;
+    }
+    .search-input {
+      width: 100%;
+      padding: 14px 20px 14px 44px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .search-input:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+    }
+    .nav-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .tab-btn {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 9px 18px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: #fff;
+    }
+    .tab-btn.active {
+      background: var(--accent-cyan);
+      color: #04121e;
+      border-color: var(--accent-cyan);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 22px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .card:hover {
+      background: var(--card-hover);
+      border-color: rgba(56, 189, 248, 0.3);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 30px -10px rgba(0,0,0,0.5);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .cmd-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    .skill-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .badge-primary { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); }
+    .badge-purple { background: rgba(192, 132, 252, 0.15); color: var(--accent-purple); }
+    .badge-green { background: rgba(52, 211, 153, 0.15); color: var(--accent-emerald); }
+    .badge-amber { background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 16px;
+      flex-grow: 1;
+    }
+    .card-footer {
+      background: var(--code-bg);
+      border-radius: 10px;
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .cmd-example {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #cbd5e1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 6px;
+      font-size: 12px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .copy-btn:hover { color: var(--accent-cyan); }
+    .footer-note {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid var(--card-border);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-top">AGENTIC PIPELINE v1.2.27</div>
+      <h1>🧭 Интерактивный Атлас Команд и Скиллов</h1>
+      <p class="subtitle">Полная визуальная карта всех инструментов, слэш-команд и скиллов экосистемы для человека и ИИ-агентов.</p>
+      
+      <div class="search-bar-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" class="search-input" placeholder="Поиск по командам, скиллам или действию (например: создать проект, тесты, аудит)..." onkeyup="filterCards()">
+      </div>
+
+      <div class="nav-tabs">
+        <button class="tab-btn active" onclick="setCategory('all', this)">Все инструменты</button>
+        <button class="tab-btn" onclick="setCategory('pipeline', this)">🌟 Экосистема Pipeline</button>
+        <button class="tab-btn" onclick="setCategory('slash', this)">⚡ Слэш-команды</button>
+        <button class="tab-btn" onclick="setCategory('arch', this)">💡 Мышление и Контракты</button>
+        <button class="tab-btn" onclick="setCategory('dev', this)">🛠️ Разработка и TDD</button>
+        <button class="tab-btn" onclick="setCategory('qa', this)">🛡️ Аудит и Безопасность</button>
+      </div>
+    </header>
+
+    <div class="grid" id="cardsGrid">
+
+      <!-- 1. agentic-project-scaffold -->
+      <div class="card" data-cat="pipeline" data-search="новый проект создать онбординг adopt new project scaffold">
+        <div class="card-header">
+          <span class="cmd-name">/new-project</span>
+          <span class="skill-badge badge-primary">Pipeline Core</span>
+        </div>
+        <div class="card-title">agentic-project-scaffold</div>
+        <div class="card-desc">Создаёт новый проект под ключ по одному названию (Git + рантайм 1.2.27 + Action Bridge + начальный ZIP для ChatGPT). Или подключает существующий проект в режиме <code>/adopt-project</code>.</div>
+        <div class="card-footer">
+          <span class="cmd-example">/new-project MyCoolApp</span>
+          <button class="copy-btn" onclick="copyText('/new-project MyCoolApp')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 2. companion-project-context-pack -->
+      <div class="card" data-cat="pipeline" data-search="компаньон companion context pack экспорт chatgpt gpt-5 claude zip">
+        <div class="card-header">
+          <span class="cmd-name">/companion-pack</span>
+          <span class="skill-badge badge-primary">Pipeline Core</span>
+        </div>
+        <div class="card-title">companion-project-context-pack</div>
+        <div class="card-desc">Упаковывает 100% чистой архитектуры проекта в легковесный ZIP (1–2 МБ) для ChatGPT/Claude, вырезая гигабайты <code>node_modules</code>, дампов датчиков и логов.</div>
+        <div class="card-footer">
+          <span class="cmd-example">/companion-pack</span>
+          <button class="copy-btn" onclick="copyText('/companion-pack')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 3. /nextphase -->
+      <div class="card" data-cat="slash" data-search="nextphase исполнение задачи запуск action packet делай">
+        <div class="card-header">
+          <span class="cmd-name">/nextphase</span>
+          <span class="skill-badge badge-green">Исполнение</span>
+        </div>
+        <div class="card-title">Запуск задачи Action Packet</div>
+        <div class="card-desc">Считывает скачанный от Компаньона пакет задачи с диска, проходит через Stage Firewall, пишет код, запускает тесты и выдаёт понятный 4-пунктовый отчёт.</div>
+        <div class="card-footer">
+          <span class="cmd-example">/nextphase</span>
+          <button class="copy-btn" onclick="copyText('/nextphase')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 4. /goal -->
+      <div class="card" data-cat="slash" data-search="goal автономность сверхупорство без остановок">
+        <div class="card-header">
+          <span class="cmd-name">/goal</span>
+          <span class="skill-badge badge-purple">Режим упорства</span>
+        </div>
+        <div class="card-title">Максимальная автономность</div>
+        <div class="card-desc">Модификатор для долгих задач на 15–60 минут. Приказывает агенту не останавливаться ни при каких сомнениях до полного зелёного прохождения всех тестов.</div>
+        <div class="card-footer">
+          <span class="cmd-example">/nextphase /goal</span>
+          <button class="copy-btn" onclick="copyText('/nextphase /goal')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 5. /auditphase -->
+      <div class="card" data-cat="slash" data-search="auditphase аудит проверка независимый контроль">
+        <div class="card-header">
+          <span class="cmd-name">/auditphase</span>
+          <span class="skill-badge badge-amber">Аудит</span>
+        </div>
+        <div class="card-title">Независимый аудит фазы</div>
+        <div class="card-desc">Строгая инспекция кода без внесения изменений: прогон матрицы приёмки, сверка точности метрик, проверка на утечки данных и запрещенные формулировки.</div>
+        <div class="card-footer">
+          <span class="cmd-example">/auditphase</span>
+          <button class="copy-btn" onclick="copyText('/auditphase')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 6. /fixcritical -->
+      <div class="card" data-cat="slash" data-search="fixcritical ремонт исправление бага finding defect">
+        <div class="card-header">
+          <span class="cmd-name">/fixcritical</span>
+          <span class="skill-badge badge-rose">Ремонт</span>
+        </div>
+        <div class="card-title">Устранение критических дефектов</div>
+        <div class="card-desc">Изолированно устраняет дефекты, зафиксированные аудитом в <code>FINDINGS.json</code>, и повторно перепроверяет только затронутую область.</div>
+        <div class="card-footer">
+          <span class="cmd-example">/fixcritical</span>
+          <button class="copy-btn" onclick="copyText('/fixcritical')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 7. /fastpatch -->
+      <div class="card" data-cat="slash" data-search="fastpatch быстрый патч точечный фикс">
+        <div class="card-header">
+          <span class="cmd-name">/fastpatch</span>
+          <span class="skill-badge badge-green">Патч</span>
+        </div>
+        <div class="card-title">Быстрый точечный патч</div>
+        <div class="card-desc">Применяет мелкие правки (1–3 строки, опечатки, конфиги) с минимальными накладными расходами без тяжелого полного цикла валидации.</div>
+        <div class="card-footer">
+          <span class="cmd-example">/fastpatch</span>
+          <button class="copy-btn" onclick="copyText('/fastpatch')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 8. interview-me -->
+      <div class="card" data-cat="arch" data-search="interview-me опрос вопросы идея уточнение требований">
+        <div class="card-header">
+          <span class="cmd-name">interview-me</span>
+          <span class="skill-badge badge-purple">Мышление</span>
+        </div>
+        <div class="card-title">Инженерный допрос требований</div>
+        <div class="card-desc">ИИ задает вам по одному точному вопросу за раз, докапываясь до реальной цели идеи, пока уверенность в требованиях не достигнет 95%.</div>
+        <div class="card-footer">
+          <span class="cmd-example">«Проведи интервью через interview-me»</span>
+          <button class="copy-btn" onclick="copyText('Проведи мне интервью через interview-me')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 9. test-driven-development -->
+      <div class="card" data-cat="dev" data-search="tdd test driven development разработка через тесты">
+        <div class="card-header">
+          <span class="cmd-name">tdd</span>
+          <span class="skill-badge badge-green">Инженерия</span>
+        </div>
+        <div class="card-title">Разработка через тестирование (TDD)</div>
+        <div class="card-desc">Обязывает сначала написать падающий тест на новую функциональность или баг, и только потом писать минимальный рабочий код.</div>
+        <div class="card-footer">
+          <span class="cmd-example">«Примени test-driven-development»</span>
+          <button class="copy-btn" onclick="copyText('Примени test-driven-development')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 10. code-review-and-quality -->
+      <div class="card" data-cat="qa" data-search="code review ревью качество аудит 5 осей">
+        <div class="card-header">
+          <span class="cmd-name">code-review</span>
+          <span class="skill-badge badge-amber">Качество</span>
+        </div>
+        <div class="card-title">Сквозное рецензирование кода</div>
+        <div class="card-desc">Проводит глубокий аудит изменений по 5 ключевым осям: корректность, читаемость, архитектура, безопасность и быстродействие.</div>
+        <div class="card-footer">
+          <span class="cmd-example">«Проведи code-review-and-quality»</span>
+          <button class="copy-btn" onclick="copyText('Проведи code-review-and-quality')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 11. stitch-design-sync -->
+      <div class="card" data-cat="pipeline" data-search="stitch ui дизайн дизайн-система экраны css">
+        <div class="card-header">
+          <span class="cmd-name">/stitch-sync</span>
+          <span class="skill-badge badge-primary">Pipeline Core</span>
+        </div>
+        <div class="card-title">stitch-design-sync</div>
+        <div class="card-desc">Извлекает цветовую схему, шрифты и компоненты из вашего приложения и синхронизирует живые UI-экраны в Google Stitch через Stitch MCP.</div>
+        <div class="card-footer">
+          <span class="cmd-example">/stitch-sync</span>
+          <button class="copy-btn" onclick="copyText('/stitch-sync')">Копировать</button>
+        </div>
+      </div>
+
+      <!-- 12. security-and-hardening -->
+      <div class="card" data-cat="qa" data-search="security безопасность харднинг инъекции xss csrf">
+        <div class="card-header">
+          <span class="cmd-name">security</span>
+          <span class="skill-badge badge-rose">Безопасность</span>
+        </div>
+        <div class="card-title">Харднинг и аудит безопасности</div>
+        <div class="card-desc">Проверяет санитайзинг пользовательского ввода, защиту от XSS/инъекций, утечки персональных данных и строгость валидации схем.</div>
+        <div class="card-footer">
+          <span class="cmd-example">«Примени security-and-hardening»</span>
+          <button class="copy-btn" onclick="copyText('Примени security-and-hardening')">Копировать</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="footer-note">
+      Agentic Pipeline v1.2.27 • Полная автономная экосистема взаимодействия Человек ↔ Компаньон ↔ Antigravity
+    </div>
+  </div>
+
+  <script>
+    let currentCategory = 'all';
+
+    function setCategory(cat, el) {
+      currentCategory = cat;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      el.classList.add('active');
+      filterCards();
+    }
+
+    function filterCards() {
+      const search = document.getElementById('searchInput').value.toLowerCase().trim();
+      const cards = document.querySelectorAll('.card');
+
+      cards.forEach(card => {
+        const cat = card.getAttribute('data-cat');
+        const searchData = card.getAttribute('data-search').toLowerCase();
+        const textContent = card.innerText.toLowerCase();
+
+        const matchesCat = (currentCategory === 'all' || cat === currentCategory);
+        const matchesSearch = (!search || searchData.includes(search) || textContent.includes(search));
+
+        if (matchesCat && matchesSearch) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Команда скопирована: ' + text);
+      });
+    }
+  </script>
+</body>
+</html>

@@ -2,43 +2,74 @@
 
 # ⚡ Agentic Pipeline `v1.2.27`
 
-### *The Asymmetric Dual-Agent Operating System for Deterministic, Autonomous Software Engineering*
+### *The Reference Implementation of Handoff-Driven Development (HDD) for Antigravity & LLM Companions*
 
 [![Version](https://img.shields.io/badge/version-1.2.27-blue.svg?style=flat-square)](VERSION.json)
-[![Ecosystem](https://img.shields.io/badge/ecosystem-Antigravity%20%7C%20ChatGPT%20%7C%20Claude-8a2be2.svg?style=flat-square)](docs/START_HERE.en.md)
+[![Meta](https://img.shields.io/badge/meta-Handoff--Driven%20Development-8a2be2.svg?style=flat-square)](docs/concepts/OPERATING_MODEL.en.md)
 [![Architecture](https://img.shields.io/badge/architecture-Dual--Agent%20Asymmetric-00b4d8.svg?style=flat-square)](docs/concepts/OPERATING_MODEL.en.md)
-[![Action Bridge](https://img.shields.io/badge/action--bridge-active%20%7C%20250ms-10b981.svg?style=flat-square)](scripts/bridge/README.md)
+[![Action Bridge](https://img.shields.io/badge/action--bridge-sub--second%20%7C%20250ms-10b981.svg?style=flat-square)](scripts/bridge/README.md)
 [![Stage Firewall](https://img.shields.io/badge/stage--firewall-guarded-f59e0b.svg?style=flat-square)](.agents/rules/63-scientific-stage-firewall.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
 
 <p align="center">
-  <b><a href="README.md">🇬🇧 English</a></b> • <b><a href="README.ru.md">🇷🇺 Русский</a></b> • <b><a href="docs/reference/COMMANDS_AND_SKILLS_DIRECTORY.md">🧭 Atlas of Skills & Commands</a></b> • <b><a href="docs/START_HERE.en.md">🚀 Quick Start</a></b>
+  <b><a href="README.md">🇬🇧 English</a></b> • <b><a href="README.ru.md">🇷🇺 Русский</a></b> • <b><a href="docs/reference/COMMANDS_AND_SKILLS_DIRECTORY.md">🧭 Atlas of Skills & Commands</a></b> • <b><a href="docs/guides/BARE_ANTIGRAVITY_SETUP.en.md">🚀 3-Step Setup</a></b>
 </p>
 
 ---
 
 </div>
 
-## 💡 What is Agentic Pipeline?
+## 🌐 The Handoff-Driven Development (HDD) Meta
 
-**Agentic Pipeline** is an enterprise-grade framework designed to coordinate **asymmetric AI agents** (High-Level Reasoning LLMs like ChatGPT / Claude / GPT-5 and Local Execution Agents like Google Antigravity / Codex) to build and maintain complex software with **zero hallucinations, strict stage boundaries, and verifiable evidence**.
+The era of **single-agent infinite prompt loops** is over. Large context degradation, silent circular hallucinations, and broken builds occur when a single AI tries to be the Architect, the Developer, the Tester, and the Auditor in a single messy thread.
 
-### The Problem with Traditional AI Coding
+**Agentic Pipeline is the reference implementation of Handoff-Driven Development:**
+
 ```text
-❌ Human pastes huge prompts back and forth between web and local editor
-❌ AI hallucinates "done" while tests fail and dependencies break
-❌ Unbounded edits mutate frozen architectures or pollute clinical/empirical data
-❌ Gigabytes of logs, node_modules, and cache files clog context windows
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                               HANDOFF-DRIVEN DEVELOPMENT                               │
+├────────────────────────────────┬───────────────────────────────────────────────────────┤
+│ 1. INBOUND ACTION HANDOFF      │ ChatGPT / Claude drafts strict, schema-valid JSON     │
+│    (Strategy ➔ Execution)      │ Action Packets with exact acceptance criteria.        │
+├────────────────────────────────┼───────────────────────────────────────────────────────┤
+│ 2. ZERO-LATENCY BRIDGE         │ Local Action Bridge ingests tasks from ~/Downloads    │
+│    (Cloud ➔ Local Worktree)    │ into .agy/inbox/ in < 250 ms with zero copy-pasting. │
+├────────────────────────────────┼───────────────────────────────────────────────────────┤
+│ 3. DETERMINISTIC EXECUTION     │ Antigravity writes code, runs test suites, and seals  │
+│    (Autonomous Local Agent)    │ Stage Firewalls with independent audit convergence.  │
+├────────────────────────────────┼───────────────────────────────────────────────────────┤
+│ 4. OUTBOUND CONTEXT HANDOFF    │ Compact 1–2 MB pure architectural context packs are   │
+│    (Execution ➔ Strategy)      │ returned to the Companion for the next cycle.        │
+└────────────────────────────────┴───────────────────────────────────────────────────────┘
 ```
 
-### The Agentic Pipeline Solution
-```text
-✅ ChatGPT / Claude acts as the Architect & Strategist (drafts formal Action Packets)
-✅ Background Action Bridge ingests tasks automatically in ~250 ms from Downloads
-✅ Antigravity acts as the Autonomous Local Executor (runs compilers, tests, Git, Python)
-✅ Stage Firewall blocks forbidden stage transitions, data leakage, and protocol drift
-✅ Compact Owner Reports (4 human-friendly sections) + Deterministic Evidence Machine Truth
+---
+
+## 🚀 2-Minute Setup on Bare Antigravity
+
+Deploy the complete ecosystem on a fresh machine in **3 simple commands**:
+
+### Step 1: Clone the repository
+```powershell
+cd "$env:USERPROFILE\Documents\antigravity"
+git clone https://github.com/0xAgentive/agentic-pipeline.git
+cd agentic-pipeline
 ```
+
+### Step 2: Install Global Skills (1 Click)
+```powershell
+& pwsh -NoProfile -ExecutionPolicy Bypass -File "./scripts/windows/Install-GlobalSkills.ps1"
+```
+*This instantly registers all 6 global pipeline skills (`agentic-project-scaffold`, `companion-project-context-pack`, `local-artifact-delivery`, etc.) in `~/.gemini/config/skills/` across all your workspaces.*
+
+### Step 3: Create your first project!
+Open Antigravity chat and simply type:
+```text
+/new-project MyCoolProject
+```
+*Done! The agent initializes Git, deploys governance rules, registers Action Bridge, and outputs an initial Context ZIP for ChatGPT.*
+
+*(To onboard an existing repository, simply type: `/adopt-project C:\path\to\existing-repo`)*
 
 ---
 
@@ -47,11 +78,11 @@
 ```mermaid
 flowchart TD
     subgraph Strat["1. Strategic Architecture (Cloud LLM)"]
-        A["🧠 ChatGPT / GPT-5 / Claude<br/>(Strategist & Architect)"] -->|"Generates Schema 1.2.9 Task"| B["📄 AGENTIC_ACTION_PACKET_*.json"]
+        A["🧠 ChatGPT / GPT-5 / Claude<br/>(Strategist & Architect)"] -->|"Drafts Schema 1.2.9 Task"| B["📄 AGENTIC_ACTION_PACKET_*.json"]
     end
 
     subgraph Bridge["2. Zero-Friction Action Bridge"]
-        B -->|"Downloaded to ~/Downloads"| C["🌉 Companion Action Bridge<br/>(Background Demon, ~250ms)"]
+        B -->|"Downloaded to ~/Downloads"| C["🌉 Companion Action Bridge<br/>(Background Daemon, ~250ms)"]
         C -->|"Validates Signature & Token"| D["📥 Target Project .agy/inbox/"]
     end
 
@@ -64,7 +95,7 @@ flowchart TD
 
     subgraph Handoff["4. Verified Closure & Context Handoff"]
         H -->|"100% Green Evidence"| I["📦 LATEST_CONTEXT.zip / Report"]
-        I -->|"Feedback for Next Phase"| A
+        I -->|"Feedback for Next Iteration"| A
     end
 
     style Strat fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#fff
@@ -99,34 +130,6 @@ flowchart TD
     </td>
   </tr>
 </table>
-
----
-
-## ⚡ Quick Start in 4 Simple Steps
-
-### 1. Scaffold a new project (or adopt an existing one)
-Inside Antigravity, type:
-```text
-/new-project CardioTracker
-```
-*or adopt an existing repo:*
-```text
-/adopt-project C:\path\to\my-existing-app
-```
-*The pipeline automatically initializes Git, deploys `.agents/` and `.agy/`, registers the project in Action Bridge, and outputs an initial Companion Context ZIP.*
-
-### 2. Hand off context to ChatGPT / Claude
-Attach the generated context ZIP (`<PROJECT>_COMPREHENSIVE_COMPANION_PACK.zip`) to your ChatGPT / Claude conversation and paste the bundled system prompt.
-
-### 3. Download the Action Packet from your Companion
-Your Companion will draft an architectural plan and output a single-file `AGENTIC_ACTION_PACKET_<project>_<timestamp>.json`. Simply download it to your default `Downloads` folder.
-
-### 4. Tell Antigravity to execute
-Open your Antigravity chat and say:
-```text
-/nextphase
-```
-*(or `/nextphase /goal` for complex long-running tasks)*. Antigravity reads the packet from disk, executes the code, runs the test suite, performs an independent audit, and prints a concise 4-section summary.
 
 ---
 
@@ -168,16 +171,9 @@ agentic-pipeline/
 │   ├── bridge/                 # Companion Action Bridge (Sub-second Ingestion)
 │   ├── control-plane/          # Node.js validation & convergence runners
 │   └── windows/                # PowerShell 7 installers, testers, and orchestrators
+├── skills/                     # Global Antigravity Skills distributable
 └── templates/                  # Base Project Scaffolding Templates
 ```
-
----
-
-## 🔒 Security & Privacy Guarantees
-
-1. **100% Offline Product Execution**: No secret keys, proprietary database rows, or private sensor data are transmitted to external APIs during local code runs.
-2. **Deterministic Privacy Scrubbing**: Action Packets and Companion Context Packs automatically strip absolute local paths, personal names, and device hardware serial numbers.
-3. **Cryptographic Capability Binding**: Each project generates a unique 64-hex capability token (`ACTION_BRIDGE_CAPABILITY.json`) preventing unauthorized packet injection across projects.
 
 ---
 

@@ -26,21 +26,65 @@ The era of **single-agent infinite prompt loops** is over. Large context degrada
 **Agentic Pipeline is the reference implementation of Handoff-Driven Development:**
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               HANDOFF-DRIVEN DEVELOPMENT                               │
-├────────────────────────────────┬───────────────────────────────────────────────────────┤
-│ 1. INBOUND ACTION HANDOFF      │ ChatGPT / Claude drafts strict, schema-valid JSON     │
-│    (Strategy ➔ Execution)      │ Action Packets with exact acceptance criteria.        │
-├────────────────────────────────┼───────────────────────────────────────────────────────┤
-│ 2. ZERO-LATENCY BRIDGE         │ Local Action Bridge ingests tasks from ~/Downloads    │
-│    (Cloud ➔ Local Worktree)    │ into .agy/inbox/ in < 250 ms with zero copy-pasting. │
-├────────────────────────────────┼───────────────────────────────────────────────────────┤
-│ 3. DETERMINISTIC EXECUTION     │ Antigravity writes code, runs test suites, and seals  │
-│    (Autonomous Local Agent)    │ Stage Firewalls with independent audit convergence.  │
-├────────────────────────────────┼───────────────────────────────────────────────────────┤
-│ 4. OUTBOUND CONTEXT HANDOFF    │ Compact 1–2 MB pure architectural context packs are   │
-│    (Execution ➔ Strategy)      │ returned to the Companion for the next cycle.        │
-└────────────────────────────────┴───────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                          HANDOFF-DRIVEN DEVELOPMENT LIFECYCLE                               │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                             │
+│  [1. STRATEGIST / CLOUD LLM]                                                                │
+│   ChatGPT / Claude / GPT-5  ──(Drafts Action Packet)──►  AGENTIC_ACTION_PACKET_*.json       │
+│                                                                  │                          │
+│                                                          (Downloads)                        │
+│                                                                  ▼                          │
+│  [2. ZERO-FRICTION BRIDGE]                                                                  │
+│   Action Bridge Daemon (250ms)  ──(Token Verification)──►  Target Project .agy/inbox/      │
+│                                                                  │                          │
+│                                                          (/nextphase)                       │
+│                                                                  ▼                          │
+│  [3. AUTONOMOUS LOCAL AGENT]                                                                │
+│   Antigravity IDE / Codex   ──►  Stage Firewall Check  ──►  Autonomous Code & Tests         │
+│                                                                  │                          │
+│                                                          (100% Green)                       │
+│                                                                  ▼                          │
+│  [4. CONTEXT HANDOFF & CLOSURE]                                                             │
+│   LATEST_CONTEXT.zip (1-2 MB)  ◄──(Audit & Verification)──  Evidence Report & Receipts      │
+│         │                                                                                   │
+│         └────────────────(Returned to Strategist for Next Cycle)───────────────────────────►┘
+```
+
+---
+
+## 🗺️ Visual Architecture Diagram
+
+```mermaid
+flowchart TD
+    subgraph S1["1. Cloud LLM • Strategy & Planning"]
+        A["🧠 ChatGPT / Claude<br/>(Architect &amp; Strategist)"]
+        B["📄 Action Packet<br/>(Schema 1.2.9 JSON)"]
+        A -->|"Drafts task"| B
+    end
+
+    subgraph S2["2. Action Bridge • Instant Ingestion"]
+        C["🌉 Action Bridge<br/>(Background Daemon)"]
+        D["📥 Project .agy/inbox/<br/>(Verified Contract)"]
+        C -->|"Auto-routes in &lt;250ms"| D
+    end
+
+    subgraph S3["3. Antigravity • Autonomous Execution"]
+        E["⚡ Local Agent<br/>(Antigravity / Codex)"]
+        F["🛡️ Stage Firewall<br/>(Phase &amp; Scope Guard)"]
+        G["🛠️ Autonomous Coding<br/>(TDD &amp; Vitest Suites)"]
+        H["🔍 Independent Audit<br/>(Acceptance Verification)"]
+        E --> F --> G --> H
+    end
+
+    subgraph S4["4. Context Handoff • Feedback Loop"]
+        I["📦 LATEST_CONTEXT.zip<br/>(Clean Architecture Pack)"]
+    end
+
+    B -->|"Saved to ~/Downloads"| C
+    D -->|"Trigger: /nextphase"| E
+    H -->|"100% Green Evidence"| I
+    I -.->|"Feedback for Next Cycle"| A
 ```
 
 ---
@@ -70,39 +114,6 @@ Open Antigravity chat and simply type:
 *Done! The agent initializes Git, deploys governance rules, registers Action Bridge, and outputs an initial Context ZIP for ChatGPT.*
 
 *(To onboard an existing repository, simply type: `/adopt-project C:\path\to\existing-repo`)*
-
----
-
-## 🗺️ Dual-Agent Asymmetric Architecture
-
-```mermaid
-flowchart TD
-    subgraph Strat["1. Strategic Architecture (Cloud LLM)"]
-        A["🧠 ChatGPT / GPT-5 / Claude<br/>(Strategist & Architect)"] -->|"Drafts Schema 1.2.9 Task"| B["📄 AGENTIC_ACTION_PACKET_*.json"]
-    end
-
-    subgraph Bridge["2. Zero-Friction Action Bridge"]
-        B -->|"Downloaded to ~/Downloads"| C["🌉 Companion Action Bridge<br/>(Background Daemon, ~250ms)"]
-        C -->|"Validates Signature & Token"| D["📥 Target Project .agy/inbox/"]
-    end
-
-    subgraph Exec["3. Autonomous Local Execution (Antigravity)"]
-        D -->|"User says: /nextphase or 'start'"| E["⚡ Antigravity / Local Agent"]
-        E --> F["🛡️ Scientific Stage Firewall Check"]
-        F --> G["🛠️ Incremental Code & Tests"]
-        G --> H["🔍 Independent Audit & Verification"]
-    end
-
-    subgraph Handoff["4. Verified Closure & Context Handoff"]
-        H -->|"100% Green Evidence"| I["📦 LATEST_CONTEXT.zip / Report"]
-        I -->|"Feedback for Next Iteration"| A
-    end
-
-    style Strat fill:#0f172a,stroke:#818cf8,stroke-width:2px,color:#fff
-    style Bridge fill:#042f2e,stroke:#14b8a6,stroke-width:2px,color:#fff
-    style Exec fill:#1e1b4b,stroke:#a855f7,stroke-width:2px,color:#fff
-    style Handoff fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#fff
-```
 
 ---
 
@@ -174,6 +185,14 @@ agentic-pipeline/
 ├── skills/                     # Global Antigravity Skills distributable
 └── templates/                  # Base Project Scaffolding Templates
 ```
+
+---
+
+## 🔒 Security & Privacy Guarantees
+
+1. **100% Offline Product Execution**: No secret keys, proprietary database rows, or private sensor data are transmitted to external APIs during local code runs.
+2. **Deterministic Privacy Scrubbing**: Action Packets and Companion Context Packs automatically strip absolute local paths, personal names, and device hardware serial numbers.
+3. **Cryptographic Capability Binding**: Each project generates a unique 64-hex capability token (`ACTION_BRIDGE_CAPABILITY.json`) preventing unauthorized packet injection across projects.
 
 ---
 

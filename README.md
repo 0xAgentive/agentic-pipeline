@@ -117,6 +117,38 @@ Open Antigravity chat and simply type:
 
 ---
 
+## ⚡ Two-Tier Command Architecture: Global Skills vs Project Workflows
+
+To ensure a seamless user experience, commands in Antigravity are strictly divided into two operational tiers:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                       TWO-TIER COMMAND ARCHITECTURE IN ANTIGRAVITY                          │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 1. GLOBAL SKILLS (Anywhere / Clean Slate)                                                    │
+│    Active globally across all workspaces and empty chats (~/.gemini/config/skills/)         │
+│    • < > new-project      ➔ Create brand-new project with full governance from scratch      │
+│    • < > adopt-project    ➔ Onboard any existing repository without touching code           │
+│    • < > companion-pack   ➔ Pack clean architectural ZIP for ChatGPT / Claude               │
+│    • < > stitch-sync      ➔ Export UI design tokens and screens to Google Stitch            │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 2. PROJECT WORKFLOWS (Inside Managed Repositories)                                          │
+│    Active only inside an initialized project repository (.agents/workflows/ & .agy/)        │
+│    • /nextphase           ➔ Autonomous execution of incoming Action Packet tasks            │
+│    • /auditphase          ➔ Independent audit against acceptance matrix and metrics         │
+│    • /fixcritical         ➔ Precision fix for issues logged in FINDINGS.json                │
+│    • /fastpatch           ➔ Script-gated micro-patch for 1-3 line changes                   │
+│    • /shipcheck           ➔ Pre-release delivery verification and integrity sealing         │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Tier | Availability | Location | How it appears in UI | Examples |
+|---|---|---|---|---|
+| **Global Skills** | Everywhere (empty chat, any folder) | `~/.gemini/config/skills/` | `< > skill-name` in popup | `/new-project`, `/adopt-project`, `/companion-pack`, `/stitch-sync` |
+| **Project Workflows** | Only inside an adopted project repository | `<project>/.agents/workflows/` | Workflow command in popup | `/nextphase`, `/auditphase`, `/fixcritical`, `/fastpatch`, `/shipcheck` |
+
+---
+
 ## 🚀 Key Superpowers
 
 <table>
@@ -146,18 +178,18 @@ Open Antigravity chat and simply type:
 
 ## 🧭 Core Commands & Skills Cheat Sheet
 
-| Command | Category | Purpose (In Plain Language) | Trigger / Usage |
-|:---|:---:|:---|:---|
-| **`/new-project`** | 🚀 Setup | Bootstraps a brand-new project with full pipeline governance from scratch | `/new-project MyProject` |
-| **`/adopt-project`** | 🚀 Setup | Onboards an existing codebase without mutating existing source code | `/adopt-project C:\repo` |
-| **`/companion-pack`** | 📦 Context | Packages pure architectural source for ChatGPT / Claude into a 1MB ZIP | `/companion-pack` |
-| **`/nextphase`** | ⚙️ Execution | Executes the approved Action Packet task autonomously | `/nextphase` or *«start»* |
-| **`/goal`** | 🧠 Mode | Modifier for deep autonomy: prevents stopping until 100% verified | `/nextphase /goal` |
-| **`/auditphase`** | 🔍 Quality | Executes an independent, read-only audit of acceptance criteria and metrics | `/auditphase` |
-| **`/fixcritical`** | 🔧 Repair | Repairs confirmed critical defects registered in `FINDINGS.json` | `/fixcritical` |
-| **`/fastpatch`** | ⚡ Patch | Lightweight, direct patch for small 1–3 line bugfixes or typos | `/fastpatch` |
-| **`/stitch-sync`** | 🎨 UI/UX | Synchronizes UI screens, tokens, and layouts into Google Stitch canvas | `/stitch-sync` |
-| **`/interview-me`** | 💡 Brainstorm | Disciplined 1-question-at-a-time interview to clarify product intent | *«interview me»* |
+| Command | Category | Tier | Purpose (In Plain Language) | Trigger / Usage |
+|:---|:---:|:---:|:---|:---|
+| **`/new-project`** | 🚀 Setup | 🌐 Global | Bootstraps a brand-new project with full pipeline governance from scratch | `/new-project MyProject` |
+| **`/adopt-project`** | 🚀 Setup | 🌐 Global | Onboards an existing codebase without mutating existing source code | `/adopt-project C:\repo` |
+| **`/companion-pack`** | 📦 Context | 🌐 Global | Packages pure architectural source for ChatGPT / Claude into a 1MB ZIP | `/companion-pack` |
+| **`/nextphase`** | ⚙️ Execution | 📁 Project | Executes the approved Action Packet task autonomously | `/nextphase` or *«start»* |
+| **`/goal`** | 🧠 Mode | 💡 Modifier | Modifier for deep autonomy: prevents stopping until 100% verified | `/nextphase /goal` |
+| **`/auditphase`** | 🔍 Quality | 📁 Project | Executes an independent, read-only audit of acceptance criteria and metrics | `/auditphase` |
+| **`/fixcritical`** | 🔧 Repair | 📁 Project | Repairs confirmed critical defects registered in `FINDINGS.json` | `/fixcritical` |
+| **`/fastpatch`** | ⚡ Patch | 📁 Project | Lightweight, direct patch for small 1–3 line bugfixes or typos | `/fastpatch` |
+| **`/stitch-sync`** | 🎨 UI/UX | 🌐 Global | Synchronizes UI screens, tokens, and layouts into Google Stitch canvas | `/stitch-sync` |
+| **`/interview-me`** | 💡 Brainstorm | 🌐 Global | Disciplined 1-question-at-a-time interview to clarify product intent | *«interview me»* |
 
 👉 **[View the Complete Interactive Atlas of 24+ Skills & Commands →](docs/reference/COMMANDS_AND_SKILLS_DIRECTORY.md)**  
 👉 **[Open the Interactive Web UI Dashboard →](docs/reference/COMMANDS_AND_SKILLS_DASHBOARD.html)**

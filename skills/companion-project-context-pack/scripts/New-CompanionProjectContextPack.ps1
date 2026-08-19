@@ -332,18 +332,24 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $ZipSize = (Get-Item -LiteralPath $ZipPath).Length
 $ZipSizeMB = [Math]::Round($ZipSize / 1MB, 2)
 
-if ($ZipSizeMB -gt $MaxPackageMB) {
-  Write-Warning "ZIP size ($ZipSizeMB MB) exceeds target threshold ($MaxPackageMB MB)!"
+# Copy canonical LATEST_CONTEXT.zip aliases
+$GlobalLatestZip = Join-Path $OutputDirectory "LATEST_CONTEXT.zip"
+Copy-Item -LiteralPath $ZipPath -Destination $GlobalLatestZip -Force
+
+if ($HasAgy) {
+  $ProjectLatestZip = Join-Path $AgyDir "LATEST_CONTEXT.zip"
+  Copy-Item -LiteralPath $ZipPath -Destination $ProjectLatestZip -Force
 }
 
 Write-Host "`n[SUCCESS] Companion Project Context Pack generated:" -ForegroundColor Green
-Write-Host "Directory:  $StagingRoot"
-Write-Host "Archive:    $ZipPath ($ZipSizeMB MB, $ZipSize bytes)"
-Write-Host "Files count: $CopiedCount source files + docs & schemas"
+Write-Host "Directory:      $StagingRoot"
+Write-Host "Archive:        $ZipPath ($ZipSizeMB MB, $ZipSize bytes)"
+Write-Host "Canonical alias: $GlobalLatestZip"
+Write-Host "Files count:    $CopiedCount source files + docs & schemas"
 
 try {
   Set-Clipboard -Value $ZipPath
-  Write-Host "Clipboard:  Archive path copied to clipboard successfully!" -ForegroundColor Yellow
+  Write-Host "Clipboard:      Archive path copied to clipboard successfully!" -ForegroundColor Yellow
 } catch {
   Write-Warning "Could not copy archive path to clipboard: $($_.Exception.Message)"
 }

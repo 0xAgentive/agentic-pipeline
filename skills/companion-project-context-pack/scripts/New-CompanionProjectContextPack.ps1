@@ -341,6 +341,13 @@ Write-Host "Directory:  $StagingRoot"
 Write-Host "Archive:    $ZipPath ($ZipSizeMB MB, $ZipSize bytes)"
 Write-Host "Files count: $CopiedCount source files + docs & schemas"
 
+try {
+  Set-Clipboard -Value $ZipPath
+  Write-Host "Clipboard:  Archive path copied to clipboard successfully!" -ForegroundColor Yellow
+} catch {
+  Write-Warning "Could not copy archive path to clipboard: $($_.Exception.Message)"
+}
+
 return [pscustomobject]@{
   ProjectName = $ProjectName
   ProjectId = $ProjectId

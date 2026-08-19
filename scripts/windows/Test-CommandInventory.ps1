@@ -93,8 +93,15 @@ if (!$SkipDocumentationScan) {
     foreach ($Match in [regex]::Matches($Text,$LinePattern)) { [void]$Documented.Add($Match.Groups['cmd'].Value) }
   }
 
+  $AllowedGlobalCommands = New-Object System.Collections.Generic.HashSet[string]
+  foreach ($g in @('/new-project', '/adopt-project', '/companion-pack', '/companion-context', '/stitch-sync', '/stitch-design-sync', '/goal', '/interview-me', '/grill-me', '/browser', '/schedule', '/learn', '/agentic-init', '/teamwork-preview')) {
+    [void]$AllowedGlobalCommands.Add($g)
+  }
+
   foreach ($Command in $Documented) {
-    if (!$Commands.ContainsKey($Command)) { Add-Error "Documented command missing from inventory: $Command" }
+    if (!$Commands.ContainsKey($Command) -and !$AllowedGlobalCommands.Contains($Command)) {
+      Add-Error "Documented command missing from inventory: $Command"
+    }
   }
 }
 

@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/badge/лицензия-MIT-green.svg?style=flat-square)](LICENSE)
 
 <p align="center">
-  <b><a href="README.md">🇬🇧 English</a></b> • <b><a href="README.ru.md">🇷🇺 Русский</a></b> • <b><a href="docs/reference/COMMANDS_AND_SKILLS_DIRECTORY.md">🧭 Атлас Скиллов и Команд</a></b> • <b><a href="docs/guides/BARE_ANTIGRAVITY_SETUP.ru.md">🚀 Старт за 3 шага</a></b>
+  <b><a href="README.md">🇬🇧 English</a></b> • <b><a href="README.ru.md">🇷🇺 Русский</a></b> • <b><a href="docs/guides/NEW_PROJECT_WORKFLOW_GUIDE.ru.md">📋 Полный цикл с нуля и пререквизиты</a></b> • <b><a href="docs/reference/COMMANDS_AND_SKILLS_DIRECTORY.md">🧭 Атлас Скиллов</a></b> • <b><a href="docs/guides/BARE_ANTIGRAVITY_SETUP.ru.md">🚀 Старт за 3 шага</a></b>
 </p>
 
 ---

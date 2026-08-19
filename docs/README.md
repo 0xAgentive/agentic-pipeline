@@ -33,6 +33,8 @@ These files are located in the root of `docs/` for compatibility with validators
 
 ### 📂 [Guides](guides/)
 Step-by-step developer guides:
+*   [NEW_PROJECT_WORKFLOW_GUIDE.en.md](guides/NEW_PROJECT_WORKFLOW_GUIDE.en.md) / [NEW_PROJECT_WORKFLOW_GUIDE.ru.md](guides/NEW_PROJECT_WORKFLOW_GUIDE.ru.md) — Comprehensive end-to-end workflow, dual AI subscriptions, Companion setup, and development lifecycle from scratch.
+*   [BARE_ANTIGRAVITY_SETUP.en.md](guides/BARE_ANTIGRAVITY_SETUP.en.md) / [BARE_ANTIGRAVITY_SETUP.ru.md](guides/BARE_ANTIGRAVITY_SETUP.ru.md) — 2-minute 3-command setup on clean Antigravity.
 *   [NEW_PROJECT_GUIDE.en.md](guides/NEW_PROJECT_GUIDE.en.md) / [NEW_PROJECT_GUIDE.ru.md](guides/NEW_PROJECT_GUIDE.ru.md) — Initializing new workspaces.
 *   [EXISTING_PROJECT_GUIDE.en.md](guides/EXISTING_PROJECT_GUIDE.en.md) / [EXISTING_PROJECT_GUIDE.ru.md](guides/EXISTING_PROJECT_GUIDE.ru.md) — Retrofitting pipeline rules into established codebases.
 *   [INSTALLATION_EN.md](guides/INSTALLATION_EN.md) / [INSTALLATION_RU.md](guides/INSTALLATION_RU.md) — Setting up wrapper paths and configuration.

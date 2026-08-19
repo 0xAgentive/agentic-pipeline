@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
 
 <p align="center">
-  <b><a href="README.md">🇬🇧 English</a></b> • <b><a href="README.ru.md">🇷🇺 Русский</a></b> • <b><a href="docs/reference/COMMANDS_AND_SKILLS_DIRECTORY.md">🧭 Atlas of Skills & Commands</a></b> • <b><a href="docs/guides/BARE_ANTIGRAVITY_SETUP.en.md">🚀 3-Step Setup</a></b>
+  <b><a href="README.md">🇬🇧 English</a></b> • <b><a href="README.ru.md">🇷🇺 Русский</a></b> • <b><a href="docs/guides/NEW_PROJECT_WORKFLOW_GUIDE.en.md">📋 End-to-End Workflow &amp; Prerequisites</a></b> • <b><a href="docs/reference/COMMANDS_AND_SKILLS_DIRECTORY.md">🧭 Atlas of Skills</a></b> • <b><a href="docs/guides/BARE_ANTIGRAVITY_SETUP.en.md">🚀 3-Step Setup</a></b>
 </p>
 
 ---

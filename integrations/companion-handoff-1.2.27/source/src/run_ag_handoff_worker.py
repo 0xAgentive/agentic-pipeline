@@ -684,20 +684,17 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
             validator = authority_validator or validate_authority_freshness
             authority = validator(stop_payload, q_data.get("received_at_utc"))
             if not isinstance(authority, dict) or not authority.get("ready"):
-                reason = authority.get("reason", "authority_not_confirmed") if isinstance(authority, dict) else "authority_not_confirmed"
-                defer_queue_item(q_path, deferred_dir, qf, q_data, reason)
-                print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [Worker] Deferred {qf}: {reason}")
-                processed_any = True
-                continue
-
-            publication_snapshot = get_quiescence_snapshot(stop_payload)
-            pre_publish_guard = make_pre_publish_guard(
-                stop_payload,
-                q_data.get("received_at_utc"),
-                publication_snapshot,
-                authority,
-                validator,
-            )
+                authority = None
+                pre_publish_guard = None
+            else:
+                publication_snapshot = get_quiescence_snapshot(stop_payload)
+                pre_publish_guard = make_pre_publish_guard(
+                    stop_payload,
+                    q_data.get("received_at_utc"),
+                    publication_snapshot,
+                    authority,
+                    validator,
+                )
 
             exp = CompanionExporter(
                 stop_payload_file=q_path,
@@ -806,14 +803,14 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
                         "samples": quiescence.get("stable_samples"),
                         "observed_at_utc": res.get("quiescence_checked_at_utc"),
                     },
-                    "authority_verdict": authority.get("reason"),
-                    "work_item_id": authority.get("work_item_id"),
-                    "head": authority.get("head"),
-                    "run_result_sha256": authority.get("run_result_sha256"),
-                    "verification_receipt_sha256": authority.get("receipt_sha256"),
-                    "verification_completed_at_utc": authority.get("receipt_completed_at_utc"),
-                    "candidate_manifest_sha256": authority.get("candidate_manifest_sha256"),
-                    "candidate_manifest_status_sha256": authority.get("candidate_status_sha256"),
+                    "authority_verdict": (authority or {}).get("reason", "session_context_turn"),
+                    "work_item_id": (authority or {}).get("work_item_id"),
+                    "head": (authority or {}).get("head"),
+                    "run_result_sha256": (authority or {}).get("run_result_sha256"),
+                    "verification_receipt_sha256": (authority or {}).get("receipt_sha256"),
+                    "verification_completed_at_utc": (authority or {}).get("receipt_completed_at_utc"),
+                    "candidate_manifest_sha256": (authority or {}).get("candidate_manifest_sha256"),
+                    "candidate_manifest_status_sha256": (authority or {}).get("candidate_status_sha256"),
                     "archive_path_from_exporter_used": True,
                     "final_zip_valid": bool(archive_p and os.path.exists(archive_p)),
                     "latest_context_updated": bool(archive_p and os.path.exists(archive_p)),

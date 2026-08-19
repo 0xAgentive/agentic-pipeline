@@ -179,7 +179,25 @@ def main():
         
     if valid_payload:
         try:
-            enqueue_stop_payload(payload, base_dir)
+            enqueue_res = enqueue_stop_payload(payload, base_dir)
+            if enqueue_res and enqueue_res.get("status") == "QUEUED":
+                try:
+                    pythonw_path = sys.executable
+                    if pythonw_path.endswith("python.exe"):
+                        candidate_w = pythonw_path[:-4] + "w.exe"
+                        if os.path.exists(candidate_w):
+                            pythonw_path = candidate_w
+                    worker_script = os.path.join(base_dir, "src", "run_ag_handoff_worker.py")
+                    DETACHED_PROCESS = 0x00000008
+                    CREATE_NO_WINDOW = 0x08000000
+                    import subprocess
+                    subprocess.Popen(
+                        [pythonw_path, worker_script],
+                        creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW,
+                        close_fds=True
+                    )
+                except Exception:
+                    pass
         except Exception as e:
             log_error(logs_dir, "QUEUE_WRITE_FAILED", f"Queue item write exception: {str(e)}")
             

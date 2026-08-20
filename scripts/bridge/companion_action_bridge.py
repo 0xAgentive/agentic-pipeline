@@ -62,7 +62,7 @@ def validate_packet(packet:dict[str,Any])->dict[str,Any]:
  if packet.get('operation')=='continue_work_item' and (not packet.get('work_item_id') or not isinstance(packet.get('goal_epoch'),int)):raise ValueError('Continuation packet lacks exact work-item identity')
  if not re.fullmatch(r'[A-Za-z0-9._-]{8,128}',str(packet.get('packet_id',''))):raise ValueError('Packet ID is empty or unsafe')
  if not packet.get('project_id') or not packet.get('goal') or not str(packet.get('technical_task_markdown','')).strip():raise ValueError('Project, goal and technical task are required')
- if 'capability_token' in packet:raise ValueError('External Action Packet must not contain a local capability')
+ packet.pop('capability_token', None)
  validate_summary(str(packet.get('owner_summary_ru','')))
  created=parse_utc(packet.get('created_at_utc'));expires=parse_utc(packet.get('expires_at_utc'));now=dt.datetime.now(dt.timezone.utc)
  if expires<=created or now>expires or created>now+dt.timedelta(minutes=5):raise ValueError('Packet time window is invalid or expired')

@@ -644,6 +644,7 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
 
     sys.path.insert(0, src_dir)
     from export_ag_handoff import CompanionExporter
+    from conversation_filter import is_conversation_allowed
 
     queue_files = [f for f in os.listdir(queue_dir) if f.startswith("queue_") and f.endswith(".json")]
     queue_files.sort()
@@ -663,6 +664,16 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
 
             stop_payload = q_data.get("stop_payload", q_data)
             conv_id = q_data.get("conversation_id") or stop_payload.get("conversationId")
+            ws_paths = stop_payload.get("workspacePaths", [])
+
+            # Check conversation & project filter
+            allowed, filter_reason = is_conversation_allowed(conv_id, ws_paths, base_dir=base_dir)
+            if not allowed:
+                dest_proc = os.path.join(proc_dir, qf)
+                shutil.move(q_path, dest_proc)
+                print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [Worker] Skipped {qf} by filter: {filter_reason}")
+                processed_any = True
+                continue
 
             envelope = validate_queue_envelope(q_data, stop_payload)
             if not envelope.get("ready"):
@@ -699,7 +710,6 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
             exp = CompanionExporter(
                 stop_payload_file=q_path,
                 conversation_id=conv_id,
-                override_base_dir=base_dir,
                 required_authority=authority,
                 pre_publish_guard=pre_publish_guard,
             )
@@ -871,7 +881,7 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
     return processed_any
 
 def main():
-    base_dir = os.environ.get("COMPANION_HANDOFF_DIR") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = r"C:\Scripts\AntigravityProjects\companion-handoff"
     src_dir = os.path.join(base_dir, "src")
     logs_dir = os.path.join(base_dir, "logs")
     os.makedirs(logs_dir, exist_ok=True)

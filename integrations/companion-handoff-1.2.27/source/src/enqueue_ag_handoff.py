@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-enqueue_ag_handoff.py - Fast Queue-Only Antigravity Stop Hook Handler v4.3.5
+enqueue_ag_handoff.py - Fast Queue-Only Antigravity Stop Hook Handler v4.3.4
 
 Receives Stop payload from stdin, validates mandatory fields, performs UTF-8 decoding,
-enqueues the job into queue/, and immediately launches the worker in the background.
+and enqueues the job into queue/ without running the exporter synchronously.
 """
 
 import sys
@@ -11,8 +11,6 @@ import os
 import json
 import time
 import hashlib
-import shutil
-import subprocess
 from datetime import datetime, timezone
 
 def get_sha256(text):
@@ -35,40 +33,13 @@ def log_error(logs_dir, error_code, message):
     except Exception:
         pass
 
+from conversation_filter import is_conversation_allowed
+
 def write_json_atomic(path, payload):
     temp_path = f"{path}.tmp.{os.getpid()}"
     with open(temp_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     os.replace(temp_path, path)
-
-def resolve_base_dir() -> str:
-    env_dir = os.environ.get("COMPANION_HANDOFF_DIR")
-    if env_dir and os.path.isdir(env_dir):
-        return os.path.abspath(env_dir)
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-def trigger_worker_immediate(base_dir: str):
-    try:
-        worker_script = os.path.join(base_dir, "src", "run_ag_handoff_worker.py")
-        if not os.path.isfile(worker_script):
-            return
-        python_exe = sys.executable or shutil.which("pythonw") or shutil.which("python") or "python"
-        flags = 0
-        if sys.platform == "win32":
-            CREATE_NO_WINDOW = 0x08000000
-            DETACHED_PROCESS = 0x00000008
-            flags = CREATE_NO_WINDOW | DETACHED_PROCESS
-        subprocess.Popen(
-            [python_exe, worker_script],
-            cwd=base_dir,
-            creationflags=flags,
-            close_fds=True,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-    except Exception as e:
-        log_error(os.path.join(base_dir, "logs"), "WORKER_TRIGGER_FAILED", str(e))
 
 def enqueue_stop_payload(payload, base_dir):
     """Queue one validated Stop payload, or defer it without publishing work."""
@@ -86,9 +57,15 @@ def enqueue_stop_payload(payload, base_dir):
     exec_num = payload["executionNum"]
     t_path = payload["transcriptPath"]
     a_path = payload["artifactDirectoryPath"]
-    ws_paths = payload["workspacePaths"]
+    ws_paths = payload.get("workspacePaths", [])
     term_reason = payload["terminationReason"]
     err_msg = payload.get("error", "")
+
+    # Apply conversation & project filter from conversations.txt / handoff.config.json
+    allowed, filter_reason = is_conversation_allowed(conv_id, ws_paths, base_dir=base_dir)
+    if not allowed:
+        log_error(logs_dir, "FILTERED_BY_CONFIG", f"Conversation {conv_id} skipped: {filter_reason}")
+        return {"status": "FILTERED", "reason": filter_reason, "queue_path": None}
 
     timestamp_str = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
     fingerprint_raw = f"{conv_id}_{exec_num}"
@@ -118,11 +95,10 @@ def enqueue_stop_payload(payload, base_dir):
     target_name = f"queue_{timestamp_str}_ex{exec_num}_{conv_id[:8]}_{fingerprint_prefix}.json"
     final_path = os.path.join(queue_dir, target_name)
     write_json_atomic(final_path, queue_item)
-    trigger_worker_immediate(base_dir)
     return {"status": "QUEUED", "reason": "fully_idle", "queue_path": final_path}
 
 def main():
-    base_dir = resolve_base_dir()
+    base_dir = r"C:\Scripts\AntigravityProjects\companion-handoff"
     queue_dir = os.path.join(base_dir, "queue")
     logs_dir = os.path.join(base_dir, "logs")
     

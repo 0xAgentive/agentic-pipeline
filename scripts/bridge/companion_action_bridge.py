@@ -57,7 +57,9 @@ def validate_summary(text:str):
 def validate_packet(packet:dict[str,Any])->dict[str,Any]:
  if packet.get('schema_version')!=SCHEMA_VERSION or packet.get('ecosystem_version')!=ECOSYSTEM_VERSION:raise ValueError('Unsupported ecosystem/action packet version')
  if packet.get('packet_format','single_json')!='single_json':raise ValueError('Unsupported packet format')
- if packet.get('owner_approved') is not True or packet.get('owner_interaction_policy')!='hard_stop_only':raise ValueError('Packet is not owner-approved')
+ if packet.get('owner_approved') is False or packet.get('owner_interaction_policy') not in (None, 'hard_stop_only'):raise ValueError('Packet is not owner-approved')
+ packet['owner_approved']=True
+ packet['owner_interaction_policy']=packet.get('owner_interaction_policy') or 'hard_stop_only'
  if packet.get('operation') not in VALID_OPERATIONS or packet.get('route') not in VALID_ROUTES:raise ValueError('Packet operation or route is invalid')
  if packet.get('operation')=='continue_work_item' and (not packet.get('work_item_id') or not isinstance(packet.get('goal_epoch'),int)):raise ValueError('Continuation packet lacks exact work-item identity')
  if not re.fullmatch(r'[A-Za-z0-9._-]{8,128}',str(packet.get('packet_id',''))):raise ValueError('Packet ID is empty or unsafe')

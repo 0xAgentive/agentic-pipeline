@@ -205,7 +205,14 @@ def watch(inbox:Path,registry:Path,state_root:Path,poll_interval:float=0.5,debou
  iterations=0
  while True:
   iterations+=1
-  scan(inbox,registry,state_root,debounce_seconds=debounce_seconds)
+  try:
+   scan(inbox,registry,state_root,debounce_seconds=debounce_seconds)
+  except Exception as e:
+   try:
+    log_file=state_root/'logs'/'watcher_error.log'
+    log_file.parent.mkdir(parents=True,exist_ok=True)
+    with log_file.open('a',encoding='utf-8') as f:f.write(f'[{dt.datetime.now(dt.timezone.utc).isoformat()}] Watcher error: {e}\n')
+   except Exception:pass
   if max_iterations is not None and iterations>=max_iterations:
    break
   time.sleep(poll_interval)

@@ -41,6 +41,79 @@ def safe_read_json(filepath):
 def json_bytes(data):
     return json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8-sig")
 
+def collect_session_and_narrative_artifacts(
+    artifact_dir: str,
+    narrative_text: str,
+    search_roots: list,
+    max_file_size: int = 25_000_000,
+) -> dict:
+    """
+    Discovers and packages all brain artifacts, referenced narrative deliverables,
+    and project documentation into file_contents under artifacts/ and docs/.
+    """
+    import re
+    artifacts_map = {}
+
+    # 1. Collect from Antigravity conversation brain directory
+    if artifact_dir and os.path.isdir(artifact_dir):
+        for item in os.listdir(artifact_dir):
+            ipath = os.path.join(artifact_dir, item)
+            if os.path.isfile(ipath):
+                ext = os.path.splitext(item)[1].lower()
+                if ext in [".md", ".json", ".txt", ".html", ".xml", ".csv", ".yaml", ".yml", ".png", ".jpg", ".jpeg"]:
+                    try:
+                        if os.path.getsize(ipath) <= max_file_size:
+                            with open(ipath, "rb") as f:
+                                b = f.read()
+                                artifacts_map[f"artifacts/brain/{item}"] = b
+                                artifacts_map[f"artifacts/{item}"] = b
+                    except Exception:
+                        pass
+
+    # 2. Collect artifacts mentioned in LAST_MODEL_RESPONSE (АРТЕФАКТЫ section)
+    if narrative_text:
+        win_candidates = re.findall(r'[A-Za-z]:\\[^\s"\'<>|*?`]+', narrative_text)
+        unix_candidates = re.findall(r'(?:^|[\s"\'`])(/[^\s"\'<>|*?`]+)', narrative_text)
+        all_candidates = set(win_candidates + unix_candidates)
+        
+        for raw_p in all_candidates:
+            clean_p = raw_p.strip(".,;:\"'`()")
+            if os.path.isfile(clean_p):
+                if clean_p.lower().endswith("latest_context.zip") or ".tmp" in clean_p:
+                    continue
+                try:
+                    if os.path.getsize(clean_p) <= max_file_size:
+                        base_name = os.path.basename(clean_p)
+                        with open(clean_p, "rb") as f:
+                            b = f.read()
+                            artifacts_map[f"artifacts/{base_name}"] = b
+                            if "docs" in clean_p.replace("\\", "/").split("/"):
+                                artifacts_map[f"docs/{base_name}"] = b
+                except Exception:
+                    pass
+
+    # 3. Collect from <project>/docs/ and <project>/.artifacts/ in search roots
+    for sr in (search_roots or []):
+        if sr and os.path.isdir(sr):
+            docs_dir = os.path.join(sr, "docs")
+            if os.path.isdir(docs_dir):
+                for root, _, files in os.walk(docs_dir):
+                    for fn in files:
+                        ext = os.path.splitext(fn)[1].lower()
+                        if ext in [".md", ".json", ".txt", ".html", ".csv", ".yaml", ".yml"]:
+                            fpath = os.path.join(root, fn)
+                            try:
+                                if os.path.getsize(fpath) <= max_file_size:
+                                    rel_p = os.path.relpath(fpath, sr).replace("\\", "/")
+                                    with open(fpath, "rb") as f:
+                                        b = f.read()
+                                        artifacts_map[rel_p] = b
+                                        artifacts_map[f"artifacts/{fn}"] = b
+                            except Exception:
+                                pass
+
+    return artifacts_map
+
 class CompanionExporter:
     def __init__(
         self,
@@ -51,7 +124,7 @@ class CompanionExporter:
         required_authority=None,
         pre_publish_guard=None,
     ):
-        self.base_dir = override_base_dir or os.environ.get("COMPANION_HANDOFF_DIR") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.base_dir = override_base_dir or r"C:\Scripts\AntigravityProjects\companion-handoff"
         self.logs_dir = os.path.join(self.base_dir, "logs")
         self.mode = mode
         self.required_authority = required_authority
@@ -89,7 +162,7 @@ class CompanionExporter:
             self.transcript_file = self.stop_payload.get("transcriptPath")
 
         if self.mode in ["forensic-recent", "forensic-full"] and (not self.artifact_dir or not self.transcript_file):
-            brain_base = os.environ.get("GEMINI_BRAIN_DIR") or os.path.join(os.path.expanduser("~"), ".gemini", "antigravity", "brain")
+            brain_base = r"C:\Users\Администратор\.gemini\antigravity\brain"
             self.artifact_dir = os.path.join(brain_base, self.conversation_id)
             self.transcript_file = os.path.join(self.artifact_dir, ".system_generated", "logs", "transcript.jsonl")
             if not os.path.exists(self.transcript_file) or self.mode == "forensic-full":
@@ -335,10 +408,10 @@ class CompanionExporter:
         # l. Build RUNTIME_TARGET.json
         rt = authorities_for_resolver.get("TARGET_RUNTIME_BASELINE.json", {}).get("data", {})
         file_contents["RUNTIME_TARGET.json"] = json_bytes({
-            "ecosystem_version": rt.get("ecosystem_version", "1.2.27"),
-            "target_pipeline_package": rt.get("pipeline_package", "1.2.27"),
-            "target_runtime": rt.get("runtime", "1.2.27"),
-            "target_companion": rt.get("companion", "1.2.27"),
+            "ecosystem_version": rt.get("ecosystem_version", "1.2.25"),
+            "target_pipeline_package": rt.get("pipeline_package", "1.2.25"),
+            "target_runtime": rt.get("runtime", "1.2.25"),
+            "target_companion": rt.get("companion", "1.2.25"),
             "runtime_environment": rt.get("runtime_environment", "Antigravity Desktop"),
             "os_requirements": rt.get("os_requirements", {"os": "Windows 11", "shell": "PowerShell 7.6+", "python": "3.11+"}),
         })
@@ -410,6 +483,15 @@ Primary Implementation Root: `{primary_impl_root}`
         if self.required_authority:
             file_contents.update(captured_test_evidence)
 
+        # Collect brain artifacts, referenced deliverables from narrative text, and project documentation
+        narrative_txt = cap_res.get("session_delta", {}).get("last_model_response", "")
+        collected_artifacts = collect_session_and_narrative_artifacts(
+            artifact_dir=self.artifact_dir,
+            narrative_text=narrative_txt,
+            search_roots=search_roots,
+        )
+        file_contents.update(collected_artifacts)
+
         # Diagnostics dump
         self.diag.stop_timer("total_export")
         file_contents["DIAGNOSTICS.json"] = self.diag.to_json_bytes()
@@ -460,16 +542,26 @@ Primary Implementation Root: `{primary_impl_root}`
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        payload_f = sys.argv[1]
+        arg1 = sys.argv[1]
         mode = "handoff"
-        try:
-            with open(payload_f, "r", encoding="utf-8-sig") as f:
-                _pd = json.load(f)
-            _sp = _pd.get("stop_payload", _pd)
-            if not _sp.get("artifactDirectoryPath") and not _sp.get("transcriptPath"):
+        conv_id = None
+        payload_f = None
+        
+        if os.path.exists(arg1):
+            payload_f = arg1
+            try:
+                with open(payload_f, "r", encoding="utf-8-sig") as f:
+                    _pd = json.load(f)
+                _sp = _pd.get("stop_payload", _pd)
+                conv_id = _sp.get("conversationId") or _pd.get("conversation_id")
+                if not _sp.get("artifactDirectoryPath") and not _sp.get("transcriptPath"):
+                    mode = "forensic-recent"
+            except Exception:
                 mode = "forensic-recent"
-        except Exception:
+        else:
+            conv_id = arg1
             mode = "forensic-recent"
-        exp = CompanionExporter(stop_payload_file=payload_f, mode=mode)
+            
+        exp = CompanionExporter(stop_payload_file=payload_f, conversation_id=conv_id, mode=mode)
         res = exp.export()
         print(json.dumps(res, indent=2))

@@ -33,5 +33,23 @@
       "*raw_biometrics*"
     ],
     "raw_biometrics_excluded": true
-  }
+  },
+  "conversation_filter": {
+    "mode": "all",
+    "allowed_conversations": [],
+    "ignored_conversations": [],
+    "allowed_projects": [],
+    "ignored_projects": [],
+    "filter_file": "conversations.txt"
+  },
+  "additional_authority_paths": [
+    ".agy/ACTION_PACKET_RECEIPT.json",
+    ".agy/PROGRESS_POLICY.json",
+    ".agy/PROGRESS_STATE.json",
+    ".agy/NEXT_ACTION.json",
+    ".agy/CANDIDATE_MANIFEST.json",
+    ".agy/CANDIDATE_MANIFEST_STATUS.json",
+    ".agy/inbox/ACTIVE_ACTION_PACKET/AGENT_TASK.md",
+    ".agy/inbox/ACTIVE_ACTION_PACKET/OWNER_SUMMARY_RU.md"
+  ]
 }

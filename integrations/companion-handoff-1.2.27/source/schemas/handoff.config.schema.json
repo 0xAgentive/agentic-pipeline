@@ -27,6 +27,22 @@
         "fail_closed_patterns": { "type": "array", "items": { "type": "string" } },
         "raw_biometrics_excluded": { "type": "boolean", "default": true }
       }
+    },
+    "conversation_filter": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "enum": ["all", "allowlist", "denylist"], "default": "all" },
+        "allowed_conversations": { "type": "array", "items": { "type": "string" } },
+        "ignored_conversations": { "type": "array", "items": { "type": "string" } },
+        "allowed_projects": { "type": "array", "items": { "type": "string" } },
+        "ignored_projects": { "type": "array", "items": { "type": "string" } },
+        "filter_file": { "type": "string", "default": "conversations.txt" }
+      }
+    },
+    "additional_authority_paths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
     }
   }
 }

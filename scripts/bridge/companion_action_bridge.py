@@ -44,6 +44,39 @@ def record_metric(project_root:Path,operation:str,duration_ms:float,success:bool
 
 def load_json(path:Path):return json.loads(path.read_text(encoding='utf-8-sig'))
 
+def set_windows_clipboard_command(text: str):
+    try:
+        import ctypes
+        CF_UNICODETEXT = 13
+        GMEM_MOVEABLE = 0x0002
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        kernel32.GlobalAlloc.restype = ctypes.c_void_p
+        kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        user32.SetClipboardData.restype = ctypes.c_void_p
+        user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+        for attempt in range(5):
+            if user32.OpenClipboard(None):
+                user32.EmptyClipboard()
+                encoded = text.encode('utf-16-le') + b'\x00\x00'
+                h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(encoded))
+                if h_mem:
+                    ptr = kernel32.GlobalLock(h_mem)
+                    if ptr:
+                        ctypes.memmove(ptr, encoded, len(encoded))
+                        kernel32.GlobalUnlock(h_mem)
+                        user32.SetClipboardData(CF_UNICODETEXT, h_mem)
+                user32.CloseClipboard()
+                break
+            time.sleep(0.05)
+        user32.MessageBeep(0x00000040)
+    except Exception:
+        pass
+
+
 def parse_utc(value):
  text=str(value or '');text=text[:-1]+'+00:00' if text.endswith('Z') else text;parsed=dt.datetime.fromisoformat(text)
  if parsed.tzinfo is None:raise ValueError('Packet timestamp must include a timezone')
@@ -167,6 +200,9 @@ def import_packet(source:Path,registry_path:Path,state_root:Path):
  else:os.replace(staged,active)
  receipt={'schema_version':SCHEMA_VERSION,'ecosystem_version':ECOSYSTEM_VERSION,'packet_id':packet_id,'project_id':packet['project_id'],'operation':packet['operation'],'route':packet['route'],'status':'imported','source_file':str(source),'source_sha256':sha256_file(source),'imported_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'activated_at_utc':None,'injected_at_utc':None}
  atomic_json(project_root/'.agy'/'ACTION_PACKET_RECEIPT.json',receipt);append_jsonl(ledger,{'packet_id':packet_id,'project_id':packet['project_id'],'accepted_at_utc':receipt['imported_at_utc'],'source_sha256':receipt['source_sha256']})
+ route=str(packet.get('route') or '/nextphase').strip()
+ if not route.startswith('/'):route='/'+route
+ set_windows_clipboard_command(route)
  duration_ms=(time.time_ns()-start_ns)/1_000_000
  record_metric(project_root,'action_packet_import',duration_ms,True)
  return{'status':'PASS','project_root':str(project_root),'packet_id':packet_id}
@@ -218,12 +254,16 @@ def watch(inbox:Path,registry:Path,state_root:Path,poll_interval:float=0.5,debou
   time.sleep(poll_interval)
  return 0
 
+def default_inbox()->Path:return Path(os.path.expanduser('~/Downloads')).resolve()
+def default_registry()->Path:return Path(os.path.expanduser('~/.agentic-pipeline/project-registry.json')).resolve()
+def default_state_root()->Path:return Path(os.path.expanduser('~/.agentic-pipeline/action-bridge')).resolve()
+
 def main():
  configure_utf8_standard_streams()
  p=argparse.ArgumentParser();sub=p.add_subparsers(dest='command',required=True)
- i=sub.add_parser('import');i.add_argument('--packet',type=Path,required=True);i.add_argument('--registry',type=Path,required=True);i.add_argument('--state-root',type=Path,required=True)
- s=sub.add_parser('scan');s.add_argument('--inbox',type=Path,required=True);s.add_argument('--registry',type=Path,required=True);s.add_argument('--state-root',type=Path,required=True);s.add_argument('--debounce-seconds',type=float,default=0.1)
- w=sub.add_parser('watch');w.add_argument('--inbox',type=Path,required=True);w.add_argument('--registry',type=Path,required=True);w.add_argument('--state-root',type=Path,required=True);w.add_argument('--poll-interval',type=float,default=0.5);w.add_argument('--debounce-seconds',type=float,default=0.1);w.add_argument('--max-iterations',type=int,default=None)
+ i=sub.add_parser('import');i.add_argument('--packet',type=Path,required=True);i.add_argument('--registry',type=Path,default=default_registry());i.add_argument('--state-root',type=Path,default=default_state_root())
+ s=sub.add_parser('scan');s.add_argument('--inbox',type=Path,default=default_inbox());s.add_argument('--registry',type=Path,default=default_registry());s.add_argument('--state-root',type=Path,default=default_state_root());s.add_argument('--debounce-seconds',type=float,default=0.1)
+ w=sub.add_parser('watch');w.add_argument('--inbox',type=Path,default=default_inbox());w.add_argument('--registry',type=Path,default=default_registry());w.add_argument('--state-root',type=Path,default=default_state_root());w.add_argument('--poll-interval',type=float,default=0.5);w.add_argument('--debounce-seconds',type=float,default=0.1);w.add_argument('--max-iterations',type=int,default=None)
  a=p.parse_args()
  if a.command=='import':print(json.dumps(import_packet(a.packet,a.registry,a.state_root),ensure_ascii=False));return 0
  if a.command=='watch':return watch(a.inbox,a.registry,a.state_root,poll_interval=a.poll_interval,debounce_seconds=a.debounce_seconds,max_iterations=a.max_iterations)

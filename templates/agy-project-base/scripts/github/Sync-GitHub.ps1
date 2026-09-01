@@ -13,20 +13,21 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
 
 function Invoke-NativeChecked {
-  param(
-    [Parameter(Mandatory=$true)][string]$Exe,
-    [Parameter(ValueFromRemainingArguments=$true)][string[]]$Arguments
-  )
-  & $Exe @Arguments
+  $exe = $args[0]
+  $cmdArgs = @()
+  if ($args.Count -gt 1) {
+    $cmdArgs = $args[1..($args.Count - 1)]
+  }
+  & $exe @cmdArgs
   $code = $LASTEXITCODE
-  if ($null -ne $code -and $code -ne 0) { throw "Native command failed with exit code ${code}: $Exe $($Arguments -join ' ')" }
+  if ($null -ne $code -and $code -ne 0) { throw "Native command failed with exit code ${code}: $exe $($cmdArgs -join ' ')" }
 }
 function Require-Command { param([string]$Name) if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) { throw "Required command not found: $Name" } }
 function Read-JsonFile { param([string]$Path) if (Test-Path $Path) { return (Get-Content $Path -Raw | ConvertFrom-Json) } return $null }
 function Assert-Not-UserProfileRoot { $cwd=(Resolve-Path ".").Path; $UserProfileRoot=(Resolve-Path $env:USERPROFILE).Path; if ($cwd -eq $UserProfileRoot) { throw "Refusing to publish from user profile root: $cwd" } }
 function Run-NpmScriptIfExists { param([string]$Name) if (!(Test-Path "package.json")) { return }; $pkg=Get-Content "package.json" -Raw | ConvertFrom-Json; if ($pkg.scripts -and ($pkg.scripts.PSObject.Properties.Name -contains $Name)) { Invoke-NativeChecked npm run $Name } }
 function Assert-NoDangerousStagedFiles {
-  $staged = & git diff --cached --name-only
+  $staged = & git diff --cached --name-only --diff-filter=d
   if ($LASTEXITCODE -ne 0) { throw "git diff --cached failed" }
   $denyPatterns = @('(^|/)\.env($|\.)','\.pem$','\.key$','\.pfx$','\.p12$','\.sqlite$','\.db$','(^|/)node_modules/','(^|/)dist/','(^|/)build/','(^|/)\.agy/','(^|/)\.codebase-memory/','\.log$','\.zip$','\.har$','\.trace$','\.bak-')
   $bad=@()
@@ -71,6 +72,7 @@ if (!$Message) { $Message = "ship: update project $(Get-Date -Format 'yyyy-MM-dd
 Invoke-NativeChecked gh auth status
 if (!(Test-Path ".git")) { Invoke-NativeChecked git init -b $Branch } else { Invoke-NativeChecked git branch -M $Branch }
 Invoke-NativeChecked git config core.autocrlf false
+Invoke-NativeChecked git config core.longpaths true
 if (!$SkipChecks) {
   if (Test-Path ".agents/hooks/Test-HookContract.ps1") { Invoke-NativeChecked powershell -NoProfile -ExecutionPolicy Bypass -File ".agents/hooks/Test-HookContract.ps1" }
   if (Test-Path "scripts/windows/Test-EnvironmentContract.ps1") { Invoke-NativeChecked powershell -NoProfile -ExecutionPolicy Bypass -File "scripts/windows/Test-EnvironmentContract.ps1" }

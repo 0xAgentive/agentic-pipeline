@@ -200,10 +200,7 @@ def import_packet(source:Path,registry_path:Path,state_root:Path):
  else:os.replace(staged,active)
  receipt={'schema_version':SCHEMA_VERSION,'ecosystem_version':ECOSYSTEM_VERSION,'packet_id':packet_id,'project_id':packet['project_id'],'operation':packet['operation'],'route':packet['route'],'status':'imported','source_file':str(source),'source_sha256':sha256_file(source),'imported_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'activated_at_utc':None,'injected_at_utc':None}
  atomic_json(project_root/'.agy'/'ACTION_PACKET_RECEIPT.json',receipt);append_jsonl(ledger,{'packet_id':packet_id,'project_id':packet['project_id'],'accepted_at_utc':receipt['imported_at_utc'],'source_sha256':receipt['source_sha256']})
- route=str(packet.get('route') or '/nextphase').strip()
- if not route.startswith('/'):route='/'+route
- cmd=f"{route} /goal" if '/goal' not in route else route
- set_windows_clipboard_command(cmd)
+ set_windows_clipboard_command('/nextphase /goal')
  duration_ms=(time.time_ns()-start_ns)/1_000_000
  record_metric(project_root,'action_packet_import',duration_ms,True)
  return{'status':'PASS','project_root':str(project_root),'packet_id':packet_id}

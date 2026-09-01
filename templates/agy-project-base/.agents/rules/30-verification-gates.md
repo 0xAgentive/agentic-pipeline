@@ -17,9 +17,17 @@ Lifecycle:
 - release blockers do not freeze future owner-approved work;
 - no more than the configured repair-batch budget without closure or one hard stop.
 
-## Test Discipline and Timeout Enforcement
+## Universal Anti-Hang & Execution Watchdog Policy
 
-1. **Focused tests first**: During iterative development and bug fixing, NEVER run the full test suite for single-file changes. Run ONLY the focused test file relevant to the change (takes 1-3 seconds).
-2. **Strict per-test timeout**: Every test runner invocation must enforce a per-test timeout (`--testTimeout=5000 --hookTimeout=5000`) and fail-fast (`--bail=1` during development, `--bail=5` during suite runs).
-3. **Hard execution ceiling**: Full test suite runs must always execute via the watchdog script (`scripts/Invoke-TestWithTimeout.ps1` or `scripts/run_and_capture_verification.ps1`) with a maximum ceiling of 180 seconds.
-4. **Zero-hang guarantee**: If a test suite exceeds the ceiling, the watchdog forcefully terminates the entire process tree to prevent agent lockup and 20-minute hangs.
+1. **Focused verification first**: During iterative development, NEVER run full test or package suites for single-file changes. Run ONLY the focused test file (`npm run test:focused` / `pytest tests/test_focused.py`).
+2. **Hard process ceiling on ALL tasks**:
+   - Tests: max **120s** per run, **5s** per individual test (`--testTimeout=5000 --bail=5`).
+   - Builds & packaging (`package.ps1`, `build.ps1`, `electron-builder`): max **180s** (ceiling **300s**).
+   - All long-running commands MUST run through `scripts/Invoke-WithTimeout.ps1` with closed `stdin` and `CI=true`.
+3. **Zero unconstrained background tasks**:
+   - If a command is launched as a background task, the agent MUST schedule a watchdog wakeup using `schedule(DurationSeconds=180, TimerCondition="<task_id>")`.
+   - If the task does not finish within 180s, the timer wakes up the agent, which terminates the hung task (`manage_task(Action='kill')`) and diagnoses the root cause immediately without waiting for user intervention.
+4. **Strict non-interactive mode**:
+   - All commands must run with `CI=true`, `GIT_TERMINAL_PROMPT=0`, `DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1`, `PIP_NO_INPUT=1`, and `NPM_CONFIG_YES=true`.
+   - Interactive stdin prompts are prohibited in automation scripts.
+5. **Zero-hang guarantee**: If any process exceeds its watchdog ceiling, the process tree is forcefully terminated (`taskkill /F /T`) and reported as a hard blocker.

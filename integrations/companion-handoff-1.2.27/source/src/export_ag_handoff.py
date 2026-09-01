@@ -254,6 +254,18 @@ class CompanionExporter:
             proj_slug = os.path.basename(os.path.normpath(primary_impl_root))
         else:
             proj_slug = root_classes.get("logical_project_slug") or os.path.basename(os.path.normpath(launch_ws or "companion-handoff"))
+
+        # Fallback to prev_state or existing handoff directory for this conversation
+        if (not proj_slug or proj_slug in ["companion-handoff", "."]) and self.prev_state.get("proj_slug"):
+            proj_slug = self.prev_state.get("proj_slug")
+        if not proj_slug or proj_slug in ["companion-handoff", "."]:
+            handoffs_root = os.path.join(self.base_dir, "handoffs")
+            if os.path.isdir(handoffs_root):
+                for p_entry in os.listdir(handoffs_root):
+                    if p_entry != "companion-handoff" and os.path.isdir(os.path.join(handoffs_root, p_entry, self.conversation_id)):
+                        proj_slug = p_entry
+                        break
+
         if not proj_slug or proj_slug == ".":
             proj_slug = "companion-handoff"
 
@@ -497,7 +509,7 @@ Primary Implementation Root: `{primary_impl_root}`
         file_contents["DIAGNOSTICS.json"] = self.diag.to_json_bytes()
 
         # q. PackageBuilder
-        builder = PackageBuilder(latest_dir, history_dir, gen_id, self.diag)
+        builder = PackageBuilder(latest_dir, history_dir, gen_id, self.diag, proj_slug=proj_slug)
         build_res = builder.build_and_publish(
             file_contents,
             PackageValidator,

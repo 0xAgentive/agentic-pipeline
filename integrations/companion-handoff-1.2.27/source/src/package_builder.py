@@ -54,11 +54,12 @@ class PackageBuilder:
     7. Write sidecar files
     """
 
-    def __init__(self, latest_dir: str, history_dir: str, gen_id: str, diagnostics=None):
+    def __init__(self, latest_dir: str, history_dir: str, gen_id: str, diagnostics=None, proj_slug: str = None):
         self.latest_dir = latest_dir
         self.history_dir = history_dir
         self.gen_id = gen_id
         self.diag = diagnostics
+        self.proj_slug = proj_slug or "PROJECT"
 
     def build_manifest(self, file_contents: dict) -> dict:
         """Build MANIFEST.json from file_contents dict.
@@ -162,35 +163,85 @@ class PackageBuilder:
                 self._cleanup(temp_zip)
                 return {"status": "FAILED", "error": "FINAL_ZIP_VALIDATION_FAILED", "details": str(e)}
 
-        # 5. Stage every published file on its destination volume.
-        final_latest = os.path.join(self.latest_dir, "LATEST_CONTEXT.zip")
-        final_history = os.path.join(self.history_dir, "LATEST_CONTEXT.zip")
-        final_latest_sha = final_latest + ".sha256"
-        final_history_sha = final_history + ".sha256"
+        # 5. Determine unique filename and stage every published file on its destination volume.
+        import re
+        clean_proj = re.sub(r'[^\w\-]+', '_', self.proj_slug or "PROJECT").strip('_')
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        unique_zip_name = f"{clean_proj}_LATEST_CONTEXT_{timestamp_str}.zip"
+
+        final_named_latest = os.path.join(self.latest_dir, unique_zip_name)
+        final_named_history = os.path.join(self.history_dir, unique_zip_name)
+        final_canonical_latest = os.path.join(self.latest_dir, "LATEST_CONTEXT.zip")
+        final_canonical_history = os.path.join(self.history_dir, "LATEST_CONTEXT.zip")
+
+        final_named_sha = final_named_latest + ".sha256"
+        final_canonical_sha = final_canonical_latest + ".sha256"
+        final_history_sha = final_canonical_history + ".sha256"
         final_readiness = os.path.join(self.latest_dir, "CONTEXT_READINESS.json")
         latest_sha = get_file_sha256(temp_zip)
+
+        named_stage = os.path.join(self.latest_dir, f".tmp_named_{self.gen_id}.zip")
         history_stage = os.path.join(self.history_dir, f".tmp_history_{self.gen_id}.zip")
+        history_named_stage = os.path.join(self.history_dir, f".tmp_history_named_{self.gen_id}.zip")
         latest_sha_stage = os.path.join(self.latest_dir, f".tmp_latest_sha_{self.gen_id}")
+        named_sha_stage = os.path.join(self.latest_dir, f".tmp_named_sha_{self.gen_id}")
         history_sha_stage = os.path.join(self.history_dir, f".tmp_history_sha_{self.gen_id}")
         readiness_stage = os.path.join(self.latest_dir, f".tmp_readiness_{self.gen_id}")
-        staged_paths = [temp_zip, history_stage, latest_sha_stage, history_sha_stage]
+
+        staged_paths = [
+            temp_zip,
+            named_stage,
+            history_stage,
+            history_named_stage,
+            latest_sha_stage,
+            named_sha_stage,
+            history_sha_stage,
+        ]
         replacements = []
         try:
+            shutil.copy2(temp_zip, named_stage)
             shutil.copy2(temp_zip, history_stage)
-            sha_bytes = f"{latest_sha}  LATEST_CONTEXT.zip\n".encode("utf-8")
+            shutil.copy2(temp_zip, history_named_stage)
+
+            sha_canonical_bytes = f"{latest_sha}  LATEST_CONTEXT.zip\n".encode("utf-8")
+            sha_named_bytes = f"{latest_sha}  {unique_zip_name}\n".encode("utf-8")
+
             with open(latest_sha_stage, "wb") as handle:
-                handle.write(sha_bytes)
+                handle.write(sha_canonical_bytes)
+                handle.flush()
+                os.fsync(handle.fileno())
+            with open(named_sha_stage, "wb") as handle:
+                handle.write(sha_named_bytes)
                 handle.flush()
                 os.fsync(handle.fileno())
             with open(history_sha_stage, "wb") as handle:
-                handle.write(sha_bytes)
+                handle.write(sha_canonical_bytes)
                 handle.flush()
                 os.fsync(handle.fileno())
 
+            # Clean previous uniquely named zip files from latest_dir to prevent old files buildup
+            try:
+                for old_f in os.listdir(self.latest_dir):
+                    if old_f.endswith(".zip") and old_f != "LATEST_CONTEXT.zip" and not old_f.startswith(".tmp") and not old_f.startswith(".rollback"):
+                        try:
+                            os.remove(os.path.join(self.latest_dir, old_f))
+                        except Exception:
+                            pass
+                    if old_f.endswith(".zip.sha256") and old_f != "LATEST_CONTEXT.zip.sha256" and not old_f.startswith(".tmp") and not old_f.startswith(".rollback"):
+                        try:
+                            os.remove(os.path.join(self.latest_dir, old_f))
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
             replacements = [
-                (temp_zip, final_latest),
-                (history_stage, final_history),
-                (latest_sha_stage, final_latest_sha),
+                (temp_zip, final_canonical_latest),
+                (named_stage, final_named_latest),
+                (history_stage, final_canonical_history),
+                (history_named_stage, final_named_history),
+                (latest_sha_stage, final_canonical_sha),
+                (named_sha_stage, final_named_sha),
                 (history_sha_stage, final_history_sha),
             ]
             readiness = file_contents.get("CONTEXT_READINESS.json")
@@ -278,13 +329,16 @@ class PackageBuilder:
             for stage, target in replacements:
                 self._replace_atomically(stage, target)
                 published_targets.append(target)
-            if get_file_sha256(final_latest) != latest_sha or get_file_sha256(final_history) != latest_sha:
+            if get_file_sha256(final_canonical_latest) != latest_sha or get_file_sha256(final_named_latest) != latest_sha:
                 raise RuntimeError("post_publish_archive_hash_mismatch")
-            with open(final_latest_sha, "rb") as handle:
-                if handle.read() != sha_bytes:
-                    raise RuntimeError("post_publish_latest_sidecar_mismatch")
+            with open(final_canonical_sha, "rb") as handle:
+                if handle.read() != sha_canonical_bytes:
+                    raise RuntimeError("post_publish_canonical_sidecar_mismatch")
+            with open(final_named_sha, "rb") as handle:
+                if handle.read() != sha_named_bytes:
+                    raise RuntimeError("post_publish_named_sidecar_mismatch")
             with open(final_history_sha, "rb") as handle:
-                if handle.read() != sha_bytes:
+                if handle.read() != sha_canonical_bytes:
                     raise RuntimeError("post_publish_history_sidecar_mismatch")
             if readiness is not None:
                 with open(final_readiness, "rb") as handle:
@@ -321,7 +375,7 @@ class PackageBuilder:
             if backup:
                 self._cleanup(backup)
 
-        final_mtime_ns = os.stat(final_latest).st_mtime_ns
+        final_mtime_ns = os.stat(final_canonical_latest).st_mtime_ns
         now_ns = time.time_ns()
         if now_ns < final_mtime_ns:
             time.sleep((final_mtime_ns - now_ns) / 1_000_000_000)
@@ -329,7 +383,9 @@ class PackageBuilder:
 
         return {
             "status": "SUCCESS",
-            "archive_path": final_latest,
+            "archive_path": final_named_latest,
+            "canonical_archive_path": final_canonical_latest,
+            "archive_name": unique_zip_name,
             "archive_sha256": latest_sha,
             "member_count": len(file_contents),
             "generation_id": self.gen_id,

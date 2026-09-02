@@ -95,6 +95,48 @@ def find_project_root(path: str) -> Optional[str]:
             
     return candidate
 
+GENERIC_DIR_NAMES = {
+    "antigravity", "src", "source", "dist", "build", "workspace", "code", "app", 
+    "repo", "project", "worktree", "trunk", "main", "dev", "develop"
+}
+
+def resolve_project_slug(path: str) -> str:
+    norm = normalize_path(path)
+    if not norm:
+        return "companion-handoff"
+        
+    try:
+        import json
+        manifest_p = os.path.join(norm, ".agy", "INSTALLATION_MANIFEST.json")
+        if os.path.isfile(manifest_p):
+            with open(manifest_p, "r", encoding="utf-8-sig") as f:
+                data = json.load(f)
+                if data.get("project_id") and str(data["project_id"]).lower() not in GENERIC_DIR_NAMES:
+                    return str(data["project_id"])
+                if data.get("project_name"):
+                    return str(data["project_name"])
+    except Exception:
+        pass
+
+    try:
+        import json
+        for m_candidate in [os.path.join(norm, "manifest.json"), os.path.join(norm, "candidate8_dev", "manifest.json")]:
+            if os.path.isfile(m_candidate):
+                with open(m_candidate, "r", encoding="utf-8-sig") as f:
+                    data = json.load(f)
+                    if data.get("name"):
+                        return str(data["name"])
+    except Exception:
+        pass
+
+    base = os.path.basename(os.path.normpath(norm))
+    if base.lower() in GENERIC_DIR_NAMES:
+        parent = os.path.basename(os.path.dirname(os.path.normpath(norm)))
+        if parent and parent.lower() not in GENERIC_DIR_NAMES:
+            return parent
+            
+    return base
+
 def classify_roots(touched_paths: List[str], launch_workspace: str, write_operations: List[str]) -> Dict[str, str]:
     """
     Classify roots into a dict with: launch_workspace, primary_implementation_root, 
@@ -121,13 +163,15 @@ def classify_roots(touched_paths: List[str], launch_workspace: str, write_operat
     primary = sorted_roots[0] if sorted_roots else launch_workspace
     additional = [r for r in sorted_roots if r != primary and r != launch_workspace]
     
+    logical_slug = resolve_project_slug(launch_workspace) if launch_workspace else resolve_project_slug(primary)
+    
     return {
         "launch_workspace": launch_workspace,
         "primary_implementation_root": primary,
         "additional_implementation_roots": ",".join(additional),
         "runtime_root": launch_workspace,
-        "logical_project_slug": os.path.basename(os.path.normpath(launch_workspace)) if launch_workspace else "",
-        "result_worktree_slug": os.path.basename(os.path.normpath(primary)) if primary else "",
+        "logical_project_slug": logical_slug,
+        "result_worktree_slug": resolve_project_slug(primary) if primary else logical_slug,
         "artifact_roots": "",
         "supporting_roots": ""
     }

@@ -312,7 +312,9 @@ class PackageBuilder:
                     checked_ns = int(checked_at.timestamp() * 1_000_000_000)
                     publication_mtime_ns = max(publication_mtime_ns, checked_ns + 1_000_000)
                 os.utime(temp_zip, ns=(publication_mtime_ns, publication_mtime_ns))
+                os.utime(named_stage, ns=(publication_mtime_ns, publication_mtime_ns))
                 os.utime(history_stage, ns=(publication_mtime_ns, publication_mtime_ns))
+                os.utime(history_named_stage, ns=(publication_mtime_ns, publication_mtime_ns))
             except Exception as e:
                 for path in staged_paths:
                     self._cleanup(path)

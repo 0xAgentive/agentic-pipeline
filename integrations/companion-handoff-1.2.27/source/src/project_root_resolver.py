@@ -120,12 +120,27 @@ def resolve_project_slug(path: str) -> str:
 
     try:
         import json
-        for m_candidate in [os.path.join(norm, "manifest.json"), os.path.join(norm, "candidate8_dev", "manifest.json")]:
+        candidates = [
+            os.path.join(norm, "manifest.json"),
+            os.path.join(norm, "package.json")
+        ]
+        try:
+            for entry in os.listdir(norm):
+                sub = os.path.join(norm, entry)
+                if os.path.isdir(sub) and not entry.startswith(".") and entry.lower() not in {"node_modules", "dist", "build", ".git", "__pycache__"}:
+                    candidates.append(os.path.join(sub, "manifest.json"))
+                    candidates.append(os.path.join(sub, "package.json"))
+        except Exception:
+            pass
+
+        for m_candidate in candidates:
             if os.path.isfile(m_candidate):
                 with open(m_candidate, "r", encoding="utf-8-sig") as f:
                     data = json.load(f)
-                    if data.get("name"):
-                        return str(data["name"])
+                    if data.get("name") and isinstance(data["name"], str):
+                        val = data["name"].strip()
+                        if val and val.lower() not in GENERIC_DIR_NAMES:
+                            return val
     except Exception:
         pass
 

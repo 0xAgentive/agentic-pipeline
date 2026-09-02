@@ -4,7 +4,7 @@ param()
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
-$FrameworkRoot = 'C:\Users\Администратор\Documents\antigravity\agentic-pipeline'
+$FrameworkRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $TemplateRules = Join-Path $FrameworkRoot 'templates\agy-project-base\.agents\rules'
 $WatchdogScript = Join-Path $FrameworkRoot 'scripts\Invoke-WithTimeout.ps1'
 $RegPath = "$env:USERPROFILE\.agentic-pipeline\project-registry.json"

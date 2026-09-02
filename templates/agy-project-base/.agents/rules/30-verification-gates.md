@@ -32,11 +32,12 @@ Lifecycle:
 2. **Hard process ceiling on ALL tasks**:
    - Tests: max **120s** per run, **5s** per individual test (`--testTimeout=5000 --bail=5`).
    - Builds & packaging (`package.ps1`, `build.ps1`, `electron-builder`): max **180s** (ceiling **300s**).
-   - All long-running commands MUST run through `scripts/Invoke-WithTimeout.ps1` with closed `stdin` and `CI=true`.
-3. **Zero unconstrained background tasks**:
-   - If a command is launched as a background task, the agent MUST schedule a watchdog wakeup using `schedule(DurationSeconds=180, TimerCondition="<task_id>")`.
-   - If the task does not finish within 180s, the timer wakes up the agent, which terminates the hung task (`manage_task(Action='kill')`) and diagnoses the root cause immediately without waiting for user intervention.
-4. **Strict non-interactive mode**:
+   - All ad-hoc script runs (`npx tsx -e`, `node -e`, `python -c`, probes) MUST run through `scripts/Invoke-WithTimeout.ps1 -TimeoutSeconds 30` with closed `stdin` and `CI=true`. Running raw unconstrained probe scripts directly via `run_command` is strictly prohibited.
+3. **Mandatory Watchdog on background tasks**:
+   - Whenever any command is pushed to the background by the IDE as `task-XXXX`, the agent MUST immediately set a liveness timer via `schedule(DurationSeconds=60, TimerCondition="task-XXXX")` in the very next step. The agent must NEVER wait passively without an active watchdog timer.
+4. **Computational Scale Bounds on Probes**:
+   - Never run unoptimized $O(N \times K)$ algorithms (e.g. polyphase sinc resampling or full FFTs on 500k+ raw samples) across entire datasets inside quick ad-hoc probes. Test algorithms on slices (e.g. `.slice(0, 5000)`) or run them via compiled background jobs with strict hard timeouts.
+5. **Strict non-interactive mode**:
    - All commands must run with `CI=true`, `GIT_TERMINAL_PROMPT=0`, `DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1`, `PIP_NO_INPUT=1`, and `NPM_CONFIG_YES=true`.
    - Interactive stdin prompts are prohibited in automation scripts.
-5. **Zero-hang guarantee**: If any process exceeds its watchdog ceiling, the process tree is forcefully terminated (`taskkill /F /T`) and reported as a hard blocker.
+6. **Zero-hang guarantee**: If any process exceeds its watchdog ceiling, the process tree is forcefully terminated (`taskkill /F /T`) and reported as a hard blocker.

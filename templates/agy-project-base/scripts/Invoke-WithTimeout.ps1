@@ -31,7 +31,10 @@ $processInfo.RedirectStandardInput = $true
 $processInfo.UseShellExecute = $false
 $processInfo.CreateNoWindow = $true
 
-# Enforce non-interactive environment across all runtimes
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+
+# Enforce non-interactive environment and UTF-8 across all runtimes
 $processInfo.Environment["CI"] = "true"
 $processInfo.Environment["DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER"] = "1"
 $processInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
@@ -39,6 +42,10 @@ $processInfo.Environment["GIT_TERMINAL_PROMPT"] = "0"
 $processInfo.Environment["NPM_CONFIG_YES"] = "true"
 $processInfo.Environment["PIP_NO_INPUT"] = "1"
 $processInfo.Environment["PYTHONUNBUFFERED"] = "1"
+$processInfo.Environment["PYTHONUTF8"] = "1"
+$processInfo.Environment["PYTHONIOENCODING"] = "utf-8"
+$processInfo.Environment["LANG"] = "en_US.UTF-8"
+$processInfo.Environment["LC_ALL"] = "en_US.UTF-8"
 
 $process = New-Object System.Diagnostics.Process
 $process.StartInfo = $processInfo

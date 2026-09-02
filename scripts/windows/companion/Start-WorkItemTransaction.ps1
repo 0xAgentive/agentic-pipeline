@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$ProjectRoot = '.',
-  [Parameter(Mandatory = $true)][string]$ActionPacketPath,
+  [string]$ActionPacketPath = '',
   [switch]$Apply,
   [Parameter(DontShow = $true)][ValidateRange(0, 5)][int]$FaultInjectionAfterPublishes = 0
 )
@@ -60,6 +60,30 @@ function Set-AtomicFileFromPath {
 
 $Root = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $AgyRoot = Join-Path $Root '.agy'
+
+if ([string]::IsNullOrWhiteSpace($ActionPacketPath)) {
+  $Candidates = @(
+    (Join-Path $AgyRoot 'inbox\ACTIVE_ACTION_PACKET\ACTION_PACKET.json'),
+    (Join-Path $AgyRoot 'inbox\ACTIVE_ACTION_PACKET\AGENTIC_ACTION_PACKET.json'),
+    (Join-Path $AgyRoot 'inbox\ACTIVE_ACTION_PACKET.json')
+  )
+  foreach ($c in $Candidates) {
+    if (Test-Path -LiteralPath $c -PathType Leaf) {
+      $ActionPacketPath = $c
+      break
+    }
+  }
+  if ([string]::IsNullOrWhiteSpace($ActionPacketPath) -and (Test-Path -LiteralPath (Join-Path $AgyRoot 'inbox'))) {
+    $InboxMatches = @(Get-ChildItem -LiteralPath (Join-Path $AgyRoot 'inbox') -Filter '*ACTION_PACKET*.json' -Recurse -File | Select-Object -ExpandProperty FullName)
+    if ($InboxMatches.Count -gt 0) {
+      $ActionPacketPath = $InboxMatches[0]
+    }
+  }
+  if ([string]::IsNullOrWhiteSpace($ActionPacketPath) -or -not (Test-Path -LiteralPath $ActionPacketPath -PathType Leaf)) {
+    throw 'Start-WorkItemTransaction: -ActionPacketPath was not provided and no active action packet was found in .agy/inbox/.'
+  }
+}
+
 $PacketPath = (Resolve-Path -LiteralPath $ActionPacketPath).Path
 $Packet = Get-Content -LiteralPath $PacketPath -Raw -Encoding UTF8 | ConvertFrom-Json
 

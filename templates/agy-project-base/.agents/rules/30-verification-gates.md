@@ -17,6 +17,15 @@ Lifecycle:
 - release blockers do not freeze future owner-approved work;
 - no more than the configured repair-batch budget without closure or one hard stop.
 
+## Fast-Feedback & Targeted Verification Contract
+
+1. **Tier-1 Laser Verification First**:
+   - For all incremental edits, execute ONLY the single targeted test file directly covering the modified component (e.g. `npx vitest run tests/hrv.test.ts` or `python -m unittest tests.test_unit`).
+   - Limit stdout to max 10 lines of focused summary.
+   - Do NOT run full multi-suite test runs or package builds during iterative development loops.
+2. **Tier-2 Comprehensive Gate**:
+   - Run full regression/integration suite (`npm test`, `Test-DistributionIntegrity.ps1`, `pytest`) ONLY ONCE upon phase completion or before final task closure.
+
 ## Universal Anti-Hang & Execution Watchdog Policy
 
 1. **Focused verification first**: During iterative development, NEVER run full test or package suites for single-file changes. Run ONLY the focused test file (`npm run test:focused` / `pytest tests/test_focused.py`).

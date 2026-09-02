@@ -72,10 +72,25 @@ def enqueue_stop_payload(payload, base_dir):
     fingerprint = get_sha256(fingerprint_raw)
     fingerprint_prefix = fingerprint[:8]
 
+    # Check pending in queue_dir
     for f_name in os.listdir(queue_dir):
         if f_name.startswith("queue_") and f_name.endswith(".json") and fingerprint_prefix in f_name:
             log_error(logs_dir, "DUPLICATE_EVENT", f"Suppressed duplicate queue item for {conv_id} exec {exec_num}")
             return {"status": "DUPLICATE", "reason": "pending_event_exists", "queue_path": None}
+
+    # Check recently processed in queue/processed to avoid rapid back-to-back duplicate exports
+    proc_dir = os.path.join(queue_dir, "processed")
+    if os.path.isdir(proc_dir):
+        now_epoch = time.time()
+        for f_name in os.listdir(proc_dir):
+            if f_name.startswith("queue_") and f_name.endswith(".json") and fingerprint_prefix in f_name:
+                p_path = os.path.join(proc_dir, f_name)
+                try:
+                    if now_epoch - os.path.getmtime(p_path) < 30:
+                        log_error(logs_dir, "DUPLICATE_EVENT", f"Suppressed recently processed queue item for {conv_id} exec {exec_num}")
+                        return {"status": "DUPLICATE", "reason": "recently_processed_event_exists", "queue_path": None}
+                except Exception:
+                    pass
 
     queue_item = {
         "schema_version": "4.3.4",

@@ -219,17 +219,21 @@ class PackageBuilder:
                 handle.flush()
                 os.fsync(handle.fileno())
 
-            # Clean previous uniquely named zip files from latest_dir to prevent old files buildup
+            # Clean previous uniquely named zip files older than 5 minutes from latest_dir to prevent old files buildup
             try:
+                now_epoch = time.time()
                 for old_f in os.listdir(self.latest_dir):
+                    old_path = os.path.join(self.latest_dir, old_f)
                     if old_f.endswith(".zip") and old_f != "LATEST_CONTEXT.zip" and not old_f.startswith(".tmp") and not old_f.startswith(".rollback"):
                         try:
-                            os.remove(os.path.join(self.latest_dir, old_f))
+                            if now_epoch - os.path.getmtime(old_path) > 300:
+                                os.remove(old_path)
                         except Exception:
                             pass
                     if old_f.endswith(".zip.sha256") and old_f != "LATEST_CONTEXT.zip.sha256" and not old_f.startswith(".tmp") and not old_f.startswith(".rollback"):
                         try:
-                            os.remove(os.path.join(self.latest_dir, old_f))
+                            if now_epoch - os.path.getmtime(old_path) > 300:
+                                os.remove(old_path)
                         except Exception:
                             pass
             except Exception:

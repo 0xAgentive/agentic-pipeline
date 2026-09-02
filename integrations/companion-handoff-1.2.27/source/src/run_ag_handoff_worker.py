@@ -649,8 +649,38 @@ def process_queue_once(base_dir, src_dir, quiescence_waiter=None, authority_vali
     queue_files = [f for f in os.listdir(queue_dir) if f.startswith("queue_") and f.endswith(".json")]
     queue_files.sort()
 
+    # Group queue files by conversation_id to coalesce rapid duplicate items
+    conv_to_files = {}
+    for qf in queue_files:
+        q_path = os.path.join(queue_dir, qf)
+        try:
+            with open(q_path, "r", encoding="utf-8-sig") as f:
+                data = json.load(f)
+            sp = data.get("stop_payload", data)
+            cid = data.get("conversation_id") or sp.get("conversationId")
+            if cid:
+                conv_to_files.setdefault(cid, []).append((qf, q_path))
+        except Exception:
+            pass
+
+    # For each conversation with multiple items in the same batch, keep only the newest one
+    files_to_skip = set()
+    for cid, file_list in conv_to_files.items():
+        if len(file_list) > 1:
+            file_list.sort(key=lambda x: x[0])
+            for old_qf, old_qpath in file_list[:-1]:
+                files_to_skip.add(old_qf)
+                dest_proc = os.path.join(proc_dir, old_qf)
+                try:
+                    shutil.move(old_qpath, dest_proc)
+                    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [Worker] Coalesced duplicate queue item {old_qf} (superseded by {file_list[-1][0]})")
+                except Exception:
+                    pass
+
     processed_any = False
     for qf in queue_files:
+        if qf in files_to_skip:
+            continue
         q_path = os.path.join(queue_dir, qf)
         if not os.path.exists(q_path):
             continue

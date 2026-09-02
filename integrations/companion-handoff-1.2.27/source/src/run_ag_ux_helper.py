@@ -109,6 +109,17 @@ def process_ux_request(req_path, override_base_dir=None):
     if clip_pref == "companion_message":
         text_to_set = "Проанализируй приложенный LATEST_CONTEXT.zip по COMPANION_ENTRY.md."
     else:
+        # Verify zip path exists on disk, or resolve the latest existing named zip in the folder
+        if zip_path and not os.path.exists(zip_path):
+            parent_dir = os.path.dirname(zip_path)
+            if os.path.isdir(parent_dir):
+                candidate_zips = [
+                    os.path.join(parent_dir, f) for f in os.listdir(parent_dir)
+                    if f.endswith(".zip") and f != "LATEST_CONTEXT.zip" and not f.startswith(".tmp") and not f.startswith(".rollback")
+                ]
+                if candidate_zips:
+                    candidate_zips.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+                    zip_path = candidate_zips[0]
         text_to_set = zip_path
         
     # Atomic 64-bit Win32 clipboard write
@@ -161,7 +172,7 @@ def process_ux_request(req_path, override_base_dir=None):
     return result_data
 
 def main():
-    base_dir = os.environ.get("COMPANION_HANDOFF_DIR") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = r"C:\Scripts\AntigravityProjects\companion-handoff"
     req_dir = os.path.join(base_dir, "queue", "ux_requests")
     if not os.path.exists(req_dir):
         os.makedirs(req_dir, exist_ok=True)

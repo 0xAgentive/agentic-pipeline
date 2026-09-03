@@ -41,3 +41,8 @@ Lifecycle:
    - All commands must run with `CI=true`, `GIT_TERMINAL_PROMPT=0`, `DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1`, `PIP_NO_INPUT=1`, and `NPM_CONFIG_YES=true`.
    - Interactive stdin prompts are prohibited in automation scripts.
 6. **Zero-hang guarantee**: If any process exceeds its watchdog ceiling, the process tree is forcefully terminated (`taskkill /F /T`) and reported as a hard blocker.
+
+## Prohibited Verification Actions & Clipboard Protection
+
+1. **No Background Archive Packaging**: Automated test runs, verification gates, and compilation scripts must NEVER generate full companion ZIP context archives or execute project packagers (`Export-ProjectContextPack.ps1`). Full context pack generation is strictly an on-demand operation performed only when explicitly requested via the `/companion-pack` command.
+2. **Clipboard Pollution Protection**: Automated verification scripts, background tasks, and compiler passes must NEVER write to or overwrite the system clipboard (`Set-Clipboard`).

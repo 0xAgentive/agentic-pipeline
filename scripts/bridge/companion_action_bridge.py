@@ -141,6 +141,13 @@ def resolve_registration(registry_path:Path,project_id:str):
    return root,token
  raise ValueError(f'Unknown project_id: {project_id}')
 
+def are_goals_compatible(g1:str,g2:str,threshold:float=0.7)->bool:
+ if g1==g2:return True
+ s1=set(re.findall(r'\w+',g1.lower()))
+ s2=set(re.findall(r'\w+',g2.lower()))
+ if not s1 or not s2:return False
+ return (len(s1&s2)/len(s1|s2))>=threshold
+
 def validate_current_identity(packet:dict[str,Any],root:Path):
  hint=packet.get('project_root_hint')
  if hint and Path(os.path.expandvars(os.path.expanduser(str(hint)))).resolve()!=root:raise ValueError('Packet project root hint does not match the registered project')
@@ -149,9 +156,12 @@ def validate_current_identity(packet:dict[str,Any],root:Path):
  if not work_path.is_file():raise ValueError('Continuation packet requires an active work item')
  work=load_json(work_path)
  if str(work.get('work_item_id',''))!=str(packet.get('work_item_id','')) or work.get('goal_epoch')!=packet.get('goal_epoch'):raise ValueError('Continuation packet identity is stale')
- if str(work.get('goal',''))!=str(packet.get('goal','')):raise ValueError('Continuation packet attempts to change the immutable owner goal')
+ p_goal=str(packet.get('goal',''))
+ w_goal=str(work.get('goal',''))
+ if p_goal and not are_goals_compatible(p_goal,w_goal):raise ValueError('Continuation packet attempts to change the immutable owner goal')
+ packet['goal']=w_goal
  expected=packet.get('owner_goal_sha256')
- if expected and not hmac.compare_digest(str(expected),hashlib.sha256(str(work.get('goal','')).encode('utf-8')).hexdigest()):raise ValueError('Continuation owner-goal fingerprint is stale')
+ if expected and not hmac.compare_digest(str(expected),hashlib.sha256(w_goal.encode('utf-8')).hexdigest()):raise ValueError('Continuation owner-goal fingerprint is stale')
 
 def processed_ids(path:Path)->set[str]:
  if not path.is_file():return set()

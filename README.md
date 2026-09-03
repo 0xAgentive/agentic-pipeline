@@ -164,15 +164,41 @@ To ensure a seamless user experience, commands in Antigravity are strictly divid
   </tr>
   <tr>
     <td width="50%">
-      <h3>🛡️ Scientific Stage Firewall</h3>
-      <p>Strict deterministic governance that prevents premature phase jumps (e.g. from analytical validation to empirical release) and enforces protocol freezes.</p>
+      <h3>🛡️ Stage Firewall (Deterministic Isolation)</h3>
+      <p>Hard deterministic gatekeeper that prevents unauthorized phase jumping (e.g. prohibits using private clinical data during early exploratory phases).</p>
     </td>
     <td width="50%">
-      <h3>🎯 1-Click Project Scaffolding</h3>
-      <p>Initialize a new production repository or onboard an existing codebase into the pipeline with a single command: <code>/new-project &lt;Name&gt;</code> or <code>/adopt-project &lt;Path&gt;</code>.</p>
+      <h3>🎯 One-Click Project Bootstrapping</h3>
+      <p>Initialize a new repo or adopt existing code with a single phrase: <code>/new-project &lt;Name&gt;</code> or <code>/adopt-project &lt;Path&gt;</code>.</p>
     </td>
   </tr>
 </table>
+
+---
+
+## 🧠 AI Companion Setup (ChatGPT Custom GPT / Project)
+
+To configure ChatGPT or Claude as the Chief Architect within the Agentic Pipeline ecosystem, follow this simple file deployment:
+
+### 📍 Where files are located on your disk:
+The ready-to-use Companion distribution is generated at:
+```text
+%USERPROFILE%\Downloads\Agentic-Pipeline-Companion-1.2.27\
+```
+*(Canonical sources in repository: `docs/companion/`)*
+
+### 📥 Which files to upload and where:
+1. **"Instructions" Field (Project System Prompt):**
+   - Open your Custom GPT / ChatGPT Project ➔ **Configure** tab;
+   - Copy and paste the text from:
+     `Downloads\Agentic-Pipeline-Companion-1.2.27\01_PROJECT_INSTRUCTIONS_v1.2.27.md`
+2. **"Knowledge" / "Project Files" Section:**
+   - Upload all 16 files from:
+     `Downloads\Agentic-Pipeline-Companion-1.2.27\knowledge\`
+     (`00_AGENTIC_PIPELINE_INDEX_v1.2.27.md` through `15_OWNER_OUTPUT_PRESENTATION.md`).
+3. **Repository Context Archive (in Chat):**
+   - Run `/companion-pack` in Antigravity;
+   - Attach the generated codebase archive `companion-packs/<PROJECT>_COMPREHENSIVE_COMPANION_PACK.zip` (or `LATEST_CONTEXT.zip`) to the first message in the chat session.
 
 ---
 

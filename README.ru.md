@@ -176,6 +176,32 @@ cd agentic-pipeline
 
 ---
 
+## 🧠 Настройка ИИ-Компаньона (ChatGPT Custom GPT / Project)
+
+Для того чтобы ChatGPT (или Claude) работал в связке с Agentic Pipeline в роли Главного Архитектора, выполните простую загрузку файлов:
+
+### 📍 Где лежат файлы на вашем компьютере:
+Готовый дистрибутив файлов знаний компаньона формируется по пути:
+```text
+%USERPROFILE%\Downloads\Agentic-Pipeline-Companion-1.2.27\
+```
+*(Исходные тексты модулей в репозитории: `docs/companion/`)*
+
+### 📥 Какие файлы и куда загружаются:
+1. **Поле «Instructions» (Системные инструкции проекта):**
+   - Откройте ваш Custom GPT / ChatGPT Project ➔ вкладка **Configure**;
+   - Скопируйте и вставьте текст из файла:
+     `Downloads\Agentic-Pipeline-Companion-1.2.27\01_PROJECT_INSTRUCTIONS_v1.2.27.md`
+2. **Раздел «Knowledge» / «Project Files» (База знаний / Файлы проекта):**
+   - Загрузите ровно 16 файлов из папки:
+     `Downloads\Agentic-Pipeline-Companion-1.2.27\knowledge\`
+     (`00_AGENTIC_PIPELINE_INDEX_v1.2.27.md` … `15_OWNER_OUTPUT_PRESENTATION.md`).
+3. **Контекст конкретного репозитория (в чат с Компаньоном):**
+   - Запустите команду `/companion-pack` в терминале Antigravity;
+   - Прикрепите созданный архив кодовой базы `companion-packs\<PROJECT>_COMPREHENSIVE_COMPANION_PACK.zip` (или `LATEST_CONTEXT.zip`) первым сообщением в диалог.
+
+---
+
 ## 🧭 Шпаргалка основных команд
 
 | Команда | Категория | Уровень | Для чего нужна (простыми словами) | Пример использования |

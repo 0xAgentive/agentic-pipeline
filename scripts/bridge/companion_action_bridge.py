@@ -177,6 +177,16 @@ def materialize(packet:dict[str,Any],root:Path):
   p=root/name;files.append({'path':name,'size_bytes':p.stat().st_size,'sha256':sha256_file(p)})
  atomic_json(root/'MANIFEST.json',{'schema_version':SCHEMA_VERSION,'ecosystem_version':ECOSYSTEM_VERSION,'files':files})
 
+def safe_rmtree(path:Path,retries:int=5,delay:float=0.1):
+ if not path.exists():return
+ for i in range(retries):
+  try:
+   shutil.rmtree(path)
+   return
+  except OSError:
+   if i==retries-1:raise
+   time.sleep(delay)
+
 def import_packet(source:Path,registry_path:Path,state_root:Path):
  start_ns=time.time_ns()
  source=source.resolve();packet=load_packet(source);project_root,registered_token=resolve_registration(registry_path,str(packet['project_id']))
@@ -184,19 +194,22 @@ def import_packet(source:Path,registry_path:Path,state_root:Path):
  ledger=state_root/'accepted_packets.ndjson';packet_id=str(packet['packet_id'])
  if packet_id in processed_ids(ledger):raise ValueError(f'Action packet replay rejected: {packet_id}')
  inbox=project_root/'.agy'/'inbox';active=inbox/'ACTIVE_ACTION_PACKET';staged=inbox/f'.incoming-{packet_id}';history=inbox/'history'/time.strftime('%Y%m%d_%H%M%S')
- if staged.exists():shutil.rmtree(staged)
+ safe_rmtree(staged)
  local_packet=dict(packet);local_packet['capability_token']=registered_token
  materialize(local_packet,staged)
  if active.exists():
   history.parent.mkdir(parents=True,exist_ok=True)
   if history.exists():history=history.with_name(f'{history.name}-{time.time_ns()}')
-  archived_packet=load_json(active/'ACTION_PACKET.json')
+  archived_packet=load_json(active/'ACTION_PACKET.json') if (active/'ACTION_PACKET.json').is_file() else None
   os.replace(active,history)
   try:
-   redacted_packet=dict(archived_packet);redacted_packet.pop('capability_token',None);materialize(redacted_packet,history)
+   if archived_packet:
+    redacted_packet=dict(archived_packet);redacted_packet.pop('capability_token',None);materialize(redacted_packet,history)
    os.replace(staged,active)
   except Exception:
-   if not active.exists() and history.exists():materialize(archived_packet,history);os.replace(history,active)
+   if not active.exists() and history.exists():
+    if archived_packet:materialize(archived_packet,history)
+    os.replace(history,active)
    raise
  else:os.replace(staged,active)
  receipt={'schema_version':SCHEMA_VERSION,'ecosystem_version':ECOSYSTEM_VERSION,'packet_id':packet_id,'project_id':packet['project_id'],'operation':packet['operation'],'route':packet['route'],'status':'imported','source_file':str(source),'source_sha256':sha256_file(source),'imported_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'activated_at_utc':None,'injected_at_utc':None}
@@ -236,21 +249,45 @@ def scan(inbox:Path,registry:Path,state_root:Path,debounce_seconds:float=0.1)->i
    shutil.move(str(source),str(target));target.with_suffix(target.suffix+'.error.txt').write_text(str(e),encoding='utf-8')
  return failures
 
+def acquire_singleton_lock(state_root:Path):
+ lock_file=state_root/'.bridge_watch.lock'
+ lock_file.parent.mkdir(parents=True,exist_ok=True)
+ try:
+  f=open(lock_file,'a+')
+  import msvcrt
+  msvcrt.locking(f.fileno(),msvcrt.LK_NBLCK,1)
+  return f
+ except (OSError,IOError,ImportError):
+  try:f.close()
+  except Exception:pass
+  return None
+
 def watch(inbox:Path,registry:Path,state_root:Path,poll_interval:float=0.5,debounce_seconds:float=0.1,max_iterations:int|None=None)->int:
+ lock_handle=acquire_singleton_lock(state_root)
+ if lock_handle is None:
+  print("Another Action Bridge watcher is already active. Exiting.")
+  return 0
  iterations=0
- while True:
-  iterations+=1
-  try:
-   scan(inbox,registry,state_root,debounce_seconds=debounce_seconds)
-  except Exception as e:
+ try:
+  while True:
+   iterations+=1
    try:
-    log_file=state_root/'logs'/'watcher_error.log'
-    log_file.parent.mkdir(parents=True,exist_ok=True)
-    with log_file.open('a',encoding='utf-8') as f:f.write(f'[{dt.datetime.now(dt.timezone.utc).isoformat()}] Watcher error: {e}\n')
-   except Exception:pass
-  if max_iterations is not None and iterations>=max_iterations:
-   break
-  time.sleep(poll_interval)
+    scan(inbox,registry,state_root,debounce_seconds=debounce_seconds)
+   except Exception as e:
+    try:
+     log_file=state_root/'logs'/'watcher_error.log'
+     log_file.parent.mkdir(parents=True,exist_ok=True)
+     with log_file.open('a',encoding='utf-8') as f:f.write(f'[{dt.datetime.now(dt.timezone.utc).isoformat()}] Watcher error: {e}\n')
+    except Exception:pass
+   if max_iterations is not None and iterations>=max_iterations:
+    break
+   time.sleep(poll_interval)
+ finally:
+  try:
+   import msvcrt
+   msvcrt.locking(lock_handle.fileno(),msvcrt.LK_UNLCK,1)
+   lock_handle.close()
+  except Exception:pass
  return 0
 
 def default_inbox()->Path:return Path(os.path.expanduser('~/Downloads')).resolve()

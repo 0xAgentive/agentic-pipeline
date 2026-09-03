@@ -22,6 +22,17 @@ A new-work packet includes the immutable goal, acceptance outcomes, non-goals, r
 
 A continuation packet carries the exact work-item ID and goal epoch. It contains only the technical delta and route; it never rewrites the owner brief or asks the owner to manage internal iteration state.
 
+## Canonical Pipeline Routes
+
+The `route` field in `AGENTIC_ACTION_PACKET` is strictly typed. The companion must choose strictly one of the 5 canonical pipeline state routes:
+- `/nextphase` — Advance to next phase / execute current phase work item.
+- `/fixcritical` — Autonomous repair of audit findings and blockers.
+- `/auditphase` — Run phase verification and independent audit.
+- `/fastpatch` — Targeted hotfix.
+- `/shipcheck` — Final release readiness check.
+
+**Prohibited in `route`:** Never put IDE execution flags or slash commands (such as `/goal`, `/browser`, `/grill-me`) into the `route` field. To run a task under Antigravity's long autonomous loop, set `route: "/nextphase"` and instruct the operator to run `/nextphase /goal` in the chat.
+
 ## Completion
 
 The executor completes the current route, records actual command results, updates progress and findings, and publishes the next action or authoritative closure. The owner receives only the plain-language result. The packet is complete only when its schema validates, its capability matches the registered project, its time window is valid and its full task is present.

@@ -12,7 +12,7 @@ def configure_utf8_standard_streams():
 SCHEMA_VERSION='1.2.9'
 ECOSYSTEM_VERSION='1.2.27'
 VALID_OPERATIONS={'new_work_item','continue_work_item'}
-VALID_ROUTES={'/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck','/goal','/planonly','/triage'}
+VALID_ROUTES={'/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck'}
 HEADINGS=['## Что происходит','## Что уже сделано','## Что будет дальше','## Нужно ли что-то от владельца']
 
 def sha256_file(path:Path)->str:
@@ -93,6 +93,7 @@ def validate_packet(packet:dict[str,Any])->dict[str,Any]:
  if packet.get('owner_approved') is False or packet.get('owner_interaction_policy') not in (None, 'hard_stop_only'):raise ValueError('Packet is not owner-approved')
  packet['owner_approved']=True
  packet['owner_interaction_policy']=packet.get('owner_interaction_policy') or 'hard_stop_only'
+ if packet.get('route') == '/goal': packet['route'] = '/nextphase'
  if packet.get('operation') not in VALID_OPERATIONS or packet.get('route') not in VALID_ROUTES:raise ValueError('Packet operation or route is invalid')
  if packet.get('operation')=='continue_work_item' and (not packet.get('work_item_id') or not isinstance(packet.get('goal_epoch'),int)):raise ValueError('Continuation packet lacks exact work-item identity')
  if not re.fullmatch(r'[A-Za-z0-9._-]{8,128}',str(packet.get('packet_id',''))):raise ValueError('Packet ID is empty or unsafe')

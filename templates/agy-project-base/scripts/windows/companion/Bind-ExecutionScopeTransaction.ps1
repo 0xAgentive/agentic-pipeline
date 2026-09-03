@@ -17,11 +17,12 @@ function Set-JsonProperty([object]$Object,[string]$Name,[object]$Value){$Propert
 $Wi=Get-Content -LiteralPath (Join-Path $Agy 'WORK_ITEM.json') -Raw -Encoding UTF8|ConvertFrom-Json
 $WorkTx=Get-Content -LiteralPath (Join-Path $Agy 'WORK_ITEM_TRANSACTION.json') -Raw -Encoding UTF8|ConvertFrom-Json
 if($WorkTx.status-ne'committed'-or[string]$WorkTx.work_item_id-ne[string]$Wi.work_item_id){throw 'Work-item transaction is not committed.'}
-$AllowedRoutes=@('/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck','/goal','/planonly','/triage')
 if([string]::IsNullOrWhiteSpace($Route)){
   $NextPath=Join-Path $Agy 'NEXT_ACTION.json'
   if(Test-Path -LiteralPath $NextPath -PathType Leaf){$Route=[string](Get-Content -LiteralPath $NextPath -Raw -Encoding UTF8|ConvertFrom-Json).route}
 }
+if($Route-eq'/goal'){$Route='/nextphase'}
+$AllowedRoutes=@('/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck')
 if($Route-notin$AllowedRoutes){throw "A valid current route is required. Found: $Route"}
 $Now=(Get-Date).ToUniversalTime().ToString('o')
 $BranchResult=Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList @('-C',$Root,'branch','--show-current');Assert-AgenticNativeSuccess -Result $BranchResult -Description 'git branch';$Branch=$BranchResult.StdOut.Trim();if([string]::IsNullOrWhiteSpace($Branch)){throw 'Git branch unavailable.'}

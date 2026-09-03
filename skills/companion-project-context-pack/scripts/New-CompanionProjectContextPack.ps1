@@ -259,6 +259,7 @@ $SysPromptLines = @(
   "- Идентификатор проекта в Action Bridge: ""$ProjectId"".",
   "- Ветка Git: ""$GitBranch"", HEAD: ""$GitHead"".",
   "- Формат передачи задач агенту: один JSON файл AGENTIC_ACTION_PACKET_<project>_<timestamp>.json со схемой 1.2.9 и ecosystem_version $EcosystemVersion.",
+  "- Поле ""route"" строго типизировано: используй только канонические маршруты пайплайна: ""/nextphase"", ""/fixcritical"", ""/auditphase"", ""/fastpatch"", ""/shipcheck"". Запрещено указывать в route модификаторы среды IDE (такие как ""/goal"", ""/browser""). Для задач длинного цикла используй ""/nextphase"", а команду для оператора формулируй как /nextphase /goal.",
   "- Правила взаимодействия: owner_interaction_policy: ""hard_stop_only"", scope_binding: ""executor_discovery"", отчёт для владельца из 4 разделов (""Что происходит"", ""Что уже сделано"", ""Что будет дальше"", ""Нужно ли что-то от владельца"").",
   '```'
 )

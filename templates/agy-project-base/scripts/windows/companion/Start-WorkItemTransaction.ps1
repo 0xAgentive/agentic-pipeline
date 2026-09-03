@@ -96,7 +96,8 @@ if ($Operation -ne 'new_work_item') { throw 'Start-WorkItemTransaction accepts o
 if (-not $OwnerApproved) { throw 'Action packet is not owner-approved.' }
 if ($OwnerPolicy -ne 'hard_stop_only') { throw 'Unsupported owner interaction policy.' }
 
-$AllowedRoutes = @('/nextphase', '/fixcritical', '/auditphase', '/fastpatch', '/shipcheck', '/goal', '/planonly', '/triage')
+if ($Route -eq '/goal') { $Route = '/nextphase' }
+$AllowedRoutes = @('/nextphase', '/fixcritical', '/auditphase', '/fastpatch', '/shipcheck')
 if ($Route -notin $AllowedRoutes) { throw "Unsupported packet route: $Route" }
 
 $ExistingPath = Join-Path $AgyRoot 'WORK_ITEM.json'

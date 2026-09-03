@@ -12,7 +12,7 @@ def configure_utf8_standard_streams():
 SCHEMA_VERSION='1.2.9'
 ECOSYSTEM_VERSION='1.2.27'
 VALID_OPERATIONS={'new_work_item','continue_work_item'}
-VALID_ROUTES={'/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck'}
+VALID_ROUTES={'/nextphase','/fixcritical','/auditphase','/fastpatch','/shipcheck','/goal','/planonly','/triage'}
 HEADINGS=['## Что происходит','## Что уже сделано','## Что будет дальше','## Нужно ли что-то от владельца']
 
 def sha256_file(path:Path)->str:

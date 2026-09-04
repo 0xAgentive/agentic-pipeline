@@ -19,3 +19,6 @@ node_modules/
 *.bak-*
 *.bak-v*
 .artifacts/
+
+__pycache__/
+*.pyc

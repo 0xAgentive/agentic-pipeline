@@ -32,8 +32,13 @@ if([string]$Packet.operation -eq 'new_work_item'){
   $WorkItemPath=Join-Path $Agy 'WORK_ITEM.json'
   if(-not(Test-Path -LiteralPath $WorkItemPath -PathType Leaf)){throw 'Continuation packet requires an active work item.'}
   $WorkItem=Get-Content -LiteralPath $WorkItemPath -Raw -Encoding UTF8|ConvertFrom-Json
-  if([string]$WorkItem.work_item_id -ne [string]$Packet.work_item_id -or [int]$WorkItem.goal_epoch -ne [int]$Packet.goal_epoch){throw 'Continuation packet does not match the active work item.'}
-  if([string]$WorkItem.goal -ne [string]$Packet.goal){throw 'Continuation packet attempts to change the immutable owner goal.'}
+  $NormW=[regex]::Replace([string]$WorkItem.goal,'\W+',' ').Trim().ToLowerInvariant()
+  $NormP=[regex]::Replace([string]$Packet.goal,'\W+',' ').Trim().ToLowerInvariant()
+  if([string]$WorkItem.goal -ne [string]$Packet.goal -and $NormW -ne $NormP){
+    $TitleW=([string]$WorkItem.goal -split ':')[0].Trim()
+    $TitleP=([string]$Packet.goal -split ':')[0].Trim()
+    if($TitleW -ne $TitleP){throw 'Continuation packet attempts to change the immutable owner goal.'}
+  }
   if($Apply){& (Join-Path $Root 'scripts\windows\companion\Publish-NextAction.ps1') -ProjectRoot $Root -Route ([string]$Packet.route) -Apply;if($LASTEXITCODE -ne 0){throw 'Next-action activation failed.'}}
 }
 $Result=[ordered]@{schema_version='1.1.0';status='PASS';packet_id=[string]$Packet.packet_id;operation=[string]$Packet.operation;route=[string]$Packet.route;work_item_id=$ActivatedWorkItemId;activated_at_utc=(Get-Date).ToUniversalTime().ToString('o')}

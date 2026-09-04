@@ -200,6 +200,18 @@ The ready-to-use Companion distribution is generated at:
    - Run `/companion-pack` in Antigravity;
    - Attach the generated codebase archive `companion-packs/<PROJECT>_COMPREHENSIVE_COMPANION_PACK.zip` (or `LATEST_CONTEXT.zip`) to the first message in the chat session.
 
+### ⚡ Automatic Context Handoffs & Dialogue Filtering (conversations.txt):
+To eliminate unnecessary packaging overhead and clipboard pollution, `LATEST_CONTEXT.zip` handoff archives are generated dynamically based on an allowlist of active conversation IDs.
+- **Configuration File:** `C:\Scripts\AntigravityProjects\companion-handoff\conversations.txt`
+- **Allowing Specific Conversations:** Add the Conversation ID on a new line:
+  ```text
+  c0f55ce7-2989-4557-8cb0-e1f7980033e3   # Huawei Health export
+  4e568acf-a6a6-48f1-8b08-789a4210a93b   # H10 Athlete Cardio Lab
+  ```
+- **Disabling a Conversation:** Prefix with `#` to comment it out (e.g. `# c0f55ce7-...`).
+- **Allowing All Conversations:** Include an asterisk `*` on a separate line.
+- **Dynamic Hot-Reload:** The hook script inspects `conversations.txt` dynamically on each agent pause. No restart or CLI commands are required; edits take effect immediately upon saving the file.
+
 ---
 
 ## 🧭 Core Commands & Skills Cheat Sheet

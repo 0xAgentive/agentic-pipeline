@@ -176,12 +176,26 @@ if ($null -ne $OverlayManifest) {
 }
 
 $BaseReplaceTargets = @(
+  'scripts/bridge/native_ack.py',
+  'scripts/bridge/native_health.py',
+  'scripts/bridge/native_onboarding.py',
+
+  'scripts/control-plane/evidence-observer.cjs',
+  'scripts/bridge/initialize_runtime.py',
+  'scripts/bridge/inject_action_packet.py',
+  'scripts/bridge/effect_owner.py',
+  'scripts/bridge/native_recovery.py',
+  'scripts/bridge/process_identity.py',
+  'scripts/bridge/runtime_paths.py',
+  'scripts/bridge/pipeline_runtime_state.py',
+
   '.agents/AGENTS.md','.agents/COMMAND_INVENTORY.json','.agents/hooks.json','.agents/hooks/agentic_runtime_hook.cjs','.agents/hooks/guard_preflight.ps1','.agents/hooks/Test-HookContract.ps1',
   '.agents/rules/05-runtime-contract.md','.agents/rules/10-pipeline-rules.md','.agents/rules/30-product-evidence-contract.md','.agents/rules/30-verification-gates.md','.agents/rules/60-v1.2-runtime-truth.md','.agents/rules/61-autonomous-audit-convergence.md','.agents/rules/62-protected-reviewer.md','.agents/rules/63-scientific-stage-firewall.md','.agents/rules/64-owner-autonomy.md',
   '.agents/skills/audit-coverage-matrix/SKILL.md','.agents/skills/protected-reviewer/SKILL.md','.agents/skills/scientific-stage-firewall/SKILL.md',
-  'schemas/companion/verification-receipt.schema.json',
-  'scripts/control-plane/autonomous-convergence.cjs','scripts/control-plane/progress-guard.cjs','scripts/control-plane/validate-findings.cjs','scripts/control-plane/validate-owner-summary.cjs','scripts/control-plane/action-packet.cjs',
-  'scripts/windows/companion/New-WorkItem.ps1','scripts/windows/companion/Set-WorkItemStatus.ps1','scripts/windows/companion/Write-ExecutionScope.ps1','scripts/windows/companion/Publish-RunResult.ps1','scripts/windows/companion/New-ExecutionLease.ps1','scripts/windows/companion/Test-ExecutionLease.ps1','scripts/windows/companion/Publish-AuditCoverageMatrix.ps1','scripts/windows/companion/Test-AuditCoverageMatrix.ps1','scripts/windows/companion/Register-FindingDelta.ps1','scripts/windows/companion/Publish-RepairDelta.ps1','scripts/windows/companion/Register-RepairBatch.ps1','scripts/windows/companion/New-ProtectedReviewerAttestation.ps1','scripts/windows/companion/Test-ProtectedReviewerAttestation.ps1','scripts/windows/companion/New-StageFirewall.ps1','scripts/windows/companion/Compile-ResultAuthority.ps1','scripts/windows/companion/Test-AutonomousConvergenceContracts.ps1','scripts/windows/companion/Activate-ActionPacket.ps1','scripts/windows/companion/Start-WorkItemTransaction.ps1','scripts/windows/companion/Bind-ExecutionScopeTransaction.ps1','scripts/windows/companion/Register-Progress.ps1','scripts/windows/companion/Test-FindingSet.ps1','scripts/windows/companion/Validate-ControlPlaneState.ps1','scripts/windows/companion/Publish-NextAction.ps1','scripts/windows/companion/Publish-CandidateManifest.ps1','scripts/windows/companion/Migrate-ActiveWorkItemToProgressGuard.ps1',
+  'schemas/companion/verification-receipt.schema.json','schemas/companion/product-outcome-contract.schema.json','schemas/companion/product-outcome-results.schema.json',
+  'scripts/control-plane/autonomous-convergence.cjs','scripts/control-plane/progress-guard.cjs','scripts/control-plane/validate-findings.cjs','scripts/control-plane/validate-owner-summary.cjs','scripts/control-plane/action-packet.cjs','scripts/control-plane/product-outcome.cjs',
+  'scripts/windows/companion/New-WorkItem.ps1','scripts/windows/companion/Set-WorkItemStatus.ps1','scripts/windows/companion/Write-ExecutionScope.ps1','scripts/windows/companion/Publish-RunResult.ps1','scripts/windows/companion/New-ExecutionLease.ps1','scripts/windows/companion/Test-ExecutionLease.ps1','scripts/windows/companion/Publish-AuditCoverageMatrix.ps1','scripts/windows/companion/Test-AuditCoverageMatrix.ps1','scripts/windows/companion/Register-FindingDelta.ps1','scripts/windows/companion/Publish-RepairDelta.ps1','scripts/windows/companion/Register-RepairBatch.ps1','scripts/windows/companion/New-ProtectedReviewerAttestation.ps1','scripts/windows/companion/Test-ProtectedReviewerAttestation.ps1','scripts/windows/companion/New-StageFirewall.ps1','scripts/windows/companion/Compile-ResultAuthority.ps1','scripts/windows/companion/Test-AutonomousConvergenceContracts.ps1','scripts/windows/companion/Activate-ActionPacket.ps1','scripts/windows/companion/Start-WorkItemTransaction.ps1','scripts/windows/companion/Bind-ExecutionScopeTransaction.ps1','scripts/windows/companion/Register-Progress.ps1','scripts/windows/companion/Test-FindingSet.ps1','scripts/windows/companion/Validate-ControlPlaneState.ps1','scripts/windows/companion/Publish-NextAction.ps1','scripts/windows/companion/Publish-CandidateManifest.ps1','scripts/windows/companion/Migrate-ActiveWorkItemToProgressGuard.ps1','scripts/windows/companion/Get-OperationMetricsSummary.ps1',
+  'scripts/bridge/companion_action_bridge.py','scripts/bridge/activate_action_packet.py','scripts/bridge/recovery_coordinator.py','scripts/windows/companion/Activate-ActionPacketCore.ps1',
   'scripts/windows/common/NativeProcess.ps1','scripts/Test-FastPatchAllowed.ps1','scripts/cbm-index-current-rpc.cjs','scripts/github/Prepare-GitHubPackage.ps1','scripts/github/Sync-GitHub.ps1'
 )
 $Inventory = Get-Content -LiteralPath (Join-Path $SourceRoot 'config\command-inventory.json') -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -189,7 +203,7 @@ $WorkflowTargets = @($Inventory.commands | ForEach-Object { Normalize-Relative (
 if ($WorkflowTargets.Count -ne 20 -or @($WorkflowTargets | Where-Object { $_ -notmatch '^\.agents/workflows/[a-z0-9-]+\.md$' }).Count -gt 0) { throw 'Runtime command inventory must declare exactly 20 confined workflow targets.' }
 $StateTargets = @('.agy/CONVERGENCE_POLICY.json','.agy/PROGRESS_POLICY.json','.agy/PROGRESS_STATE.json','.agy/NEXT_ACTION.json','.agy/CANDIDATE_MANIFEST_STATUS.json','.agy/STAGE_FIREWALL.json','.agy/GITHUB_PROFILE.json')
 $AllowedDeploymentTargets = @($BaseReplaceTargets + $WorkflowTargets + $StateTargets | Sort-Object -Unique)
-if ($AllowedDeploymentTargets.Count -ne 81) { throw "Internal runtime allowlist is incomplete: $($AllowedDeploymentTargets.Count) targets." }
+if ($AllowedDeploymentTargets.Count -ne 100) { throw "Internal runtime allowlist is incomplete: $($AllowedDeploymentTargets.Count) targets." }
 $DirectTargets = @('scripts/Test-FastPatchAllowed.ps1','scripts/cbm-index-current-rpc.cjs','scripts/github/Prepare-GitHubPackage.ps1','scripts/github/Sync-GitHub.ps1')
 function Get-ExpectedSource([string]$Target) { if ($Target -in $DirectTargets) { return $Target }; return 'templates/agy-project-base/' + $Target }
 function Get-ExpectedMode([string]$Target) { if ($Target -eq '.agents/hooks.json') { return 'activate_last' }; if ($Target -in @('.agy/CONVERGENCE_POLICY.json','.agy/PROGRESS_POLICY.json')) { return 'policy_replace' }; if ($Target.StartsWith('.agy/')) { return 'create_if_missing' }; return 'replace' }

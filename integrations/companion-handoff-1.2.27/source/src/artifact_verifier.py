@@ -8,21 +8,15 @@ import json
 import zipfile
 import hashlib
 from typing import Dict, Any
+from package_validator import is_unsafe_zip_path as _is_unsafe_zip_path
 
 MAX_ZIP_BOMB_RATIO = 200
 MAX_ZIP_MEMBERS = 5000
 MAX_EXPANDED_SIZE = 1024 * 1024 * 1024  # 1024MB
 
 def is_unsafe_zip_path(path: str) -> bool:
-    """Checks if a zip member path is absolute or traverses up."""
-    if os.path.isabs(path):
-        return True
-    if ".." in path.replace("\\", "/").split("/"):
-        return True
-    # Drive prefix check (e.g., C:)
-    if os.path.splitdrive(path)[0]:
-        return True
-    return False
+    """Use the package validator's host-independent archive path policy."""
+    return _is_unsafe_zip_path(path)
 
 def check_zip_security(zip_path: str) -> Dict[str, Any]:
     """Comprehensive ZIP security validation."""

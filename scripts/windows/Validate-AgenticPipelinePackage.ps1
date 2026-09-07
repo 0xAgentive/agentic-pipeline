@@ -17,6 +17,33 @@ function Files([string[]]$ext=@()){
 }
 
 $required = @(
+  'scripts/bridge/native_ack.py',
+  'scripts/bridge/native_health.py',
+  'scripts/bridge/native_onboarding.py',
+  'templates/agy-project-base/scripts/bridge/native_ack.py',
+  'templates/agy-project-base/scripts/bridge/native_health.py',
+  'templates/agy-project-base/scripts/bridge/native_onboarding.py',
+
+  'scripts/control-plane/evidence-observer.cjs',
+  'scripts/bridge/initialize_runtime.py',
+  'scripts/bridge/inject_action_packet.py',
+  'scripts/bridge/effect_owner.py',
+  'scripts/bridge/native_recovery.py',
+  'scripts/bridge/process_identity.py',
+  'scripts/bridge/runtime_paths.py',
+  'scripts/bridge/pipeline_runtime_state.py',
+  'templates/agy-project-base/scripts/control-plane/evidence-observer.cjs',
+  'templates/agy-project-base/scripts/bridge/initialize_runtime.py',
+  'templates/agy-project-base/scripts/bridge/inject_action_packet.py',
+  'templates/agy-project-base/scripts/bridge/effect_owner.py',
+  'templates/agy-project-base/scripts/bridge/native_recovery.py',
+  'templates/agy-project-base/scripts/bridge/process_identity.py',
+  'templates/agy-project-base/scripts/bridge/runtime_paths.py',
+  'templates/agy-project-base/scripts/bridge/pipeline_runtime_state.py',
+
+ "scripts/bridge/recovery_coordinator.py","templates/agy-project-base/scripts/bridge/recovery_coordinator.py",
+ "scripts/bridge/activate_action_packet.py","scripts/windows/companion/Activate-ActionPacketCore.ps1","templates/agy-project-base/scripts/bridge/companion_action_bridge.py","templates/agy-project-base/scripts/bridge/activate_action_packet.py","templates/agy-project-base/scripts/windows/companion/Activate-ActionPacketCore.ps1",
+ "scripts/control-plane/product-outcome.cjs","schemas/companion/product-outcome-contract.schema.json","schemas/companion/product-outcome-results.schema.json","templates/agy-project-base/scripts/control-plane/product-outcome.cjs","templates/agy-project-base/schemas/companion/product-outcome-contract.schema.json","templates/agy-project-base/schemas/companion/product-outcome-results.schema.json","scripts/windows/Test-ProductOutcomeDistribution.ps1","tests/product-outcome.test.cjs","tests/product-outcome-distribution.test.cjs",
  "README.md","README.ru.md","VERSION.json","ECOSYSTEM_VERSION.json","SOURCE_IDENTITY.json","LICENSE","SECURITY.md","CONTRIBUTING.md","CHANGELOG.md",
  "docs/AGENTIC_PIPELINE_PLAYBOOK.md","docs/GITHUB_PUBLICATION.md","docs/PIPELINE_VERSION_MATRIX.md",
  "config/command-inventory.json","schemas/phase-status.schema.json","schemas/command-inventory.schema.json","schemas/version.schema.json",
@@ -68,6 +95,31 @@ $required = @(
  "templates/agy-project-base/.agy/STAGE_FIREWALL.json"
 )
 foreach($p in $required){ if(!(Has $p)){ Add-Err "Missing required file: $p" } }
+# V2 runtime dependencies must be identical in canonical and new-project delivery.
+$V2Mirrored = @(
+  'scripts/bridge/native_ack.py',
+  'scripts/bridge/native_health.py',
+  'scripts/bridge/native_onboarding.py',
+
+  'scripts/control-plane/evidence-observer.cjs',
+  'scripts/bridge/initialize_runtime.py',
+  'scripts/bridge/activate_action_packet.py',
+  'scripts/bridge/inject_action_packet.py',
+  'scripts/bridge/effect_owner.py',
+  'scripts/bridge/recovery_coordinator.py',
+  'scripts/bridge/native_recovery.py',
+  'scripts/bridge/process_identity.py',
+  'scripts/bridge/runtime_paths.py',
+  'scripts/bridge/pipeline_runtime_state.py'
+)
+foreach($Relative in $V2Mirrored){
+  $RootFile = Join-Path $Root $Relative
+  $TemplateFile = Join-Path $Root ('templates/agy-project-base/' + $Relative)
+  if((Test-Path -LiteralPath $RootFile -PathType Leaf) -and (Test-Path -LiteralPath $TemplateFile -PathType Leaf)){
+    if((Get-FileHash -LiteralPath $RootFile -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $TemplateFile -Algorithm SHA256).Hash){ Add-Err "V2 runtime/template bytes differ: $Relative" }
+  }
+}
+
 
 foreach($f in Files @(".json")){
   try { Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json | Out-Null }

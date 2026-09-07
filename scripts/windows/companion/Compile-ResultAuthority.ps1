@@ -588,6 +588,29 @@ function Get-ValidatedCompilationContext {
     git_status = Get-Sha256Bytes $script:Utf8NoBom.GetBytes([string]$Git.StableStatus)
   }
 
+  # Product scenarios are an additional gate; this compiler retains all authority.
+  # The contract is frozen before candidate publication. Results are produced by
+  # named receipt tests after that publication, avoiding a manifest/hash cycle.
+  $OutcomeContract = Join-Path $Agy 'PRODUCT_OUTCOME_CONTRACT.json'
+  $OutcomeResults = Join-Path $Agy 'PRODUCT_SCENARIO_RESULTS.json'
+  $OutcomeEnabled = Test-Path -LiteralPath $OutcomeContract -PathType Leaf
+  if ($OutcomeEnabled) {
+    if ($ControlPaths -cnotcontains '.agy/PRODUCT_OUTCOME_CONTRACT.json') {
+      Throw-ResultAuthorityError 'PRODUCT_OUTCOME_UNBOUND' 'Product outcome contract is absent from candidate control-plane hashes.'
+    }
+    $OutcomeTool = Get-ConfinedFile $Root 'scripts/control-plane/product-outcome.cjs' 'PRODUCT_OUTCOME_TOOL_MISSING'
+    $OutcomeCheck = Invoke-BoundedProcess 'node' @($OutcomeTool, '--project-root', $Root, '--receipt-path', $ReceiptPath) $Root 30
+    if ($OutcomeCheck.TimedOut -or $OutcomeCheck.ExitCode -ne 0) {
+      Throw-ResultAuthorityError 'PRODUCT_OUTCOME_NOT_VERIFIED' 'Required product scenarios or their receipt evidence are incomplete, invalid or changed.'
+    }
+    $Outcome = ConvertFrom-JsonBytes $script:Utf8NoBom.GetBytes($OutcomeCheck.StdOut) 'Product outcome check'
+    if ((Get-RequiredValue $Outcome 'ok' 'PRODUCT_OUTCOME_INVALID') -cne $true -or (Get-RequiredValue $Outcome 'scenario_evidence_verified' 'PRODUCT_OUTCOME_INVALID') -cne $true) {
+      Throw-ResultAuthorityError 'PRODUCT_OUTCOME_NOT_VERIFIED' 'Product scenario verification did not pass.'
+    }
+    $AuthorityHashes['product_outcome_contract'] = Get-Sha256File $OutcomeContract
+    $AuthorityHashes['product_scenario_results'] = Get-Sha256File (Get-ConfinedFile $Root '.agy/PRODUCT_SCENARIO_RESULTS.json' 'PRODUCT_OUTCOME_RESULTS_MISSING' '.agy')
+  }
+
   return [pscustomobject]@{
     Root = $Root
     Agy = $Agy

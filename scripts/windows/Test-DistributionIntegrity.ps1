@@ -70,6 +70,7 @@ else {
 }
 
 $CoreTests = @(
+  [pscustomobject]@{ Name = 'product outcome and distribution contracts'; Path = 'scripts\windows\Test-ProductOutcomeDistribution.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'companion pack and golden evals'; Path = 'scripts\windows\companion\Test-CompanionPack-v1.2.27.ps1'; Args = $CompanionArguments },
   [pscustomobject]@{ Name = 'flow restoration contracts'; Path = 'scripts\windows\companion\Test-FlowRestorationContracts.ps1'; Args = @('-RepoRoot', $Root) },
   [pscustomobject]@{ Name = 'autonomous convergence contracts'; Path = 'scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1'; Args = @('-RepoRoot', $Root) },

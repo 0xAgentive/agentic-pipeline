@@ -1,0 +1,61 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
+const {verifyProductOutcome,verifyProject}=require('../scripts/control-plane/product-outcome.cjs');
+const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+function fixture(){
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'pipeline-outcome-'));
+ fs.mkdirSync(path.join(root,'.agy/verification'),{recursive:true});fs.mkdirSync(path.join(root,'dist'));
+ fs.writeFileSync(path.join(root,'dist/app.bin'),'synthetic-built-product');
+ const identity={work_item_id:'wi-product',goal_epoch:3,head:'a'.repeat(40),candidate_manifest_sha256:'b'.repeat(64)};
+ const log='.agy/verification/install.json';fs.writeFileSync(path.join(root,log),'installer launch and persisted scenario fixture');
+ const contract={schema_version:'1.0.0',...identity,scenarios:[{id:'install-launch',required:true}],artifacts:[{path:'dist/app.bin',sha256:hash(fs.readFileSync(path.join(root,'dist/app.bin')))}]};
+ delete contract.candidate_manifest_sha256;
+ const results={schema_version:'1.0.0',...identity,scenarios:[{id:'install-launch',status:'passed',run_id:'run-one',exit_code:0,evidence:[{path:log,sha256:hash(fs.readFileSync(path.join(root,log)))}]}]};
+ const receipt={tests:[{run_id:'run-one',required:true,exit_code:0,evidence_path:log,evidence_sha256:hash(fs.readFileSync(path.join(root,log)))}]};
+ return {root,identity,contract,results,receipt,close(){fs.rmSync(root,{recursive:true,force:true});}};
+}
+function run(mutator,expected){const f=fixture();try{mutator(f);const r=verifyProductOutcome(f);assert.equal(r.ok,expected,JSON.stringify(r));if(!expected)assert.equal(r.product_ready,false);}finally{f.close();}}
+test('complete correlated scenarios and artifact hashes pass',()=>run(()=>{},true));
+for(const field of ['work_item_id','goal_epoch','head','candidate_manifest_sha256'])test('stale result '+field,()=>run(f=>{f.results[field]=field==='goal_epoch'?2:'stale';},false));
+for(const value of [null,false,'0','',1])test('non-success exit '+JSON.stringify(value),()=>run(f=>f.results.scenarios[0].exit_code=value,false));
+for(const state of ['not_evaluated','blocked','failed','skipped'])test('required scenario '+state,()=>run(f=>f.results.scenarios[0].status=state,false));
+test('missing required scenario blocks product-ready',()=>run(f=>f.results.scenarios=[],false));
+test('duplicate scenario cannot conceal failure',()=>run(f=>f.results.scenarios.push({...f.results.scenarios[0],status:'failed'}),false));
+test('unknown scenario cannot expand evidence scope',()=>run(f=>f.results.scenarios.push({...f.results.scenarios[0],id:'foreign'}),false));
+test('empty evidence is not verification',()=>run(f=>f.results.scenarios[0].evidence=[],false));
+test('changed evidence detected',()=>run(f=>fs.writeFileSync(path.join(f.root,'.agy/verification/install.json'),'changed'),false));
+test('changed product detected',()=>run(f=>fs.writeFileSync(path.join(f.root,'dist/app.bin'),'changed'),false));
+test('path traversal rejected',()=>run(f=>f.results.scenarios[0].evidence[0].path='../outside.txt',false));
+test('backslash path rejected',()=>run(f=>f.results.scenarios[0].evidence[0].path='.agy\\verification\\install.json',false));
+test('sensitive evidence name rejected',()=>run(f=>f.results.scenarios[0].evidence[0].path='.agy/verification/capability.json',false));
+test('symlink evidence rejected',()=>run(f=>{const p=path.join(f.root,'.agy/verification/install.json');fs.unlinkSync(p);fs.symlinkSync(path.join(f.root,'dist/app.bin'),p);},false));
+test('empty scenarios cannot be product-ready',()=>run(f=>{f.contract.scenarios=[];f.results.scenarios=[];},false));
+test('same run cannot attest two required scenarios',()=>run(f=>{f.contract.scenarios.push({id:'persist',required:true});f.results.scenarios.push({...f.results.scenarios[0],id:'persist'});},false));
+test('failed optional scenario remains explicit debt',()=>{const f=fixture();try{f.contract.scenarios.push({id:'optional',required:false});f.results.scenarios.push({id:'optional',status:'failed',run_id:'optional-run',exit_code:1,evidence:[]});const r=verifyProductOutcome(f);assert.equal(r.ok,true);assert.deepEqual(r.optional_debt,['optional']);}finally{f.close();}});
+test('compiler acceptance is required for CLI integration, not inferred by standalone result',()=>run(f=>{f.results.acceptance_status='accepted';},false));
+test('invented run cannot supply scenario evidence',()=>run(f=>{f.results.scenarios[0].run_id='invented';},false));
+test('receipt itself is required',()=>run(f=>{delete f.receipt;},false));
+test('standalone success never grants product release',()=>{const f=fixture();try{assert.equal(verifyProductOutcome(f).product_ready,false);}finally{f.close();}});
+function cliFixture(){
+ const f=fixture(),cp=require('node:child_process');
+ const git=(...args)=>cp.execFileSync('git',['-C',f.root,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']});
+ git('init');fs.writeFileSync(path.join(f.root,'README.md'),'Fixture');git('add','README.md');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','fixture');
+ f.identity.head=git('rev-parse','HEAD').trim();f.contract.head=f.identity.head;f.results.head=f.identity.head;
+ const write=(p,v)=>fs.writeFileSync(path.join(f.root,p),JSON.stringify(v));
+ write('.agy/WORK_ITEM.json',{work_item_id:f.identity.work_item_id,goal_epoch:f.identity.goal_epoch});
+ write('.agy/PRODUCT_OUTCOME_CONTRACT.json',f.contract);
+ const candidate={control_plane_files:[{path:'.agy/PRODUCT_OUTCOME_CONTRACT.json',sha256:hash(fs.readFileSync(path.join(f.root,'.agy/PRODUCT_OUTCOME_CONTRACT.json')))}]};
+ write('.agy/CANDIDATE_MANIFEST.json',candidate);
+ f.identity.candidate_manifest_sha256=hash(fs.readFileSync(path.join(f.root,'.agy/CANDIDATE_MANIFEST.json')));
+ f.results.candidate_manifest_sha256=f.identity.candidate_manifest_sha256;
+ write('.agy/PRODUCT_SCENARIO_RESULTS.json',f.results);
+ Object.assign(f.receipt,f.identity,{evidence_artifacts:['.agy/PRODUCT_SCENARIO_RESULTS.json']});
+ write('.agy/receipt-input.json',f.receipt);
+ f.write=write;return f;
+}
+test('real Git lifecycle avoids contract candidate hash cycle and accepts exact input receipt',()=>{const f=cliFixture();try{const r=verifyProject(f.root,'.agy/receipt-input.json');assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.product_ready,false);}finally{f.close();}});
+test('CLI accepts absolute confined compiler receipt path',()=>{const f=cliFixture();try{assert.equal(verifyProject(f.root,path.join(f.root,'.agy/receipt-input.json')).ok,true);}finally{f.close();}});
+test('changed outcome contract rejected against candidate binding',()=>{const f=cliFixture();try{f.contract.scenarios=[];f.write('.agy/PRODUCT_OUTCOME_CONTRACT.json',f.contract);assert.throws(()=>verifyProject(f.root,'.agy/receipt-input.json'),/OUTCOME_CONTRACT_NOT_BOUND/);}finally{f.close();}});
+test('results absent from receipt rejected',()=>{const f=cliFixture();try{f.receipt.evidence_artifacts=[];f.write('.agy/receipt-input.json',f.receipt);assert.throws(()=>verifyProject(f.root,'.agy/receipt-input.json'),/SCENARIO_RESULTS_NOT_IN_RECEIPT/);}finally{f.close();}});
+test('foreign receipt location rejected',()=>{const f=cliFixture();try{assert.throws(()=>verifyProject(f.root,'../other.json'),/RECEIPT_OUTSIDE/);}finally{f.close();}});

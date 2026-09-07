@@ -84,6 +84,9 @@ function Test-CandidatePublisherMultiRecord {
     [IO.File]::WriteAllText((Join-Path $Source $Name), "baseline-$Name`n", $Utf8)
   }
   Write-Json (Join-Path $Project '.agy/NEXT_ACTION.json') ([ordered]@{schema_version='1.1.0';work_item_id='work-candidate-publisher';route='/nextphase';auto_continue=$true;updated_at_utc=[DateTimeOffset]::UtcNow.AddMinutes(-2).ToString('o')})
+  $OutcomeContractPath = Join-Path $Project '.agy/PRODUCT_OUTCOME_CONTRACT.json'
+  Write-Json $OutcomeContractPath ([ordered]@{schema_version='1.0.0';work_item_id='work-candidate-publisher';goal_epoch=1;head=('0' * 40);scenarios=@([ordered]@{id='install-launch';required=$true});artifacts=@([ordered]@{path='dist/app.zip';sha256=('0' * 64)})})
+  Write-Json (Join-Path $Project '.agy/PRODUCT_SCENARIO_RESULTS.json') ([ordered]@{fixture='post-candidate result must not be bound by publisher'})
   & git -C $Project init --quiet --initial-branch=main
   & git -C $Project config user.name 'Candidate Publisher Regression'
   & git -C $Project config user.email 'candidate-publisher@local.invalid'
@@ -114,6 +117,10 @@ function Test-CandidatePublisherMultiRecord {
   Assert-True (@(Compare-Object $ExpectedCandidate $ActualCandidate -CaseSensitive).Count -eq 0) "Candidate publisher emitted the wrong leased path set: $($ActualCandidate -join ', ')"
   Assert-True (@(Compare-Object @('.agy/EXECUTION_LEASE.json','outside/ambient.txt') $ActualAmbient -CaseSensitive).Count -eq 0) "Candidate publisher emitted the wrong ambient path set: $($ActualAmbient -join ', ')"
   Assert-True (@($Plan.manifest.control_plane_files | Where-Object { [string]$_.path -ceq '.agy/NEXT_ACTION.json' }).Count -eq 0) 'Candidate publisher bound compiler-owned NEXT_ACTION as an immutable payload authority input.'
+
+  $OutcomeRefs = @($Plan.manifest.control_plane_files | Where-Object { [string]$_.path -ceq '.agy/PRODUCT_OUTCOME_CONTRACT.json' })
+  Assert-True ($OutcomeRefs.Count -eq 1 -and [string]$OutcomeRefs[0].sha256 -ceq (Get-Sha256 $OutcomeContractPath)) 'Candidate publisher did not bind exact pre-candidate product contract bytes.'
+  Assert-True (@($Plan.manifest.control_plane_files | Where-Object { [string]$_.path -ceq '.agy/PRODUCT_SCENARIO_RESULTS.json' }).Count -eq 0) 'Candidate publisher bound post-candidate scenario results and created a lifecycle cycle.'
 
   $ReceiptSentinelPath = Join-Path $Project '.agy/VERIFICATION_RECEIPT.json'
   Write-Json $ReceiptSentinelPath ([ordered]@{schema_version='1.0.0';candidate_manifest_sha256=('0' * 64);changed_files=@('sentinel.txt');completed_at_utc='2026-08-11T00:00:00.0000000Z'})

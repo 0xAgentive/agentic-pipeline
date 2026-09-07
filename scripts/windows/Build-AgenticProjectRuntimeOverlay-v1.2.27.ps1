@@ -23,6 +23,30 @@ if ((Test-Path -LiteralPath $ZipPath -PathType Leaf) -and -not $Force) {
 }
 
 $Files = @(
+  'scripts\bridge\native_ack.py',
+  'scripts\bridge\native_health.py',
+  'scripts\bridge\native_onboarding.py',
+  'templates\agy-project-base\scripts\bridge\native_ack.py',
+  'templates\agy-project-base\scripts\bridge\native_health.py',
+  'templates\agy-project-base\scripts\bridge\native_onboarding.py',
+
+  'scripts\control-plane\evidence-observer.cjs',
+  'scripts\bridge\initialize_runtime.py',
+  'scripts\bridge\inject_action_packet.py',
+  'scripts\bridge\effect_owner.py',
+  'scripts\bridge\native_recovery.py',
+  'scripts\bridge\process_identity.py',
+  'scripts\bridge\runtime_paths.py',
+  'scripts\bridge\pipeline_runtime_state.py',
+  'templates\agy-project-base\scripts\control-plane\evidence-observer.cjs',
+  'templates\agy-project-base\scripts\bridge\initialize_runtime.py',
+  'templates\agy-project-base\scripts\bridge\inject_action_packet.py',
+  'templates\agy-project-base\scripts\bridge\effect_owner.py',
+  'templates\agy-project-base\scripts\bridge\native_recovery.py',
+  'templates\agy-project-base\scripts\bridge\process_identity.py',
+  'templates\agy-project-base\scripts\bridge\runtime_paths.py',
+  'templates\agy-project-base\scripts\bridge\pipeline_runtime_state.py',
+
   'VERSION.json',
   'ECOSYSTEM_VERSION.json',
   'config\command-inventory.json',
@@ -41,6 +65,9 @@ $Files = @(
   'scripts\control-plane\validate-findings.cjs',
   'scripts\control-plane\validate-owner-summary.cjs',
   'scripts\control-plane\action-packet.cjs',
+  'scripts\control-plane\product-outcome.cjs',
+  'schemas\companion\product-outcome-contract.schema.json',
+  'schemas\companion\product-outcome-results.schema.json',
   'tests\acceptance\autonomous-convergence-contract.cjs',
   'templates\agy-project-base\.agents\AGENTS.md',
   'templates\agy-project-base\.agents\COMMAND_INVENTORY.json',
@@ -72,11 +99,14 @@ $Files = @(
   'templates\agy-project-base\.agy\STAGE_FIREWALL.json',
   'templates\agy-project-base\.agy\GITHUB_PROFILE.json',
   'templates\agy-project-base\schemas\companion\verification-receipt.schema.json',
+  'templates\agy-project-base\schemas\companion\product-outcome-contract.schema.json',
+  'templates\agy-project-base\schemas\companion\product-outcome-results.schema.json',
   'templates\agy-project-base\scripts\control-plane\autonomous-convergence.cjs',
   'templates\agy-project-base\scripts\control-plane\progress-guard.cjs',
   'templates\agy-project-base\scripts\control-plane\validate-findings.cjs',
   'templates\agy-project-base\scripts\control-plane\validate-owner-summary.cjs',
   'templates\agy-project-base\scripts\control-plane\action-packet.cjs',
+  'templates\agy-project-base\scripts\control-plane\product-outcome.cjs',
   'templates\agy-project-base\scripts\windows\companion\New-WorkItem.ps1',
   'templates\agy-project-base\scripts\windows\companion\Set-WorkItemStatus.ps1',
   'templates\agy-project-base\scripts\windows\companion\Write-ExecutionScope.ps1',
@@ -94,6 +124,10 @@ $Files = @(
   'templates\agy-project-base\scripts\windows\companion\Compile-ResultAuthority.ps1',
   'templates\agy-project-base\scripts\windows\companion\Test-AutonomousConvergenceContracts.ps1',
   'templates\agy-project-base\scripts\windows\companion\Activate-ActionPacket.ps1',
+  'templates\agy-project-base\scripts\windows\companion\Activate-ActionPacketCore.ps1',
+  'templates\agy-project-base\scripts\bridge\companion_action_bridge.py',
+  'templates\agy-project-base\scripts\bridge\activate_action_packet.py',
+  'templates\agy-project-base\scripts\bridge\recovery_coordinator.py',
   'templates\agy-project-base\scripts\windows\companion\Start-WorkItemTransaction.ps1',
   'templates\agy-project-base\scripts\windows\companion\Bind-ExecutionScopeTransaction.ps1',
   'templates\agy-project-base\scripts\windows\companion\Register-Progress.ps1',
@@ -110,6 +144,9 @@ $Files = @(
   'scripts\github\Prepare-GitHubPackage.ps1',
   'scripts\github\Sync-GitHub.ps1',
   'scripts\bridge\companion_action_bridge.py',
+  'scripts\bridge\activate_action_packet.py',
+  'scripts\bridge\recovery_coordinator.py',
+  'scripts\windows\companion\Activate-ActionPacketCore.ps1',
   'scripts\bridge\Install-CompanionActionBridge.ps1',
   'scripts\bridge\Import-CompanionActionPacket.ps1',
   'scripts\bridge\Run-CompanionActionBridgeWorker.ps1',
@@ -158,7 +195,7 @@ Extract this exact release archive, calculate its SHA-256, resolve the 40-hex co
     $TargetPath = $null
     if ($SourcePath.StartsWith($TemplatePrefix, [StringComparison]::OrdinalIgnoreCase)) {
       $CandidateTarget = $SourcePath.Substring($TemplatePrefix.Length)
-      if ($CandidateTarget.StartsWith('.agents/') -or $CandidateTarget.StartsWith('.agy/') -or $CandidateTarget.StartsWith('schemas/companion/') -or $CandidateTarget.StartsWith('scripts/control-plane/') -or $CandidateTarget.StartsWith('scripts/windows/companion/') -or $CandidateTarget -eq 'scripts/windows/common/NativeProcess.ps1') { $TargetPath = $CandidateTarget }
+      if ($CandidateTarget.StartsWith('.agents/') -or $CandidateTarget.StartsWith('.agy/') -or $CandidateTarget.StartsWith('schemas/companion/') -or $CandidateTarget.StartsWith('scripts/control-plane/') -or $CandidateTarget.StartsWith('scripts/bridge/') -or $CandidateTarget.StartsWith('scripts/windows/companion/') -or $CandidateTarget -eq 'scripts/windows/common/NativeProcess.ps1') { $TargetPath = $CandidateTarget }
     }
     elseif ($SourcePath -in @('scripts/Test-FastPatchAllowed.ps1','scripts/cbm-index-current-rpc.cjs','scripts/github/Prepare-GitHubPackage.ps1','scripts/github/Sync-GitHub.ps1')) { $TargetPath = $SourcePath }
     if ($null -ne $TargetPath) {
@@ -166,7 +203,7 @@ Extract this exact release archive, calculate its SHA-256, resolve the 40-hex co
       [void]$DeploymentMap.Add([ordered]@{ source = $SourcePath; target = $TargetPath; mode = $Mode; size_bytes = $Entry.size_bytes; sha256 = $Entry.sha256 })
     }
   }
-  if ($DeploymentMap.Count -ne 82) { throw "Generated runtime deployment map must contain exactly 82 targets; found $($DeploymentMap.Count)." }
+  if ($DeploymentMap.Count -ne 100) { throw "Generated runtime deployment map must contain exactly 100 targets; found $($DeploymentMap.Count)." }
   $Manifest = [ordered]@{
     schema_version = '1.0.0'
     ecosystem_version = '1.2.27'

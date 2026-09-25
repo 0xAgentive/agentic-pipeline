@@ -43,3 +43,9 @@ Technical details belong in the action packet and machine artifacts. Owner-facin
 - `/shipcheck`, `/githubprepare`, `/githubsync`: release only.
 
 A Stop hook may continue the same approved work item automatically when `.agy/NEXT_ACTION.json` permits it. It must stop on a true owner decision, repeated no-progress, wrong project, unsafe/destructive action, or missing required capability.
+
+## Standby & MitM Protocol
+
+- Obey `STANDBY_STATE.json`. When `is_standby == true`, autonomous task progression and phase routing are strictly paused.
+- **MitM / Standby Cron Invariant:** In MitM (Man-in-the-Middle) or Standby mode (`is_standby == true`), Cron tasks and scheduled audits are strictly suppressed and MUST NOT execute. If a cron notification or scheduled trigger is received during MitM, the agent immediately skips execution, notes that Cron is suspended due to active MitM mode, and exits without making changes or running commands.
+- Usable quota floor: `min(5h, weekly)`. Any account with weekly quota < 2% is immediately excluded from rotation.

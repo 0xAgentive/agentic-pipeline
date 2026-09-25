@@ -1657,8 +1657,8 @@ def check_and_resume_interrupted_chats(allow_autonomous_continue: bool = True) -
                             is_done_and_idle = (status == "DONE" and not is_err_condition)
                             has_executable_route = bool(na_data.get("route") or na_data.get("command") or na_data.get("state_declared_next_required_command"))
 
-                            last_t = LAST_RESUMED_TIMESTAMPS.get(cid, 0.0)
-                            if auto_continue and not decision_req and not is_closed and not awaiting_companion and (has_executable_route or not is_done_and_idle) and (now - last_t >= 120.0):
+                            is_in_standby = standby_info.get("is_standby") is True
+                            if not is_in_standby and allow_autonomous_continue and auto_continue and not decision_req and not is_closed and not awaiting_companion and (has_executable_route or not is_done_and_idle) and (now - last_t >= 120.0):
                                 created_at_str = last_step.get("created_at")
                                 if created_at_str:
                                     dt_last = dt.datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
@@ -1669,6 +1669,9 @@ def check_and_resume_interrupted_chats(allow_autonomous_continue: bool = True) -
                         except Exception:
                             pass
             if not needs_resume and target_info.get("name") == "Supervisor":
+                # MITM / STANDBY GATE: In MitM or Standby mode, Cron / scheduled audit must NOT execute!
+                if not allow_autonomous_continue or standby_info.get("is_standby") is True:
+                    continue
                 sup_cfg = cfg.get("supervisor", {})
                 if sup_cfg.get("enabled", True):
                     audit_interval = float(sup_cfg.get("auditIntervalSeconds", 3600.0))

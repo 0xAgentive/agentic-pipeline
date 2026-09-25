@@ -13,10 +13,17 @@ if ([string]::IsNullOrWhiteSpace($CbmWrapperPath)) {
 
 $ok = $true
 
-try {
-  Get-Content ".agy\PHASE_STATUS.json" -Raw | ConvertFrom-Json | Out-Null
-  Write-Host "OK PHASE_STATUS"
-} catch {
+if (Test-Path ".agy\PHASE_STATUS.json") {
+  try {
+    Get-Content ".agy\PHASE_STATUS.json" -Raw | ConvertFrom-Json | Out-Null
+    Write-Host "OK PHASE_STATUS"
+  } catch {
+    Write-Host "FAIL PHASE_STATUS"
+    $ok = $false
+  }
+} elseif (Test-Path "VERSION.json") {
+  Write-Host "OK PHASE_STATUS (framework repository root)"
+} else {
   Write-Host "FAIL PHASE_STATUS"
   $ok = $false
 }

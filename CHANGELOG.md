@@ -3,13 +3,15 @@
 ## 1.2.27 (Update 2) — Antigravity OS Runtime Harness, Process Guard & Durable Transport v2
 
 - Integrates the complete Antigravity OS Runtime Harness, Sentinel, and Process Guard services:
-  - `antigravity_process_guard.py`: 24/7 background guard, memory and disk leak sentinels, proactive quota monitoring with 2% weekly ceiling, loopback port watchdog, and zero-zombie process tree termination.
+  - `antigravity_process_guard.py`: 24/7 background guard, memory and disk leak sentinels, proactive quota monitoring with 2% weekly ceiling, loopback port watchdog, MitM Cron Invariant (suppressing scheduled audits during user pause), and zero-zombie process tree termination.
   - `cleanup_zombie_processes.py`: Project-level process hygiene and loopback port cleaner (`taskkill /PID /T /F`) across all subagents and tests, mirrored to `templates/agy-project-base/scripts/`.
   - `antigravity_gui_launcher.py` and `Launch-AntigravityVisible.ps1`: Headless-to-visible GUI state preservation, automated recovery, and display orchestration with Chrome DevTools Protocol (CDP) debugging flags.
   - `scripts/transport-v2/`: High-performance durable transport (`transport.mjs`, `cdp-adapter.mjs`, `host.mjs`, `local-verifier.py`) with zero-reload ChatGPT web session preservation, DOM event reconciliation, and SQLite-backed durable queue.
   - `scripts/typed-decision/`: Formal typed decisions and validation bridge (`decision.mjs`, `bridge-adapter.mjs`).
+  - `scripts/bridge/trigger_supervisor_diagnostic.py`: Autonomous diagnostic trigger waking up the Antigravity Supervisor via `agentapi send-message` on stalled cycles.
   - `rotate_active_dialog.py`, `rotate_agy_ledgers.py`, `rotate_oversized_logs.py`, `clean_brain_cache.py`, and `optimize_sqlite.py`: Automated 10 MB dialogue auto-rotation, log compaction, WAL-mode SQLite vacuum, and brain cache pruning.
   - `telegram_cycle_bot.py`, `telegram_bot_integration.py`, and `telegram_durable.py`: Remote operational supervisor, cycle notifications, interactive standby/resume controls, and durable delivery queue.
+- Fixes cross-platform path separator handling in `Test-ActionBridgeEndToEnd.ps1` for 100% green CI validation on Linux (Ubuntu) GitHub Actions runners.
 - Fixes RFC3339 7-digit .NET timestamp serialization compatibility in Action Bridge and Action Packet validators.
 - Fixes test isolation in `conversation_filter.py` and `run_tests.py` ensuring host-level `conversations.txt` never pollutes hermetic sandbox test environments.
 - Optimizes `Test-DistributionIntegrity.ps1` with direct stream output and stopwatch profiling across all 27 core and advisory test suites.

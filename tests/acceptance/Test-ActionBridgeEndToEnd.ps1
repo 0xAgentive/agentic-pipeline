@@ -329,8 +329,10 @@ $Completed = $false
 try {
   New-Item -ItemType Directory -Force -Path $ExternalInbox | Out-Null
   New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
+  $BridgeDir = (Join-Path $Root 'scripts\bridge').Replace('\', '/')
   $TestDbPath = (Join-Path $StateRoot 'RECOVERY_STATE.sqlite3').Replace('\', '/')
-  & $Python -c "import sys; sys.path.insert(0, r'$($Root)\scripts\bridge'); from recovery_coordinator import Coordinator; Coordinator('$TestDbPath').initialize({'is_standby': False, 'mode': 'NORMAL', 'projects': {}})"
+  & $Python -c "import sys; sys.path.insert(0, '$BridgeDir'); from recovery_coordinator import Coordinator; Coordinator('$TestDbPath').initialize({'is_standby': False, 'mode': 'NORMAL', 'projects': {}})"
+  if ($LASTEXITCODE -ne 0) { throw 'Hermetic RECOVERY_STATE initialization failed.' }
   Initialize-HermeticProject -ProjectRoot $Project -ProjectId $ProjectId -CapabilityToken $CapabilityToken
   Initialize-HermeticProject -ProjectRoot $RollbackProject -ProjectId $RollbackProjectId -CapabilityToken $CapabilityToken
   Write-JsonFile -Path $RegistryPath -Value ([ordered]@{

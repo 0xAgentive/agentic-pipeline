@@ -132,6 +132,10 @@ function globToRegex(glob) {
   return new RegExp(`^${escaped}$`, 'i');
 }
 function validateStageFirewall({ firewall, changedPaths = [] }) {
+  if (firewall && Object.prototype.hasOwnProperty.call(firewall, 'stage_profile') &&
+      !['general', 'protocol_freeze', 'analytical_validation', 'empirical_validation'].includes(firewall.stage_profile)) {
+    return result(false, 'STAGE_PROFILE_EXECUTION_CONTRACT_REQUIRED', { blocked_paths: [] });
+  }
   if (!firewall || firewall.status !== 'active' || firewall.stage_profile !== 'protocol_freeze') {
     return result(true, 'STAGE_FIREWALL_NOT_APPLICABLE', { blocked_paths: [] });
   }

@@ -140,7 +140,11 @@
         "general",
         "protocol_freeze",
         "analytical_validation",
-        "empirical_validation"
+        "empirical_validation",
+        "broad_product_goal",
+        "product_foundation",
+        "commercial_validation",
+        "commercial_readiness"
       ]
     },
     "brief_revision": {

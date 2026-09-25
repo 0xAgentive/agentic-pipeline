@@ -174,7 +174,7 @@ function validateSchemaValue(value, spec, pointer, errors) {
 // A BigInt microsecond value preserves ordering that Date.parse truncates.
 function parseTime(value) {
   if (typeof value !== 'string') return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|([+-])(\d{2}):(\d{2}))$/.exec(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|([+-])(\d{2}):(\d{2}))$/.exec(value);
   if (!match || match[0] !== value) return null;
   const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
   const hour = Number(match[4]), minute = Number(match[5]), second = Number(match[6]);
@@ -186,7 +186,7 @@ function parseTime(value) {
   date.setUTCFullYear(year, month - 1, day);
   date.setUTCHours(hour, minute, second, 0);
   const offsetMs = (offsetHour * 60 + offsetMinute) * 60000 * (match[9] === '-' ? -1 : 1);
-  return BigInt(date.getTime() - offsetMs) * 1000n + BigInt((match[7] || '').padEnd(6, '0'));
+  return BigInt(date.getTime() - offsetMs) * 1000n + BigInt((match[7] || '').slice(0, 6).padEnd(6, '0'));
 }
 function millisecondsToMicroseconds(value) {
   const whole = Math.trunc(value);

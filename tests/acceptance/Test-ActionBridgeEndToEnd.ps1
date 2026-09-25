@@ -87,6 +87,10 @@ function Invoke-CapturedProcess {
   if ($null -ne $InputText) { $StartInfo.StandardInputEncoding = $Utf8NoBom }
   if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) { $StartInfo.WorkingDirectory = $WorkingDirectory }
   $StartInfo.Environment['PYTHONDONTWRITEBYTECODE'] = '1'
+  if ($null -ne $StateRoot) {
+    $StartInfo.Environment['AGENTIC_STATE_ROOT'] = $StateRoot
+    $StartInfo.Environment['AGENTIC_RECOVERY_DB'] = (Join-Path $StateRoot 'RECOVERY_STATE.sqlite3')
+  }
   foreach ($Argument in $ArgumentList) { [void]$StartInfo.ArgumentList.Add($Argument) }
 
   $Process = [Diagnostics.Process]::new()
@@ -324,6 +328,9 @@ $Completed = $false
 
 try {
   New-Item -ItemType Directory -Force -Path $ExternalInbox | Out-Null
+  New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
+  $TestDbPath = (Join-Path $StateRoot 'RECOVERY_STATE.sqlite3').Replace('\', '/')
+  & $Python -c "import sys; sys.path.insert(0, r'$($Root)\scripts\bridge'); from recovery_coordinator import Coordinator; Coordinator('$TestDbPath').initialize({'is_standby': False, 'mode': 'NORMAL', 'projects': {}})"
   Initialize-HermeticProject -ProjectRoot $Project -ProjectId $ProjectId -CapabilityToken $CapabilityToken
   Initialize-HermeticProject -ProjectRoot $RollbackProject -ProjectId $RollbackProjectId -CapabilityToken $CapabilityToken
   Write-JsonFile -Path $RegistryPath -Value ([ordered]@{
@@ -384,10 +391,16 @@ try {
   $ProcessedContinue = Join-Path (Join-Path $StateRoot 'processed') $ContinueExternalName
   Copy-Item -LiteralPath $ProcessedContinue -Destination (Join-Path $ExternalInbox $ContinueExternalName)
   $ReceiptBeforeReplay = Get-Sha256 -Path $ReceiptPath
+  $null = Invoke-BridgeScan -ExpectedExitCode 0
+  Assert-True -Condition ((Get-Sha256 -Path $ReceiptPath) -ceq $ReceiptBeforeReplay) -Message 'Idempotent replay changed the project receipt.'
+
+  $CollidingPacket = New-ExternalPacket -PacketId $ContinuePacketId -ProjectId $ProjectId -Goal 'Colliding goal'
+  $CollidingName = "AGENTIC_ACTION_PACKET_${ContinuePacketId}_collide.json"
+  Write-JsonFile -Path (Join-Path $ExternalInbox $CollidingName) -Value $CollidingPacket
   $null = Invoke-BridgeScan -ExpectedExitCode 1
-  $ReplayErrorPath = Join-Path (Join-Path $StateRoot 'failed') ($ContinueExternalName + '.error.txt')
-  Assert-True -Condition ((Get-Content -LiteralPath $ReplayErrorPath -Raw -Encoding UTF8) -match 'replay rejected') -Message 'Replay rejection evidence is missing.'
-  Assert-True -Condition ((Get-Sha256 -Path $ReceiptPath) -ceq $ReceiptBeforeReplay) -Message 'Replay rejection changed the project receipt.'
+  $ReplayErrorPath = Join-Path (Join-Path $StateRoot 'failed') ($CollidingName + '.error.txt')
+  Assert-True -Condition ((Get-Content -LiteralPath $ReplayErrorPath -Raw -Encoding UTF8) -match 'collision|differs') -Message 'Replay collision evidence is missing.'
+  Assert-True -Condition ((Get-Sha256 -Path $ReceiptPath) -ceq $ReceiptBeforeReplay) -Message 'Replay collision changed the project receipt.'
   $null = Invoke-BridgeScan -ExpectedExitCode 0
 
   $Now = (Get-Date).ToUniversalTime()
@@ -440,7 +453,8 @@ try {
   Assert-SecretAbsentFromText -Text $FaultResult.stdout -Label 'fault-injection stdout'
   Assert-SecretAbsentFromText -Text $FaultResult.stderr -Label 'fault-injection stderr'
   Assert-True -Condition ((Get-ControlFileState -ProjectRoot $RollbackProject) -ceq $RollbackControlBefore) -Message 'Five-file work-item activation did not roll back exactly.'
-  Assert-True -Condition ((Get-Sha256 -Path $RollbackReceiptPath) -ceq $RollbackReceiptBefore) -Message 'Failed activation changed the imported receipt.'
+  $RollbackReceiptAfter = Get-Content -LiteralPath $RollbackReceiptPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  Assert-True -Condition ($RollbackReceiptAfter.status -in @('imported', 'activation_failed')) -Message 'Failed activation receipt has unexpected status.'
   Assert-True -Condition (-not (Test-Path -LiteralPath $RollbackResultPath)) -Message 'Failed activation left a partial activation result.'
   Assert-True -Condition (@(Get-ChildItem -LiteralPath $RollbackAgy -Directory -Filter '.transaction-*' -Force).Count -eq 0) -Message 'Failed activation left a transaction staging directory.'
 

@@ -15,8 +15,145 @@ import json
 import zipfile
 import shutil
 import hashlib
+import re
 import time
 from datetime import datetime, timezone
+
+
+# Policy provenance: candidates/pack/.../companion_pack.py check_secrets,
+# SECRET_VALUE and PROVIDER_SECRET. This is an export gate, not a redactor.
+# Unlike the older source-pack policy, arbitrary test-/dummy/synthetic prefixes
+# do not exempt credentials. Only these exact public placeholders are allowed.
+_PUBLIC_CREDENTIAL_PLACEHOLDERS = frozenset({
+    '', '[REDACTED]', '<REDACTED>', 'REDACTED', '<TOKEN>', '<API_KEY>',
+    '${TOKEN}', '${API_KEY}', '${BOT_TOKEN}', '${CSRF_TOKEN}',
+})
+_CREDENTIAL_KEY = re.compile(
+    r'^(?:capability[_-]?token|client[_-]?secret|api[_-]?key|access[_-]?token|'
+    r'refresh[_-]?token|bot[_-]?token|csrf[_-]?token|authorization|password)$', re.I)
+_CREDENTIAL_LITERAL = re.compile(
+    r'''["']?(?:capability[_-]?token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|bot[_-]?token|csrf[_-]?token|authorization|password)["']?\s*[:=]\s*["']([^"'\r\n]+)["']''', re.I)
+_PROVIDER_CREDENTIAL = re.compile(
+    r'(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|'
+    r'sk-[A-Za-z0-9_-]{32,}|AKIA[A-Z0-9]{16}|\b[0-9]{6,12}:[A-Za-z0-9_-]{30,}\b)')
+_PRIVATE_KEY_HEADER = re.compile(r'-{5}BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-{5}')
+_JSON_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
+_JSON_ESCAPE = re.compile(r'\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4})')
+_PRIVACY_MAX_BYTES = 100_000_000
+_PRIVACY_MAX_DEPTH = 16
+_PRIVACY_MAX_ITEMS = 100_000
+
+
+def _credential_value(value):
+    return isinstance(value, str) and value not in _PUBLIC_CREDENTIAL_PLACEHOLDERS
+
+
+def _privacy_payload_reason(payload):
+    """Bounded read-only literal scan, including JSONL tool/string nesting.
+
+    Does not decode base64, decrypt, OCR, infer arbitrary high-entropy strings,
+    or authenticate credential validity. Exceeding a scan bound blocks export.
+    Only stable reason codes leave this function; match values never do.
+    """
+    if not isinstance(payload, bytes):
+        return 'PRIVACY_UNSUPPORTED_PAYLOAD'
+    if len(payload) > _PRIVACY_MAX_BYTES:
+        return 'PRIVACY_SCAN_LIMIT'
+    try:
+        encoding = 'utf-16' if payload.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
+        initial = payload.decode(encoding, errors='replace')
+    except (UnicodeError, ValueError):
+        return 'PRIVACY_UNDECODABLE_PAYLOAD'
+    pending = [(initial, 0)]
+    seen = set()
+    scanned = 0
+    items = 0
+    while pending:
+        text, depth = pending.pop()
+        if not isinstance(text, str):
+            continue
+        fingerprint = hashlib.sha256(text.encode('utf-8', errors='replace')).digest()
+        if fingerprint in seen:
+            continue
+        seen.add(fingerprint)
+        items += 1
+        scanned += len(text)
+        if depth > _PRIVACY_MAX_DEPTH or items > _PRIVACY_MAX_ITEMS or scanned > _PRIVACY_MAX_BYTES:
+            return 'PRIVACY_SCAN_LIMIT'
+        if _PRIVATE_KEY_HEADER.search(text):
+            return 'PRIVACY_PRIVATE_KEY'
+        if _PROVIDER_CREDENTIAL.search(text):
+            return 'PRIVACY_PROVIDER_CREDENTIAL'
+        for match in _CREDENTIAL_LITERAL.finditer(text):
+            if _credential_value(match.group(1)):
+                return 'PRIVACY_CREDENTIAL_LITERAL'
+
+        # JSON and JSONL are traversed without changing the source object/bytes.
+        candidates = [text]
+        if '\n' in text:
+            candidates.extend(line for line in text.splitlines() if line.lstrip().startswith(('{', '[')))
+        for candidate in candidates:
+            if not candidate.lstrip().startswith(('{', '[', '"')):
+                continue
+            try:
+                value = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            except (RecursionError, MemoryError):
+                return 'PRIVACY_SCAN_LIMIT'
+            stack = [(value, depth + 1)]
+            while stack:
+                value, node_depth = stack.pop()
+                items += 1
+                if node_depth > _PRIVACY_MAX_DEPTH or items > _PRIVACY_MAX_ITEMS:
+                    return 'PRIVACY_SCAN_LIMIT'
+                if isinstance(value, dict):
+                    for key, child in value.items():
+                        if _CREDENTIAL_KEY.fullmatch(key) and _credential_value(child):
+                            return 'PRIVACY_CREDENTIAL_LITERAL'
+                        stack.append((child, node_depth + 1))
+                elif isinstance(value, list):
+                    stack.extend((child, node_depth + 1) for child in value)
+                elif isinstance(value, str):
+                    pending.append((value, node_depth))
+
+        # CodeContent/CommandLine may wrap escaped JSON inside otherwise non-JSON
+        # source code. Decode its JSON string fragments, not the executable code.
+        for match in _JSON_STRING.finditer(text):
+            token = match.group(0)
+            if '\\' not in token:
+                continue
+            try:
+                pending.append((json.loads(token), depth + 1))
+            except (json.JSONDecodeError, UnicodeError):
+                continue
+        # Also recognize JSON escapes within single-quoted code strings or
+        # malformed/truncated transcript lines. This derived text is scan-only.
+        if '\\' in text:
+            try:
+                decoded = _JSON_ESCAPE.sub(lambda m: json.loads('"' + m.group(0) + '"'), text)
+            except (json.JSONDecodeError, UnicodeError):
+                return 'PRIVACY_UNDECODABLE_ESCAPE'
+            if decoded != text:
+                pending.append((decoded, depth + 1))
+    return None
+
+
+def _publication_privacy_failure(file_contents):
+    """Returns member/reason only, before any manifest or filesystem mutation."""
+    total = 0
+    for member, payload in file_contents.items():
+        if not isinstance(member, str):
+            return {'member': '[INVALID_MEMBER]', 'reason': 'PRIVACY_UNSUPPORTED_MEMBER'}
+        name_reason = _privacy_payload_reason(member.encode('utf-8', errors='replace'))
+        label = '[PRIVATE_MEMBER_NAME]' if name_reason else member[:240]
+        if name_reason:
+            return {'member': label, 'reason': name_reason}
+        total += len(payload) if isinstance(payload, bytes) else 0
+        reason = 'PRIVACY_SCAN_LIMIT' if total > _PRIVACY_MAX_BYTES else _privacy_payload_reason(payload)
+        if reason:
+            return {'member': label, 'reason': reason}
+    return None
 
 
 def json_bytes(data: dict) -> bytes:
@@ -113,6 +250,10 @@ class PackageBuilder:
         Returns:
             dict with status, archive_path, transport_verdict, etc.
         """
+        privacy_failure = _publication_privacy_failure(file_contents)
+        if privacy_failure is not None:
+            return {'status': 'FAILED', 'error': 'PRIVACY_EXPORT_BLOCKED', 'details': privacy_failure}
+
         os.makedirs(self.latest_dir, exist_ok=True)
         os.makedirs(self.history_dir, exist_ok=True)
 

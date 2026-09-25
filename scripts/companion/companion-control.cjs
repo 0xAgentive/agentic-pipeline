@@ -768,8 +768,11 @@ function validateResult(projectRoot) {
 
 function validateWorkItemPolicy(document) {
   const errors = [];
-  if ((document.acceptance || []).length > 10) errors.push('Work item acceptance limit exceeded (10).');
-  if ((document.non_goals || []).length > 8) errors.push('Work item non_goals limit exceeded (8).');
+  const isBroad = document.stage_profile === 'broad_product_goal' || document.stage_profile === 'commercial_validation' || document.stage_profile === 'commercial_readiness';
+  const maxAcceptance = isBroad ? 60 : 10;
+  const maxNonGoals = isBroad ? 30 : 8;
+  if ((document.acceptance || []).length > maxAcceptance) errors.push(`Work item acceptance limit exceeded (${maxAcceptance}).`);
+  if ((document.non_goals || []).length > maxNonGoals) errors.push(`Work item non_goals limit exceeded (${maxNonGoals}).`);
   if (typeof document.goal === 'string' && document.goal.length > 4000) errors.push('Work item goal is too long.');
   const humanText = JSON.stringify({
     goal: document.goal || '',

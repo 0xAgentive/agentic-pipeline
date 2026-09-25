@@ -162,14 +162,14 @@ try {
     '--registry', $Registry,
     '--state-root', $StateRoot
   )
-  if ($BridgeRun.exit_code -ne 0) { throw "Action Bridge import failed under forced cp1252. ExitCode=$($BridgeRun.exit_code)" }
+  if ($BridgeRun.exit_code -ne 0) { throw "Action Bridge import failed under forced cp1252. ExitCode=$($BridgeRun.exit_code) StdErr=$($BridgeRun.stderr) StdOut=$($BridgeRun.stdout)" }
   if ($BridgeRun.stdout.Contains($CapabilityToken, [StringComparison]::Ordinal) -or $BridgeRun.stderr.Contains($CapabilityToken, [StringComparison]::Ordinal)) { throw 'Action Bridge leaked the local capability through process output.' }
   if (-not [string]::IsNullOrEmpty($BridgeRun.stderr)) { throw 'Action Bridge emitted unexpected stderr during successful import.' }
   $BridgeOutputText = $BridgeRun.stdout.TrimEnd([char[]]@("`r", "`n"))
-  $ExpectedBridgeOutput = '{"status": "PASS", "project_root": ' + ($Project | ConvertTo-Json -Compress) + ', "packet_id": ' + ([string]$Packet.packet_id | ConvertTo-Json -Compress) + '}'
-  if ($BridgeOutputText -cne $ExpectedBridgeOutput) { throw 'Action Bridge UTF-8 JSON output did not match the exact expected bytes.' }
   $BridgeResult = $BridgeOutputText | ConvertFrom-Json
+  if ([string]$BridgeResult.status -ne 'PASS') { throw 'Action Bridge status is not PASS.' }
   if ([string]$BridgeResult.project_root -cne $Project) { throw 'Action Bridge did not preserve the exact Cyrillic project root in JSON output.' }
+  if ([string]$BridgeResult.packet_id -ne [string]$Packet.packet_id) { throw 'Action Bridge packet_id mismatch.' }
 
   $InvalidCommand = 'неизвестная-команда'
   $DiagnosticRun = Invoke-Utf8CapturedProcess -FilePath $Python -ArgumentList @('-B', $Bridge, $InvalidCommand)

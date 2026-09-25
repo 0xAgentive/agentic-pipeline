@@ -53,65 +53,93 @@ def collect_session_and_narrative_artifacts(
     """
     import re
     artifacts_map = {}
+    origins = {}
+    source_keys = {}
+    omissions = []
+    blocked_dirs = {"clean_csv", "exports_pc", "raw_data", "node_modules", ".git"}
 
-    # 1. Collect from Antigravity conversation brain directory
+    def source_id(value):
+        return os.path.normcase(os.path.abspath(value)).replace("\\", "/")
+
+    def excluded_directory(value):
+        return bool(set(value.replace("\\", "/").lower().split("/")[:-1]) & blocked_dirs)
+
+    def add_file(value, preferred_key):
+        identity = source_id(value)
+        if excluded_directory(value):
+            omissions.append({"source": identity, "reason": "excluded_bulk_directory"})
+            return
+        ext = os.path.splitext(value)[1].lower()
+        limit = min(max_file_size, 100 * 1024 if ext == ".csv" and not preferred_key.startswith("artifacts/brain/") else
+                    1024 * 1024 if ext in {".png", ".jpg", ".jpeg"} else max_file_size)
+        try:
+            size = os.path.getsize(value)
+            if size > limit:
+                omissions.append({"source": identity, "reason": "excluded_size", "size_bytes": size, "limit_bytes": limit})
+                return
+            previous_key = source_keys.get(identity)
+            if previous_key:
+                # Prefer the stable docs location over a narrative alias; brain already has provenance.
+                if preferred_key.startswith("docs/") and previous_key.startswith("artifacts/referenced/"):
+                    payload = artifacts_map.pop(previous_key)
+                    origins.pop(previous_key)
+                else:
+                    return
+            else:
+                with open(value, "rb") as stream:
+                    payload = stream.read(limit + 1)
+                if len(payload) > limit:
+                    omissions.append({"source": identity, "reason": "grew_past_size_limit", "limit_bytes": limit})
+                    return
+            key = preferred_key
+            while key in origins and origins[key]["source"] != identity:
+                # A second root may have the same docs-relative name. Never overwrite either source.
+                directory, name = key.rsplit("/", 1)
+                key = directory + "/_sources/" + hashlib.sha256(identity.encode("utf-8")).hexdigest() + "/" + name
+            artifacts_map[key] = payload
+            origins[key] = {"source": identity, "size_bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
+            source_keys[identity] = key
+        except OSError as exc:
+            omissions.append({"source": identity, "reason": "read_error", "error_type": type(exc).__name__})
+
+    # A single namespaced brain copy retains origin when a deliverable has the same basename.
     if artifact_dir and os.path.isdir(artifact_dir):
-        for item in os.listdir(artifact_dir):
+        for item in sorted(os.listdir(artifact_dir)):
             ipath = os.path.join(artifact_dir, item)
-            if os.path.isfile(ipath):
-                ext = os.path.splitext(item)[1].lower()
-                if ext in [".md", ".json", ".txt", ".html", ".xml", ".csv", ".yaml", ".yml", ".png", ".jpg", ".jpeg"]:
-                    try:
-                        if os.path.getsize(ipath) <= max_file_size:
-                            with open(ipath, "rb") as f:
-                                b = f.read()
-                                artifacts_map[f"artifacts/brain/{item}"] = b
-                                artifacts_map[f"artifacts/{item}"] = b
-                    except Exception:
-                        pass
+            if os.path.isfile(ipath) and os.path.splitext(item)[1].lower() in {".md", ".json", ".txt", ".html", ".xml", ".csv", ".yaml", ".yml", ".png", ".jpg", ".jpeg"}:
+                add_file(ipath, f"artifacts/brain/{item}")
 
-    # 2. Collect artifacts mentioned in LAST_MODEL_RESPONSE (АРТЕФАКТЫ section)
     if narrative_text:
         win_candidates = re.findall(r'[A-Za-z]:\\[^\s"\'<>|*?`]+', narrative_text)
         unix_candidates = re.findall(r'(?:^|[\s"\'`])(/[^\s"\'<>|*?`]+)', narrative_text)
-        all_candidates = set(win_candidates + unix_candidates)
-        
-        for raw_p in all_candidates:
+        for raw_p in sorted(set(win_candidates + unix_candidates)):
             clean_p = raw_p.strip(".,;:\"'`()")
             if os.path.isfile(clean_p):
                 if clean_p.lower().endswith("latest_context.zip") or ".tmp" in clean_p:
                     continue
-                try:
-                    if os.path.getsize(clean_p) <= max_file_size:
-                        base_name = os.path.basename(clean_p)
-                        with open(clean_p, "rb") as f:
-                            b = f.read()
-                            artifacts_map[f"artifacts/{base_name}"] = b
-                            if "docs" in clean_p.replace("\\", "/").split("/"):
-                                artifacts_map[f"docs/{base_name}"] = b
-                except Exception:
-                    pass
+                origin_id = hashlib.sha256(source_id(clean_p).encode("utf-8")).hexdigest()
+                add_file(clean_p, f"artifacts/referenced/{origin_id}/{os.path.basename(clean_p)}")
 
-    # 3. Collect from <project>/docs/ and <project>/.artifacts/ in search roots
-    for sr in (search_roots or []):
-        if sr and os.path.isdir(sr):
-            docs_dir = os.path.join(sr, "docs")
-            if os.path.isdir(docs_dir):
-                for root, _, files in os.walk(docs_dir):
-                    for fn in files:
-                        ext = os.path.splitext(fn)[1].lower()
-                        if ext in [".md", ".json", ".txt", ".html", ".csv", ".yaml", ".yml"]:
-                            fpath = os.path.join(root, fn)
-                            try:
-                                if os.path.getsize(fpath) <= max_file_size:
-                                    rel_p = os.path.relpath(fpath, sr).replace("\\", "/")
-                                    with open(fpath, "rb") as f:
-                                        b = f.read()
-                                        artifacts_map[rel_p] = b
-                                        artifacts_map[f"artifacts/{fn}"] = b
-                            except Exception:
-                                pass
+    for sr in sorted(set(search_roots or []) - {None, ""}):
+        docs_dir = os.path.join(sr, "docs")
+        if not os.path.isdir(docs_dir):
+            continue
+        for root, dirs, files in os.walk(docs_dir):
+            # Prune excluded trees and record the directory omission in the exported report.
+            for directory in sorted(dirs):
+                if directory.lower() in blocked_dirs:
+                    omissions.append({"source": source_id(os.path.join(root, directory)), "reason": "excluded_bulk_directory", "scope": "subtree"})
+            dirs[:] = sorted(d for d in dirs if d.lower() not in blocked_dirs)
+            for fn in sorted(files):
+                if os.path.splitext(fn)[1].lower() in {".md", ".json", ".txt", ".html", ".csv", ".yaml", ".yml"}:
+                    fpath = os.path.join(root, fn)
+                    add_file(fpath, os.path.relpath(fpath, sr).replace("\\", "/"))
 
+    # This entry is returned with the artifacts and therefore written to the actual context package.
+    artifacts_map["artifacts/EXPORT_COLLECTION_REPORT.json"] = json.dumps({
+        "schema_version": "1.0.0", "files": dict(sorted(origins.items())),
+        "omissions": sorted(omissions, key=lambda item: (item["source"], item["reason"]))
+    }, ensure_ascii=False, indent=2).encode("utf-8")
     return artifacts_map
 
 class CompanionExporter:

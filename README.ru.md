@@ -234,6 +234,28 @@ cd agentic-pipeline
 
 ---
 
+## 🛡️ Antigravity OS Runtime Harness & Системные Сервисы
+
+В состав дистрибутива входит полный автономный комплекс управления средой Antigravity, предотвращения зависаний процессов и надёжного сетевого транспорта:
+
+1. **Process Guard & Zero-Zombie Hygiene (`scripts/antigravity_process_guard.py`, `scripts/cleanup_zombie_processes.py`)**:
+   - Непрерывный мониторинг 24/7 утечек памяти, зависших портов и дочерних процессов;
+   - Автоматическое пресечение процессов-зомби на уровне дерева процессов (`taskkill /PID <pid> /T /F`);
+   - Проактивный контроль квот Gemini (порог 2% weekly) и удержание состояния Standby при исчерпании пула.
+2. **GUI Sentinel & Visible Desktop Launcher (`scripts/antigravity_gui_launcher.py`, `scripts/Launch-AntigravityVisible.ps1`)**:
+   - Автоматическое обнаружение скрытого (headless) падения графического интерфейса Antigravity IDE;
+   - Бесшовный перезапуск с сохранением контекста и подключением Chrome DevTools Protocol (`--remote-debugging-port=9222`).
+3. **Durable Transport v2 (`scripts/transport-v2/`, `scripts/companion_bridge.js`)**:
+   - Сверхнадёжный транспорт задач через прямые WebSocket CDP-соединения с вкладками ChatGPT без перезагрузок страницы;
+   - Защита от потери сессий, дедупликация очередей и локальная верификация артефактов в SQLite.
+4. **Автоматическое обслуживание и ротация диалогов (`scripts/rotate_active_dialog.py`, `scripts/optimize_sqlite.py`)**:
+   - Автоматическая ротация при превышении размера диалога 10 МБ с созданием checkpoint-хэндофа;
+   - Периодическая вакуумация SQLite-баз в WAL-режиме и очистка кэша `.gemini/brain`.
+5. **Telegram Bot & Standby Controller (`scripts/telegram_cycle_bot.py`, `scripts/pipeline_standby.py`)**:
+   - Удалённый контроль пайплайна со смартфона: пауза, возобновление, статус квот и завершённых циклов.
+
+---
+
 ## 📂 Структура репозитория
 
 ```text

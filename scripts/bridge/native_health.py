@@ -199,6 +199,31 @@ def configured_selection(project_key=None):
     return comp
 
 
+def configured_connection():
+    """One verified private endpoint provider for guard and Telegram producers.
+
+    A process name, maximum port, ambient environment or fresh cache never
+    independently selects a native server. Existing selected projects verify
+    endpoint metadata before any caller receives private connection fields.
+    """
+    cfg=read_object(runtime_path('ANTIGRAVITY_DATA_ROOT','companion_bridge_config.json'))
+    companions=cfg.get('browser',{}).get('companions',{})
+    if not isinstance(companions,dict):raise ValueError('COMPANION_CONFIGURATION_REQUIRED')
+    selected=[value for key,value in sorted(companions.items()) if isinstance(value,dict) and all(isinstance(value.get(field),str) and value[field] for field in ('projectId','projectPath','antigravityConversationId'))]
+    if not selected:raise ValueError('CONFIGURED_NATIVE_PROJECT_REQUIRED')
+    state_root=runtime_path('AGENTIC_STATE_ROOT')
+    executable=runtime_path('ANTIGRAVITY_INSTALL_ROOT','resources/bin/language_server.exe')
+    # Refresh uses exact executable identity, owned loopback sockets and bounded
+    # metadata queries. It never guesses the first same-name process or max port.
+    report=refresh_connection(selected[0],state_root,executable)
+    native_env,identity=connection(state_root,executable)
+    if not identity_matches(identity,report.get('process_identity')):raise ValueError('NATIVE_PROCESS_CHANGED_DURING_REFRESH')
+    for comp in selected[1:]:
+        proof=probe_native(comp,state_root,executable)
+        if not identity_matches(identity,proof.get('process_identity')):raise ValueError('NATIVE_RUNTIME_AMBIGUOUS')
+    return {**native_env,'process_identity':identity,'port':native_env['ANTIGRAVITY_LS_ADDRESS'].rsplit(':',1)[1]}
+
+
 def bootstrap(project_key,database):
     comp=configured_selection(project_key);state_root=runtime_path('AGENTIC_STATE_ROOT');executable=runtime_path('ANTIGRAVITY_INSTALL_ROOT','resources/bin/language_server.exe')
     try:connection(state_root,executable)

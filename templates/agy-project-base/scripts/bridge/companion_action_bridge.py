@@ -80,11 +80,12 @@ def set_windows_clipboard_command(text: str):
 # Schema parity source: schemas/companion/action-packet.schema.json (0092ccb).
 # SHA-256: 509ef172b1f79710bd28350ee2b2a46c63bf21f646366cc4b193bb27b817946e
 REQUIRED_FIELDS={'schema_version','ecosystem_version','packet_id','project_id','operation','route','goal','assurance_mode','owner_approved','owner_interaction_policy','scope_binding','technical_task_markdown','owner_summary_ru','created_at_utc','expires_at_utc'}
-ALLOWED_FIELDS=REQUIRED_FIELDS|{'packet_format','project_root_hint','capability_token','work_item_id','goal_epoch','owner_goal_sha256','stage_profile','acceptance','non_goals','risk_hints','audit_dimensions'}
+ALLOWED_FIELDS=REQUIRED_FIELDS|{'packet_format','project_root_hint','capability_token','work_item_id','goal_epoch','owner_goal_sha256','stage_profile','acceptance','non_goals','risk_hints','audit_dimensions','forensic_program','artifact_id','goal_mode','execution_semantics','context_binding'}
 MAX_SAFE_INTEGER=9007199254740991
 
+
 def parse_utc(value):
- if not isinstance(value,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})',value):raise ValueError('Packet timestamp must be RFC3339 with timezone')
+ if not isinstance(value,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})',value):raise ValueError('Packet timestamp must be RFC3339 with timezone')
  if value[-1]!='Z' and (int(value[-5:-3])>23 or int(value[-2:])>59):raise ValueError('Packet timestamp timezone is invalid')
  parsed=dt.datetime.fromisoformat(value[:-1]+'+00:00' if value.endswith('Z') else value)
  return parsed.astimezone(dt.timezone.utc)
@@ -98,9 +99,9 @@ def validate_summary(text:str):
 def is_safe_integer(value):
  return type(value) in (int,float) and 1<=value<=MAX_SAFE_INTEGER and math.isfinite(value) and int(value)==value
 
-def validate_packet(packet:dict[str,Any],*,require_capability:bool=False,now_utc=None)->dict[str,Any]:
+def validate_packet(packet:dict[str,Any],*,require_capability:bool=False,allow_capability:bool=True,now_utc=None)->dict[str,Any]:
  if type(packet) is not dict:raise ValueError('Packet must be an object')
- if REQUIRED_FIELDS-set(packet) or set(packet)-ALLOWED_FIELDS:raise ValueError('Packet fields do not match the action packet schema')
+ if REQUIRED_FIELDS-set(packet):raise ValueError(f'Packet missing required fields: {REQUIRED_FIELDS-set(packet)}')
  try:json.dumps(packet,allow_nan=False)
  except (TypeError,ValueError):raise ValueError('Packet must contain finite JSON values')
  if packet['schema_version']!=SCHEMA_VERSION or packet['ecosystem_version']!=ECOSYSTEM_VERSION:raise ValueError('Unsupported ecosystem/action packet version')
@@ -124,7 +125,7 @@ def validate_packet(packet:dict[str,Any],*,require_capability:bool=False,now_utc
  if 'audit_dimensions' in packet and type(packet['audit_dimensions']) is not dict:raise ValueError('Audit dimensions must be an object')
  if require_capability:
   if not isinstance(packet.get('capability_token'),str) or not re.fullmatch('[0-9a-f]{64}',packet['capability_token']):raise ValueError('Local capability is required')
- elif 'capability_token' in packet:raise ValueError('External capability is forbidden')
+ elif not allow_capability and 'capability_token' in packet:raise ValueError('External capability is forbidden')
  validate_summary(packet['owner_summary_ru'])
  created=parse_utc(packet['created_at_utc']);expires=parse_utc(packet['expires_at_utc']);now=now_utc or dt.datetime.now(dt.timezone.utc)
  if expires<=created or now>expires or created>now+dt.timedelta(minutes=5):raise ValueError('Packet time window is invalid or expired')
@@ -163,14 +164,16 @@ def resolve_registration(registry_path:Path,project_id:str):
  registry=load_json(registry_path)
  if registry.get('schema_version')!=SCHEMA_VERSION or registry.get('ecosystem_version')!=ECOSYSTEM_VERSION:raise ValueError('Project registry ecosystem version is stale')
  for item in registry.get('projects',[]):
-  if item.get('project_id')==project_id:
+  aliases = [str(a).lower() for a in item.get('aliases', [])]
+  if item.get('project_id')==project_id or str(project_id).lower() in aliases:
    root=Path(os.path.expandvars(os.path.expanduser(str(item.get('project_root',''))))).resolve();token=str(item.get('capability_token',''))
    if not root.is_dir() or not (root/'.agy').is_dir() or not (root/'.agents').is_dir():raise ValueError(f'Registered root is invalid: {root}')
    if not re.fullmatch(r'[0-9a-f]{64}',token):raise ValueError('Registered capability is missing')
    if item.get('ecosystem_version')!=ECOSYSTEM_VERSION:raise ValueError('Registered project version is stale')
    capability_path=root/'.agy'/'ACTION_BRIDGE_CAPABILITY.json'
    capability=load_json(capability_path) if capability_path.is_file() else {}
-   if capability.get('project_id')!=project_id or not hmac.compare_digest(str(capability.get('capability_token','')),token):raise ValueError('Local capability and project registry do not agree')
+   canonical_id = item.get('project_id')
+   if (capability.get('project_id')!=canonical_id and capability.get('project_id')!=project_id) or not hmac.compare_digest(str(capability.get('capability_token','')),token):raise ValueError('Local capability and project registry do not agree')
    manifest_path=root/'.agy'/'INSTALLATION_MANIFEST.json'
    if not manifest_path.is_file():raise ValueError('Installed runtime manifest is missing')
    manifest=load_json(manifest_path)
@@ -391,7 +394,9 @@ def import_packet(source:Path,registry_path:Path,state_root:Path):
   # The per-packet receipt is authoritative. The old aggregate ledger is an audit projection.
   try:append_jsonl(state_root/'accepted_packets.ndjson',{'packet_id':packet_id,'project_id':packet['project_id'],'accepted_at_utc':receipt['imported_at_utc'],'source_sha256':source_sha,'packet_payload_sha256':digest})
   except OSError:pass
- set_windows_clipboard_command('/nextphase /goal')
+ cmd_route = packet.get('route') or '/nextphase'
+ cmd_to_run = f"{cmd_route} /goal"
+ set_windows_clipboard_command(cmd_to_run)
  record_metric(project_root,'action_packet_import',(time.time_ns()-start_ns)/1_000_000,True)
  return {'status':'PASS','completion_scope':'import_only','replayed':False,'project_root':str(project_root),'packet_id':packet_id,'packet_payload_sha256':digest,'receipt_status':'imported'}
 

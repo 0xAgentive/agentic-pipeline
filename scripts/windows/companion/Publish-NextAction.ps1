@@ -27,5 +27,20 @@ $Next=[ordered]@{
 }
 if($Apply){
   [IO.File]::WriteAllText((Join-Path $Agy 'NEXT_ACTION.json'),($Next|ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
-  if($EffectiveRoute){Write-Host "Next action published: $EffectiveRoute"}else{Write-Host 'Next action closed.'}
+  if($EffectiveRoute){
+    Write-Host "Next action published: $EffectiveRoute"
+  }else{
+    $WorkItemPath = Join-Path $Agy 'WORK_ITEM.json'
+    if (Test-Path -LiteralPath $WorkItemPath -PathType Leaf) {
+      try {
+        $WiData = Get-Content -LiteralPath $WorkItemPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($WiData.status -ne 'completed') {
+          $WiData.status = 'completed'
+          $WiData.updated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+          [IO.File]::WriteAllText($WorkItemPath, ($WiData | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new($false))
+        }
+      } catch {}
+    }
+    Write-Host 'Next action closed.'
+  }
 }else{$Next|ConvertTo-Json -Depth 10}

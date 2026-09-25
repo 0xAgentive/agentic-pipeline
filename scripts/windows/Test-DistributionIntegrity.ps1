@@ -21,7 +21,7 @@ function Invoke-Validator {
     [ValidateSet('core', 'advisory')][string]$Severity = 'core'
   )
 
-  Write-Host "[$Name]"
+  Write-Host "[$((Get-Date).ToString('HH:mm:ss'))] [$Name]"
   $Path = Join-Path $Root $RelativePath
   if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
     $Message = "Missing validator: $RelativePath"
@@ -30,10 +30,13 @@ function Invoke-Validator {
   }
 
   $PreviousPreference = $ErrorActionPreference
+  $Sw = [System.Diagnostics.Stopwatch]::StartNew()
   try {
     $ErrorActionPreference = 'Continue'
-    & $HostExe -NoProfile -ExecutionPolicy Bypass -File $Path @ArgumentList 2>&1 |
-      ForEach-Object { Write-Host $_ }
+    $Output = & $HostExe -NoProfile -ExecutionPolicy Bypass -File $Path @ArgumentList 2>&1
+    if ($Output) {
+      [Console]::WriteLine(($Output -join [Environment]::NewLine))
+    }
     $ExitCode = $LASTEXITCODE
   }
   catch {
@@ -41,6 +44,8 @@ function Invoke-Validator {
     $ExitCode = 1
   }
   finally {
+    $Sw.Stop()
+    Write-Host "[$Name] elapsed: $($Sw.Elapsed.TotalSeconds.ToString('F1'))s"
     $ErrorActionPreference = $PreviousPreference
   }
 

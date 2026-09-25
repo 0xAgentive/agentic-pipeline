@@ -22,6 +22,16 @@ $ScopeRaw = Get-Content -LiteralPath $ScopePath -Raw
 $Scope = $ScopeRaw | ConvertFrom-Json
 $Lease = Get-Content -LiteralPath $LeasePath -Raw | ConvertFrom-Json
 $Firewall = Get-Content -LiteralPath $FirewallPath -Raw | ConvertFrom-Json
+
+# Validate every explicitly declared stage before checking or marking execution authority.
+foreach ($StageAuthority in @($WorkItem, $Lease, $Firewall)) {
+  $ExplicitStageProperty = if ($null -ne $StageAuthority) { $StageAuthority.PSObject.Properties['stage_profile'] } else { $null }
+  if ($null -ne $ExplicitStageProperty -and
+      ($ExplicitStageProperty.Value -isnot [string] -or
+       @('general', 'protocol_freeze', 'analytical_validation', 'empirical_validation') -cnotcontains $ExplicitStageProperty.Value)) {
+    throw 'STAGE_PROFILE_EXECUTION_CONTRACT_REQUIRED: Execution authority stage_profile has no supported execution contract.'
+  }
+}
 $WorkTransaction = Get-Content -LiteralPath $WorkTransactionPath -Raw | ConvertFrom-Json
 $AuthorityTransaction = Get-Content -LiteralPath $AuthorityTransactionPath -Raw | ConvertFrom-Json
 function Invoke-Git([string[]]$Arguments) { $Result=Invoke-AgenticNativeProcess -FilePath 'git' -ArgumentList (@('-C',$Root)+$Arguments);Assert-AgenticNativeSuccess -Result $Result -Description 'git';return $Result.StdOut.Trim() }

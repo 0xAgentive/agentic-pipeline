@@ -87,6 +87,14 @@ if ([string]::IsNullOrWhiteSpace($ActionPacketPath)) {
 $PacketPath = (Resolve-Path -LiteralPath $ActionPacketPath).Path
 $Packet = Get-Content -LiteralPath $PacketPath -Raw -Encoding UTF8 | ConvertFrom-Json
 
+# An unsupported explicit stage must not acquire execution authority by falling through.
+$ExplicitStageProperty = if ($null -ne $Packet) { $Packet.PSObject.Properties['stage_profile'] } else { $null }
+if ($null -ne $ExplicitStageProperty -and
+    ($ExplicitStageProperty.Value -isnot [string] -or
+     @('general', 'protocol_freeze', 'analytical_validation', 'empirical_validation') -cnotcontains $ExplicitStageProperty.Value)) {
+  throw 'STAGE_PROFILE_EXECUTION_CONTRACT_REQUIRED: Packet stage_profile has no supported execution contract.'
+}
+
 $Operation = [string](Get-OptionalProperty -Object $Packet -Name 'operation' -Default '')
 $OwnerApproved = [bool](Get-OptionalProperty -Object $Packet -Name 'owner_approved' -Default $false)
 $OwnerPolicy = [string](Get-OptionalProperty -Object $Packet -Name 'owner_interaction_policy' -Default '')
@@ -101,19 +109,45 @@ $AllowedRoutes = @('/nextphase', '/fixcritical', '/auditphase', '/fastpatch', '/
 if ($Route -notin $AllowedRoutes) { throw "Unsupported packet route: $Route" }
 
 $ExistingPath = Join-Path $AgyRoot 'WORK_ITEM.json'
+$ExistingActionPacketId = ''
+$IsConcluded = $false
 if (Test-Path -LiteralPath $ExistingPath -PathType Leaf) {
   $Existing = Get-Content -LiteralPath $ExistingPath -Raw -Encoding UTF8 | ConvertFrom-Json
   $ExistingStatus = [string](Get-OptionalProperty -Object $Existing -Name 'status' -Default '')
-  if ($ExistingStatus -in @('active', 'ready', 'implementation', 'repair', 'audit', 'in_progress')) {
-    $ExistingId = [string](Get-OptionalProperty -Object $Existing -Name 'work_item_id' -Default 'unknown')
-    throw "An active work item already exists: $ExistingId"
+  $ExistingActionPacketId = [string](Get-OptionalProperty -Object $Existing -Name 'action_packet_id' -Default '')
+  if ($ExistingActionPacketId -ne $Packet.packet_id -and $ExistingStatus -in @('active', 'ready', 'implementation', 'repair', 'audit', 'in_progress')) {
+    $NextActionPath = Join-Path $AgyRoot 'NEXT_ACTION.json'
+    if (Test-Path -LiteralPath $NextActionPath -PathType Leaf) {
+      $ExistingNextAction = Get-Content -LiteralPath $NextActionPath -Raw -Encoding UTF8 | ConvertFrom-Json
+      $ExistingRoute = [string](Get-OptionalProperty -Object $ExistingNextAction -Name 'route' -Default '')
+      $OwnerDecisionReq = [bool](Get-OptionalProperty -Object $ExistingNextAction -Name 'owner_decision_required' -Default $false)
+      if ([string]::IsNullOrWhiteSpace($ExistingRoute) -and -not $OwnerDecisionReq) {
+        $IsConcluded = $true
+      }
+    }
+    $RunResultPath = Join-Path $AgyRoot 'RUN_RESULT.json'
+    if (Test-Path -LiteralPath $RunResultPath -PathType Leaf) {
+      $ExistingRunResult = Get-Content -LiteralPath $RunResultPath -Raw -Encoding UTF8 | ConvertFrom-Json
+      $ImplStatus = [string](Get-OptionalProperty -Object $ExistingRunResult -Name 'implementation_status' -Default '')
+      if ($ImplStatus -eq 'completed') {
+        $IsConcluded = $true
+      }
+    }
+    if (-not $IsConcluded) {
+      $ExistingId = [string](Get-OptionalProperty -Object $Existing -Name 'work_item_id' -Default 'unknown')
+      throw "An active work item already exists: $ExistingId"
+    }
   }
 }
 
 $Now = (Get-Date).ToUniversalTime().ToString('o')
 $PacketWorkItemId = [string](Get-OptionalProperty -Object $Packet -Name 'work_item_id' -Default '')
 $WorkItemId = if ([string]::IsNullOrWhiteSpace($PacketWorkItemId)) {
-  'wi-' + [Guid]::NewGuid().ToString('N')
+  if ($ExistingActionPacketId -eq $Packet.packet_id -and -not [string]::IsNullOrWhiteSpace([string]$Existing.work_item_id)) {
+    [string]$Existing.work_item_id
+  } else {
+    'wi-' + [Guid]::NewGuid().ToString('N')
+  }
 } else {
   $PacketWorkItemId
 }
@@ -279,7 +313,14 @@ try {
     $Exists = Test-Path -LiteralPath $Current -PathType Leaf
     $PreExisting[$Name] = $Exists
     if ($Exists) {
-      Copy-Item -LiteralPath $Current -Destination (Join-Path $BackupRoot $Name) -Force
+      if ($Name -eq 'WORK_ITEM.json' -and $IsConcluded) {
+        $ArchivedWi = Get-Content -LiteralPath $Current -Raw -Encoding UTF8 | ConvertFrom-Json
+        $ArchivedWi.status = 'completed'
+        $ArchivedWi.updated_at_utc = $Now
+        [System.IO.File]::WriteAllText((Join-Path $BackupRoot $Name), ($ArchivedWi | ConvertTo-Json -Depth 20), $Utf8NoBom)
+      } else {
+        Copy-Item -LiteralPath $Current -Destination (Join-Path $BackupRoot $Name) -Force
+      }
     }
   }
   $PreStateCaptured = $true

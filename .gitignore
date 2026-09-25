@@ -11,6 +11,11 @@ build/
 coverage/
 node_modules/
 .agy/checkpoints/
+.agy/.runtime/
+.agy/*.ndjson
+.agy/*.log
+.agy/action-bridge/
+.agy/inbox/
 .agy/cbm/*.stdout.log
 .agy/cbm/*.stderr.log
 .agy/cbm/*summary*.log
@@ -19,6 +24,10 @@ node_modules/
 *.bak-*
 *.bak-v*
 .artifacts/
+deep research/
 
 __pycache__/
 *.pyc
+*.sqlite3
+*.sqlite
+*.db

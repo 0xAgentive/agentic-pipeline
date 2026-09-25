@@ -18,13 +18,15 @@ def load_conversation_filter(base_dir: Optional[str] = None) -> Dict:
     """
     Loads conversation filtering rules from conversations.txt and handoff.config.json.
     """
+    is_default_base = base_dir is None or base_dir == r"C:\Scripts\AntigravityProjects\companion-handoff"
     base_dir = base_dir or r"C:\Scripts\AntigravityProjects\companion-handoff"
     
     txt_candidates = [
         os.path.join(base_dir, "conversations.txt"),
         os.path.join(base_dir, "config", "conversations.txt"),
-        os.path.expanduser("~/.agentic-pipeline/conversations.txt"),
     ]
+    if is_default_base and not os.environ.get("AGENTIC_ISOLATED_TEST") and not os.environ.get("AGENTIC_STATE_ROOT"):
+        txt_candidates.append(os.path.expanduser("~/.agentic-pipeline/conversations.txt"))
     
     cfg_path = os.path.join(base_dir, "handoff.config.json")
     

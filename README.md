@@ -234,6 +234,28 @@ To eliminate unnecessary packaging overhead and clipboard pollution, `LATEST_CON
 
 ---
 
+## 🛡️ Antigravity OS Runtime Harness & System Services
+
+The distribution includes an integrated suite of autonomous daemon services for Antigravity environment governance, zombie process termination, and durable transport:
+
+1. **Process Guard & Zero-Zombie Hygiene (`scripts/antigravity_process_guard.py`, `scripts/cleanup_zombie_processes.py`)**:
+   - 24/7 background guard monitoring memory leaks, orphan port listeners, and runaway background tasks;
+   - Unconditional Windows process tree termination (`taskkill /PID <pid> /T /F`) for test runners and child spawners;
+   - Proactive Gemini quota sentinel (2% weekly cutoff threshold) with automated standby pause/resume.
+2. **GUI Sentinel & Visible Desktop Launcher (`scripts/antigravity_gui_launcher.py`, `scripts/Launch-AntigravityVisible.ps1`)**:
+   - Automated detection and recovery of headless/hidden Antigravity IDE UI states;
+   - Context-preserving restart with attached Chrome DevTools Protocol flags (`--remote-debugging-port=9222`).
+3. **Durable Transport v2 (`scripts/transport-v2/`, `scripts/companion_bridge.js`)**:
+   - High-throughput WebSocket CDP transport directly connected to live ChatGPT session tabs without page reloads;
+   - Session drop prevention, queue deduplication, and SQLite-backed durable delivery.
+4. **Automated Maintenance & 10 MB Dialogue Rotation (`scripts/rotate_active_dialog.py`, `scripts/optimize_sqlite.py`)**:
+   - Automated dialogue rotation upon reaching the 10 MB transcript ceiling with instant checkpoint handoffs;
+   - Periodic WAL-mode SQLite vacuum and `.gemini/brain` disk cache pruning.
+5. **Telegram Bot & Standby Controller (`scripts/telegram_cycle_bot.py`, `scripts/pipeline_standby.py`)**:
+   - Remote smartphone supervision: pause/resume cycles, inspect quota state, and review completed phase receipts.
+
+---
+
 ## 📂 Repository Structure
 
 ```text

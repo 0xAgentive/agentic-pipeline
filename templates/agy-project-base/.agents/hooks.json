@@ -3,6 +3,16 @@
     "enabled": true,
     "PreToolUse": [
       {
+        "matcher": "view_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/agentic_runtime_hook.cjs preview",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
         "hooks": [
           {

@@ -103,9 +103,9 @@ try {
   Invoke-Checked -FilePath 'git' -Arguments @('-C', $LegacyRepo, 'init', '--quiet') -Description 'legacy git init' | Out-Null
   Invoke-Checked -FilePath 'git' -Arguments @('-C', $LegacyRepo, 'config', 'user.email', 'regression@example.invalid') -Description 'legacy git config email' | Out-Null
   Invoke-Checked -FilePath 'git' -Arguments @('-C', $LegacyRepo, 'config', 'user.name', 'Regression') -Description 'legacy git config name' | Out-Null
-  Write-Json (Join-Path $LegacyRepo '.agy\WORK_ITEM.json') ([ordered]@{ schema_version='1.0.0'; work_item_id='legacy-001'; goal='legacy goal'; goal_epoch=1; assurance_mode='guarded'; stage_profile='implementation' })
+  Write-Json (Join-Path $LegacyRepo '.agy\WORK_ITEM.json') ([ordered]@{ schema_version='1.0.0'; work_item_id='legacy-001'; goal='legacy goal'; goal_epoch=1; assurance_mode='guarded'; stage_profile='general' })
   Write-Json (Join-Path $LegacyRepo '.agy\WORK_ITEM_TRANSACTION.json') ([ordered]@{ schema_version='1.0.0'; status='committed'; work_item_id='legacy-001' })
-  Write-Json (Join-Path $LegacyRepo '.agy\STAGE_FIREWALL.json') ([ordered]@{ schema_version='1.0.0'; stage_profile='implementation' })
+  Write-Json (Join-Path $LegacyRepo '.agy\STAGE_FIREWALL.json') ([ordered]@{ schema_version='1.0.0'; stage_profile='general' })
   Invoke-Checked -FilePath 'git' -Arguments @('-C', $LegacyRepo, 'add', '--all') -Description 'legacy git add' | Out-Null
   Invoke-Checked -FilePath 'git' -Arguments @('-C', $LegacyRepo, 'commit', '--quiet', '-m', 'fixture') -Description 'legacy git commit' | Out-Null
 

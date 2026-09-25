@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Companion Action Packet 1.2.9",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "schema_version",
     "ecosystem_version",
@@ -81,6 +81,9 @@
     "goal": {
       "type": "string",
       "minLength": 1
+    },
+    "continuation_reason": {
+      "type": "string"
     },
     "owner_goal_sha256": {
       "type": [

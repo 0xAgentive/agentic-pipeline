@@ -67,7 +67,7 @@ class EffectOwner:
             # An old v1 in-flight effect must be reconciled before v2 takeover.
             if db.execute("SELECT 1 FROM operations WHERE status IN ('DISPATCHED','UNCERTAIN')").fetchone():
                 raise Rejected('LEGACY_RECONCILIATION_REQUIRED')
-            if db.execute("SELECT 1 FROM v2_effects WHERE json_extract(data,'$.status') IN ('DISPATCHED','UNCERTAIN')").fetchone():
+            if db.execute("SELECT 1 FROM v2_effects WHERE project=? AND json_extract(data,'$.status') IN ('DISPATCHED','UNCERTAIN')", (project,)).fetchone():
                 raise Rejected('RECONCILIATION_REQUIRED')
             held = db.execute('SELECT data FROM v2_effect_lease WHERE id=1').fetchone()
             if held and json.loads(held['data'])['expires_at'] > now:

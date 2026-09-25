@@ -14,6 +14,7 @@ def read_work(root):
     action_bytes=(root/'.agy/NEXT_ACTION.json').read_bytes()
     work=json.loads(work_bytes.decode('utf-8-sig'));action=json.loads(action_bytes.decode('utf-8-sig'))
     if not isinstance(work,dict) or not isinstance(action,dict):raise Rejected('WORK_CONTRACT_INVALID')
+    if 'stage_profile' in work and work['stage_profile'] not in ('general','protocol_freeze','analytical_validation','empirical_validation'):raise Rejected('STAGE_PROFILE_EXECUTION_CONTRACT_REQUIRED')
     if not isinstance(work.get('work_item_id'),str) or not work['work_item_id'] or type(work.get('goal_epoch')) not in (int,str) or work['goal_epoch']=='':raise Rejected('WORK_IDENTITY_REQUIRED')
     if work.get('owner_approved') is not True or work.get('hard_stop') is not False or str(work.get('status','')).lower() in TERMINAL:raise Rejected('WORK_NOT_ACTIVE')
     if action.get('work_item_id')!=work['work_item_id'] or action.get('route') not in RECOVERY_ROUTES:raise Rejected('ACTION_BINDING_MISMATCH')

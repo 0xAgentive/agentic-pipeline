@@ -294,6 +294,7 @@ class SessionContextCapturer:
 
         # Source Snapshots relative to OWN implementation root (SAFE PATHS, NO TRAVERSAL ..)
         source_snapshots = {}
+        source_snapshot_index = {}
         missing_truncated_snapshots = []
 
         max_snap_size = self.privacy_config.get("max_snapshot_size_bytes", 500_000)
@@ -302,6 +303,15 @@ class SessionContextCapturer:
             if info.get("privacy_excluded"):
                 continue
             if not info["exists"] or not os.path.isfile(p):
+                continue
+
+            # Match directory components, preserving source names such as raw_data_parser.py.
+            norm_p = p.replace("\\", "/").lower()
+            if set(norm_p.split("/")[:-1]) & {"clean_csv", "exports_pc", "raw_data", "node_modules", ".git"}:
+                missing_truncated_snapshots.append({"path": p, "reason": "excluded_bulk_directory"})
+                continue
+            if norm_p.endswith(".csv") and info.get("size_bytes", 0) > 50 * 1024:
+                missing_truncated_snapshots.append({"path": p, "reason": "excluded_csv_size", "limit_bytes": 50 * 1024})
                 continue
 
             # Find matching implementation root for p
@@ -315,14 +325,18 @@ class SessionContextCapturer:
 
             owning_root = normalize_path(owning_root)
 
+            # A source-derived namespace retains distinct outside-root files with equal basenames.
+            source_identity = os.path.normcase(os.path.abspath(p)).replace("\\", "/")
+            source_id = hashlib.sha256(source_identity.encode("utf-8")).hexdigest()
+            fallback_path = f"flattened/{source_id}/{os.path.basename(p)}"
+
             # Build safe relative path WITHOUT '..' or drive prefix
             try:
                 rel_path = os.path.relpath(p, owning_root).replace("\\", "/").lstrip("/")
                 if ".." in rel_path.split("/"):
-                    # Fallback: flatten filename with sha256 to avoid traversal
-                    rel_path = f"flattened/{os.path.basename(p)}"
+                    rel_path = fallback_path
             except Exception:
-                rel_path = f"flattened/{os.path.basename(p)}"
+                rel_path = fallback_path
 
             root_id = hashlib.sha256(owning_root.encode("utf-8")).hexdigest()[:8]
             snap_key = f"SOURCE_SNAPSHOTS/{root_id}/{rel_path}"
@@ -341,9 +355,23 @@ class SessionContextCapturer:
                     content_text += f"\n\n[TRUNCATED: File size {fsize} bytes exceeds limit {max_snap_size} bytes]"
                     missing_truncated_snapshots.append({"path": p, "reason": "truncated_size"})
 
-                source_snapshots[snap_key] = content_text.encode("utf-8")
+                snapshot_bytes = content_text.encode("utf-8")
+                source_snapshots[snap_key] = snapshot_bytes
+                source_snapshot_index[p] = {
+                    "snapshot_key": snap_key,
+                    "snapshot_sha256": hashlib.sha256(snapshot_bytes).hexdigest(),
+                    "snapshot_size_bytes": len(snapshot_bytes),
+                    "source_metadata_sha256": info.get("sha256"),
+                    "truncated": fsize > max_snap_size,
+                }
             except Exception as e:
                 missing_truncated_snapshots.append({"path": p, "reason": str(e)})
+
+        # The existing exporter writes every source_snapshots entry into the actual ZIP.
+        source_snapshots["SOURCE_SNAPSHOT_INDEX.json"] = json.dumps({
+            "schema_version": "1.0.0",
+            "sources": dict(sorted(source_snapshot_index.items())),
+        }, ensure_ascii=False, indent=2).encode("utf-8")
 
         session_delta_payload = {
             "last_owner_request": last_owner_request,

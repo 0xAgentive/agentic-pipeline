@@ -15,6 +15,14 @@ $Agy=Join-Path $Root '.agy'
 . (Join-Path $PSScriptRoot '..\common\NativeProcess.ps1')
 function Set-JsonProperty([object]$Object,[string]$Name,[object]$Value){$Property=$Object.PSObject.Properties[$Name];if($null-eq$Property){$Object|Add-Member -NotePropertyName $Name -NotePropertyValue $Value}else{$Property.Value=$Value}}
 $Wi=Get-Content -LiteralPath (Join-Path $Agy 'WORK_ITEM.json') -Raw -Encoding UTF8|ConvertFrom-Json
+
+# An unsupported explicit stage must not acquire execution authority by falling through.
+$ExplicitStageProperty = if ($null -ne $Wi) { $Wi.PSObject.Properties['stage_profile'] } else { $null }
+if ($null -ne $ExplicitStageProperty -and
+    ($ExplicitStageProperty.Value -isnot [string] -or
+     @('general', 'protocol_freeze', 'analytical_validation', 'empirical_validation') -cnotcontains $ExplicitStageProperty.Value)) {
+  throw 'STAGE_PROFILE_EXECUTION_CONTRACT_REQUIRED: Work item stage_profile has no supported execution contract.'
+}
 $WorkTx=Get-Content -LiteralPath (Join-Path $Agy 'WORK_ITEM_TRANSACTION.json') -Raw -Encoding UTF8|ConvertFrom-Json
 if($WorkTx.status-ne'committed'-or[string]$WorkTx.work_item_id-ne[string]$Wi.work_item_id){throw 'Work-item transaction is not committed.'}
 if([string]::IsNullOrWhiteSpace($Route)){

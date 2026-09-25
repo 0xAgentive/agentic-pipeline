@@ -31,6 +31,7 @@ $ConfiguredCommands = @(
   @($Group.Stop) | ForEach-Object { [string]$_.command }
 )
 $ExpectedCommands = @(
+  'node hooks/agentic_runtime_hook.cjs preview',
   'node hooks/agentic_runtime_hook.cjs prewrite',
   'node hooks/agentic_runtime_hook.cjs precommand',
   'node hooks/agentic_runtime_hook.cjs postwrite',
@@ -109,6 +110,9 @@ try {
   $DestructiveInput = $Base.Clone(); $DestructiveInput.stepIdx = 3; $DestructiveInput.toolCall = @{name='run_command';args=@{CommandLine='git reset --hard HEAD';Cwd=$TempRoot}}
   $DestructiveOutput = ($DestructiveInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
   if ($DestructiveOutput.decision -ne 'force_ask') { throw 'Destructive command did not require an owner decision.' }
+  $SafeCleanupInput = $Base.Clone(); $SafeCleanupInput.stepIdx = 31; $SafeCleanupInput.toolCall = @{name='run_command';args=@{CommandLine="pwsh -NoProfile -ExecutionPolicy Bypass -Command `"& { Remove-Item -LiteralPath 'C:\temp\vitalis_packaged_e2e_install' -Recurse -Force -ErrorAction SilentlyContinue }`"";Cwd=$TempRoot}}
+  $SafeCleanupOutput = ($SafeCleanupInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
+  if ($SafeCleanupOutput.decision -ne 'allow') { throw 'Safe temporary cleanup command was not allowed autonomously.' }
   $UnscopedInput = $Base.Clone(); $UnscopedInput.stepIdx = 4; $UnscopedInput.toolCall = @{name='run_command';args=@{CommandLine='npm run arbitrary-write';Cwd=$TempRoot}}
   $UnscopedOutput = ($UnscopedInput | ConvertTo-Json -Depth 20 -Compress) | & $Node $Hook precommand | ConvertFrom-Json
   if ($UnscopedOutput.decision -ne 'deny') { throw 'Command outside exact command scope was not denied.' }

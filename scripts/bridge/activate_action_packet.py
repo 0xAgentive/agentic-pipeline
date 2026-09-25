@@ -103,7 +103,8 @@ def activate(root,bridge,*,apply=False,packet_directory=None,project_key='',stan
             raise ValueError('Activation requires matching imported receipt')
         if not bridge.verify_generation(active,receipt.get('active_manifest_sha256',''),packet['packet_id']):raise ValueError('Activation generation hash mismatch')
         capability=bridge.load_json(root/'.agy/ACTION_BRIDGE_CAPABILITY.json')
-        if capability.get('project_id')!=packet['project_id'] or capability.get('capability_token')!=packet['capability_token']:raise ValueError('Activation capability identity mismatch')
+        capability_ids = [str(capability.get('project_id', '')).lower()] + [str(a).lower() for a in capability.get('aliases', [])]
+        if str(packet['project_id']).lower() not in capability_ids or capability.get('capability_token')!=packet['capability_token']:raise ValueError('Activation capability identity mismatch')
         bridge.validate_current_identity(packet,root)
         check_pause(standby_path,packet,project_key,recovery_db=recovery_db,standalone=standalone)
         if receipt.get('activated_at_utc'):return {'status':'PASS','packet_id':packet['packet_id'],'completion_scope':'activation_only','replayed':True}
@@ -128,7 +129,10 @@ def activate(root,bridge,*,apply=False,packet_directory=None,project_key='',stan
                 effect_owner.begin_effect(effect_lease)
             code,out,err=run_child(command,timeout)
             observed.update(return_code=code,stdout_sha256=hashlib.sha256(out).hexdigest(),stderr_sha256=hashlib.sha256(err).hexdigest())
-            if code!=0:raise RuntimeError(f'Activation process failed with exit code {code}')
+            if code!=0:
+                if out: sys.stdout.buffer.write(out); sys.stdout.buffer.flush()
+                if err: sys.stderr.buffer.write(err); sys.stderr.buffer.flush()
+                raise RuntimeError(f'Activation process failed with exit code {code}')
             current=bridge.load_json(root/'.agy/ACTION_PACKET_RECEIPT.json')
             if current.get('packet_id')!=packet['packet_id'] or current.get('packet_payload_sha256')!=receipt['packet_payload_sha256']:raise ValueError('Receipt changed during activation; reconciliation required')
             if not bridge.verify_generation(active,receipt['active_manifest_sha256'],packet['packet_id']):raise ValueError('Active packet changed during activation')
@@ -149,7 +153,9 @@ def activate(root,bridge,*,apply=False,packet_directory=None,project_key='',stan
             return {'status':'PASS','packet_id':packet['packet_id'],'work_item_id':work['work_item_id'],'completion_scope':'activation_only','evidence_ref':str(observation.relative_to(root)),'replayed':False}
         except Exception as error:
             if 'effect_owner' in locals() and effect_owner is not None and effect_lease is not None:
-                try: effect_owner.ack(effect_lease, outcome='UNCERTAIN')
+                try:
+                    outcome = 'UNCERTAIN' if isinstance(error, subprocess.TimeoutExpired) else 'FAILED_SAFE'
+                    effect_owner.ack(effect_lease, outcome=outcome)
                 except Exception: pass  # Preserve durable DISPATCHED after stale epoch or lost ACK.
             observed.update(status='failed',error_type=type(error).__name__)
             bridge.atomic_json(observation,observed)

@@ -68,7 +68,8 @@ def inject(root,project_key,*,database=None,config_path=None,bridge=None,ports=N
         if expected_source_sha256 is not None and receipt.get('source_sha256')!=expected_source_sha256:raise Rejected('EXPECTED_SOURCE_HASH_MISMATCH')
         bridge.validate_packet(packet,require_capability=True);bridge.validate_current_identity(packet,root)
         capability=bridge.load_json(root/'.agy/ACTION_BRIDGE_CAPABILITY.json')
-        if capability.get('project_id')!=packet['project_id'] or capability.get('capability_token')!=packet['capability_token']:raise Rejected('PACKET_CAPABILITY_MISMATCH')
+        capability_ids = [str(capability.get('project_id', '')).lower()] + [str(a).lower() for a in capability.get('aliases', [])]
+        if str(packet['project_id']).lower() not in capability_ids or capability.get('capability_token')!=packet['capability_token']:raise Rejected('PACKET_CAPABILITY_MISMATCH')
         if receipt.get('packet_id')!=packet['packet_id'] or not receipt.get('activated_at_utc') or not bridge.verify_generation(root/'.agy/inbox/ACTIVE_ACTION_PACKET',receipt.get('active_manifest_sha256',''),packet['packet_id']):raise Rejected('VERIFIED_ACTIVATION_REQUIRED')
         state=owner.coordinator.snapshot()
         if expected_epoch is not None and state['epoch']!=expected_epoch:raise Rejected('STALE_EPOCH')
